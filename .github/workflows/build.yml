@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v21
-          name: Bublu APK v21
-          body: "v21 - tap-fallback for rows (fixes WhatsApp scrolling past a visible contact); check visible list first in Home and Archived."
+          tag_name: apk-v22
+          name: Bublu APK v22
+          body: "v22 - fixed opening profile instead of typing: removed extra click after chat opens, better chat detection, skip toolbar area."
           files: app/build/outputs/apk/debug/app-debug.apk

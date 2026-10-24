@@ -430,10 +430,7 @@ class MitraAccessibilityService : AccessibilityService() {
                 return false
             }
 
-            Thread.sleep(1600)
-            if (!isInChat()) {
-                if (openFirstChatResult(contact)) Thread.sleep(1600)
-            }
+            Thread.sleep(1500)
             if (!isInChat()) { onStatus("$contact ki chat nahi khuli"); return false }
 
             onStatus("Message likh raha hoon...")
@@ -516,7 +513,10 @@ class MitraAccessibilityService : AccessibilityService() {
         rows.sortBy {
             val r = Rect(); it.getBoundsInScreen(r); r.top
         }
+        val dm = resources.displayMetrics
         for (row in rows) {
+            val r = Rect(); row.getBoundsInScreen(r)
+            if (r.top < (dm.heightPixels * 0.10f).toInt()) continue // toolbar/header skip
             if (clickNodeOrTap(row)) return true
         }
         return false
@@ -541,16 +541,29 @@ class MitraAccessibilityService : AccessibilityService() {
             val desc = n.contentDescription?.toString()?.lowercase() ?: ""
             (hint + " " + desc).contains("message")
         }
-        return byHint ?: findEditable(root)
+        if (byHint != null) return byHint
+        // fallback: sabse NEECHE wala editable = message box (search box upar hota hai)
+        val editables = ArrayList<AccessibilityNodeInfo>()
+        collectEditables(root, editables)
+        if (editables.isEmpty()) return null
+        editables.sortBy { val r = Rect(); it.getBoundsInScreen(r); r.top }
+        val bottom = editables.last()
+        val r = Rect(); bottom.getBoundsInScreen(r)
+        val dm = resources.displayMetrics
+        return if (r.top > dm.heightPixels / 2) bottom else null
+    }
+
+    private fun collectEditables(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
+        if (node.isEditable) { out.add(node); return }
+        for (i in 0 until node.childCount) node.getChild(i)?.let { collectEditables(it, out) }
     }
 
     private fun isInChat(): Boolean {
         val input = findChatInput() ?: return false
         val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) input.hintText?.toString()?.lowercase() ?: "" else ""
         val desc = input.contentDescription?.toString()?.lowercase() ?: ""
-        val combined = "$hint $desc"
-        if (combined.contains("search")) return false
-        return combined.contains("message")
+        if ("$hint $desc".contains("search")) return false
+        return true
     }
 
     private fun scrollResults(): Boolean {
