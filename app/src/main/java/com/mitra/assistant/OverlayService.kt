@@ -639,7 +639,7 @@ class OverlayService : Service() {
 
         // Notes
         val noteText = after(t, listOf("note banao ", "notes me ", "note me ", "notes me likho ", "note likho "))
-            ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ").trim()
+            ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ")?.trim()
         if (noteText != null && noteText.isNotBlank()) { createNote(noteText); return }
 
         val wa = parseWhatsApp(t)
