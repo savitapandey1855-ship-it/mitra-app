@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v20
-          name: Bublu APK v20
-          body: "v20 - fixed contact name parsing ('r Abhay' bug): connector words now removed whole (per/par/pe)."
+          tag_name: apk-v21
+          name: Bublu APK v21
+          body: "v21 - tap-fallback for rows (fixes WhatsApp scrolling past a visible contact); check visible list first in Home and Archived."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -98,14 +98,14 @@ class MitraAccessibilityService : AccessibilityService() {
 
     fun clickByText(text: String): Boolean {
         val n = findClickTarget(text) ?: return false
-        return clickNode(n)
+        return clickNodeOrTap(n)
     }
 
     fun clickByDesc(desc: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val d = desc.lowercase()
         val n = findNode(root) { it.contentDescription?.toString()?.lowercase()?.contains(d) == true } ?: return false
-        return clickNode(n)
+        return clickNodeOrTap(n)
     }
 
     private fun clickNode(n: AccessibilityNodeInfo): Boolean {
@@ -115,6 +115,18 @@ class MitraAccessibilityService : AccessibilityService() {
             if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
             node = node.parent
             depth++
+        }
+        return false
+    }
+
+    /** Click karo; agar clickable ancestor na mile to us jagah seedha tap karo. */
+    private fun clickNodeOrTap(n: AccessibilityNodeInfo): Boolean {
+        if (clickNode(n)) return true
+        val r = Rect()
+        n.getBoundsInScreen(r)
+        if (r.width() > 0 && r.height() > 0) {
+            tap(r.centerX(), r.centerY())
+            return true
         }
         return false
     }
@@ -388,18 +400,20 @@ class MitraAccessibilityService : AccessibilityService() {
 
             var opened = false
 
-            // 1) Home (chat list) me dhoondho
+            // 1) Home chat list: pehle jo SAMNE DIKH raha hai, phir thoda scroll
             onStatus("Chat list me $contact dhoondh raha hoon...")
-            opened = findInChatList(contact)
+            opened = openFirstChatResult(contact)
+            if (!opened) opened = findInChatList(contact, 4)
 
-            // 2) Archived me dhoondho
+            // 2) Archived: pehle jo SAMNE DIKH raha hai, phir thoda scroll
             if (!opened) {
                 onStatus("Archived me dhoondh raha hoon...")
                 scrollTop()
-                Thread.sleep(800)
+                Thread.sleep(700)
                 if (clickArchived()) {
-                    Thread.sleep(1600)
-                    opened = findInChatList(contact)
+                    Thread.sleep(1800)
+                    opened = openFirstChatResult(contact)
+                    if (!opened) opened = findInChatList(contact, 3)
                     if (!opened) { back(); Thread.sleep(1000) }
                 }
             }
@@ -445,8 +459,8 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     /** Chat list me naam dhoondho (scroll karke bhi). Mile to chat kholo. */
-    private fun findInChatList(contact: String): Boolean {
-        for (i in 0 until 6) {
+    private fun findInChatList(contact: String, maxTries: Int): Boolean {
+        for (i in 0 until maxTries) {
             if (openFirstChatResult(contact)) return true
             scrollResults()
             Thread.sleep(900)
@@ -461,7 +475,7 @@ class MitraAccessibilityService : AccessibilityService() {
             val dc = it.contentDescription?.toString()?.lowercase() ?: ""
             tx.contains("archived") || dc.contains("archived")
         } ?: return false
-        return clickNode(n)
+        return clickNodeOrTap(n)
     }
 
     private fun scrollTop() {
@@ -493,13 +507,17 @@ class MitraAccessibilityService : AccessibilityService() {
         val q = contact.lowercase().trim()
         if (q.isEmpty()) return false
         val rows = ArrayList<AccessibilityNodeInfo>()
+        try {
+            val byText = root.findAccessibilityNodeInfosByText(contact)
+            if (byText != null) for (n in byText) if (!n.isEditable) rows.add(n)
+        } catch (e: Exception) {}
         collectRows(root, q, rows)
         if (rows.isEmpty()) return false
         rows.sortBy {
             val r = Rect(); it.getBoundsInScreen(r); r.top
         }
         for (row in rows) {
-            if (clickNode(row)) return true
+            if (clickNodeOrTap(row)) return true
         }
         return false
     }
