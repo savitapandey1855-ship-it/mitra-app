@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v26
-          name: Bublu APK v26
-          body: "v26 - WhatsApp send confirmation fixed (retry + sent-bubble check), so it no longer says 'flow not complete' after a successful send."
+          tag_name: apk-v27
+          name: Bublu APK v27
+          body: "v27 - button knowledge, ask-in-any-app (ChatGPT), Play Store install, alarms, reminders, birthdays, time greetings, in-app schedule UI."
           files: app/build/outputs/apk/debug/app-debug.apk

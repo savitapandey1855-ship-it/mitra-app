@@ -97,8 +97,11 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     fun clickByText(text: String): Boolean {
-        val n = findClickTarget(text) ?: return false
-        return clickNodeOrTap(n)
+        for (q in Buttons.expand(text)) {
+            val n = findClickTarget(q) ?: continue
+            if (clickNodeOrTap(n)) return true
+        }
+        return false
     }
 
     fun clickByDesc(desc: String): Boolean {
@@ -314,6 +317,76 @@ class MitraAccessibilityService : AccessibilityService() {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(i)
             true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun openIntent(i: Intent): Boolean {
+        return try {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun pressEnter(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val box = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) box.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER) else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Kisi bhi app me jaake input box me likho aur send/enter kar do (jaise ChatGPT se poochna). */
+    fun askInApp(pkg: String, appName: String, question: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("$appName khol raha hoon...")
+            if (!openAppSmart(pkg, appName)) { onStatus("$appName nahi khula"); return false }
+            Thread.sleep(3800)
+            onStatus("Sawaal likh raha hoon...")
+            if (!setTextFocused(question)) {
+                onStatus("Input box nahi mila")
+                return false
+            }
+            Thread.sleep(900)
+            onStatus("Bhej raha hoon...")
+            var ok = clickByDesc("Send") || clickByText("Send")
+            if (!ok) ok = pressEnter()
+            Thread.sleep(1300)
+            onStatus("Ho gaya!")
+            home()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Play Store me app search karke Install dabao. */
+    fun playStoreInstall(appName: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("Play Store khol raha hoon...")
+            if (!openAppSmart("com.android.vending", "Play Store")) { onStatus("Play Store nahi khula"); return false }
+            Thread.sleep(3800)
+            onStatus("Search khol raha hoon...")
+            if (!clickByDesc("Search") && !clickByText("Search")) {
+                clickByDesc("Search apps & games")
+            }
+            Thread.sleep(1400)
+            onStatus("$appName dhoondh raha hoon...")
+            if (!setTextFocused(appName)) { onStatus("Search box nahi mila"); return false }
+            Thread.sleep(2400)
+            if (!openFirstChatResult(appName)) { onStatus("$appName nahi mila"); return false }
+            Thread.sleep(2600)
+            onStatus("Install kar raha hoon...")
+            val ok = clickByText("Install") || clickByDesc("Install")
+            Thread.sleep(1600)
+            home()
+            ok
         } catch (e: Exception) {
             false
         }

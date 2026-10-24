@@ -75,6 +75,11 @@ class OverlayService : Service() {
     private var gmailTopic: String? = null
     private var gmailName: String? = null
     private var gmailAwait: String? = null
+    private var pendingAlarmH = -1
+    private var pendingAlarmM = 0
+    private var pendingRemH = -1
+    private var pendingRemM = 0
+    private var pendingRemText: String? = null
 
     // App na khule to URL se kholne ke liye
     private val appUrls = mapOf(
@@ -104,6 +109,7 @@ class OverlayService : Service() {
         buildOverlay()
         initRecognizer()
         Thread { buildAppIndex() }.start()
+        main.postDelayed({ proactiveGreet() }, 5000)
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
         } catch (e: Exception) {}
@@ -694,6 +700,32 @@ class OverlayService : Service() {
         if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") { sleep(); return }
         if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) { wakeUp(); return }
 
+        // Alarm AM/PM pending
+        if (pendingAlarmH >= 0) {
+            val am = n.contains("am") || n.contains("subah") || n.contains("savere")
+            val pm = n.contains("pm") || n.contains("shaam") || n.contains("sham") || n.contains("raat") || n.contains("dopahar")
+            if (am || pm) {
+                val h = pendingAlarmH
+                val mi = pendingAlarmM
+                pendingAlarmH = -1
+                fireAlarm(if (am) (h % 12) else ((h % 12) + 12), mi)
+                return
+            }
+        }
+        // Reminder AM/PM pending
+        if (pendingRemH >= 0) {
+            val am = n.contains("am") || n.contains("subah")
+            val pm = n.contains("pm") || n.contains("shaam") || n.contains("sham") || n.contains("raat") || n.contains("dopahar")
+            if (am || pm) {
+                val h = pendingRemH
+                val mi = pendingRemM
+                val tx = pendingRemText ?: "Yaad dilana"
+                pendingRemH = -1
+                scheduleReminder(tx, if (am) (h % 12) else ((h % 12) + 12), mi, "")
+                return
+            }
+        }
+
         // Gmail pending (agla vaakya email/topic maan lo)
         if (gmailAwait != null) {
             if (n.contains("cancel") || n.contains("rehne")) {
@@ -799,6 +831,43 @@ class OverlayService : Service() {
             val url = "https://www.google.com/search?q=" + android.net.Uri.encode(searchQ)
             openUrl(url)
             setMood(R.drawable.char_happy, "Google pe \"$searchQ\" search kar raha hoon")
+            return
+        }
+
+        // ---- Alarm ----
+        if (n.contains("alarm")) { handleAlarm(t); return }
+
+        // ---- Reminder / yaad dilana / schedule ----
+        if (n.contains("yaad") || n.contains("remind") || n.contains("schedule")) { handleReminder(t); return }
+
+        // ---- Birthday / Anniversary set ----
+        if (n.contains("birthday") || n.contains("janamdin") || n.contains("anniversary") || n.contains("saalgirah")) {
+            handleEvent(t); return
+        }
+
+        // ---- Kisi bhi app me kaam: "ChatGPT se ye poocho" ----
+        val ask = parseAskInApp(t)
+        if (ask != null) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Iske liye Accessibility ON karo"); return }
+            setMood(R.drawable.char_think, "${ask.second} khol raha hoon...")
+            Thread {
+                val ok = a.askInApp(ask.first, ask.second, ask.third) { s -> main.post { setMood(R.drawable.char_think, s) } }
+                main.post { if (ok) setMood(R.drawable.char_laugh, "${ask.second} me poochh liya!") else setMood(R.drawable.char_sad, "Nahi ho paya") }
+            }.start()
+            return
+        }
+
+        // ---- Play Store se install ----
+        val inst = parseInstall(t)
+        if (inst != null) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Iske liye Accessibility ON karo"); return }
+            setMood(R.drawable.char_think, "Play Store khol raha hoon...")
+            Thread {
+                val ok = a.playStoreInstall(inst) { s -> main.post { setMood(R.drawable.char_think, s) } }
+                main.post { if (ok) setMood(R.drawable.char_laugh, "$inst install kar raha hoon!") else setMood(R.drawable.char_sad, "Install nahi ho paya") }
+            }.start()
             return
         }
 
@@ -1228,6 +1297,196 @@ class OverlayService : Service() {
             "DANCE" -> { dance(); true }
             else -> false
         }
+    }
+
+    // ---------- Alarm / Reminder / Event helpers ----------
+    private fun parseTime(t: String): Triple<Int, Int, Boolean>? {
+        val m = Regex("(\\d{1,2})[:.](\\d{2})").find(t)
+        val h: Int
+        val mi: Int
+        if (m != null) {
+            h = m.groupValues[1].toIntOrNull() ?: return null
+            mi = m.groupValues[2].toIntOrNull() ?: 0
+        } else {
+            val m2 = Regex("(\\d{1,2})").find(t) ?: return null
+            h = m2.groupValues[1].toIntOrNull() ?: return null
+            mi = 0
+        }
+        val ap = t.contains("am") || t.contains("pm") || t.contains("subah") || t.contains("shaam") ||
+            t.contains("sham") || t.contains("raat") || t.contains("dopahar")
+        return Triple(h, mi, ap)
+    }
+
+    private fun to24(h: Int, t: String, ap: Boolean): Int {
+        if (ap) {
+            val pm = t.contains("pm") || t.contains("shaam") || t.contains("sham") || t.contains("raat") || t.contains("dopahar")
+            return if (pm) ((h % 12) + 12) else (h % 12)
+        }
+        return if (h in 0..23) h else 7
+    }
+
+    private fun handleAlarm(t: String) {
+        val tm = parseTime(t)
+        if (tm == null) { setMood(R.drawable.char_think, "Kitne baje ka alarm? Jaise '7 baje ka alarm'"); return }
+        val h = tm.first
+        val mi = tm.second
+        if (!tm.third && h in 1..12) {
+            pendingAlarmH = h
+            pendingAlarmM = mi
+            setMood(R.drawable.char_think, "$h:%02d - subah (AM) ya shaam (PM)? Bolo.".format(mi))
+            return
+        }
+        fireAlarm(to24(h, t, tm.third), mi)
+    }
+
+    private fun fireAlarm(h24: Int, minute: Int) {
+        try {
+            val i = Intent(android.provider.AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(android.provider.AlarmClock.EXTRA_HOUR, h24)
+                putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minute)
+                putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "Bublu alarm")
+            }
+            val ok = MitraAccessibilityService.instance?.openIntent(i) ?: false
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, h24)
+            cal.set(java.util.Calendar.MINUTE, minute)
+            cal.set(java.util.Calendar.SECOND, 0)
+            if (cal.timeInMillis < System.currentTimeMillis()) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            Store.addReminder(this, (System.currentTimeMillis() % 100000).toInt(), cal.timeInMillis, "Alarm %02d:%02d".format(h24, minute))
+            val ampm = if (h24 < 12) "AM" else "PM"
+            val h12 = if (h24 % 12 == 0) 12 else h24 % 12
+            if (ok) setMood(R.drawable.char_laugh, "Alarm set: $h12:%02d $ampm".format(minute))
+            else setMood(R.drawable.char_sad, "Alarm app nahi khula - Accessibility ON karo")
+        } catch (e: Exception) { setMood(R.drawable.char_sad, "Alarm set nahi ho paya") }
+    }
+
+    private fun handleReminder(t: String) {
+        val tm = parseTime(t)
+        var text = t.replace(
+            Regex("\\b(yaad|dilana|dila|remind|reminder|schedule|karo|kar|ka|ki|ke|me|par|pe|baje|bajkar|at|aaj|kal|parso|please|set|alarm)\\b"), " "
+        ).replace(Regex("\\s+"), " ").trim()
+        if (text.isBlank()) text = "Yaad dilana"
+        if (tm == null) { setMood(R.drawable.char_think, "Kis time yaad dilana? Jaise '5 baje meeting yaad dilana'"); return }
+        val h = tm.first
+        val mi = tm.second
+        if (!tm.third && h in 1..12) {
+            pendingRemH = h
+            pendingRemM = mi
+            pendingRemText = text
+            setMood(R.drawable.char_think, "Subah (AM) ya shaam (PM)?")
+            return
+        }
+        scheduleReminder(text, to24(h, t, tm.third), mi, t)
+    }
+
+    private fun scheduleReminder(text: String, h24: Int, minute: Int, t: String) {
+        try {
+            val cal = java.util.Calendar.getInstance()
+            if (t.contains("kal")) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            else if (t.contains("parso")) cal.add(java.util.Calendar.DAY_OF_YEAR, 2)
+            cal.set(java.util.Calendar.HOUR_OF_DAY, h24)
+            cal.set(java.util.Calendar.MINUTE, minute)
+            cal.set(java.util.Calendar.SECOND, 0)
+            if (cal.timeInMillis <= System.currentTimeMillis()) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            val id = (System.currentTimeMillis() % 100000).toInt()
+            Store.addReminder(this, id, cal.timeInMillis, text)
+            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val i = Intent(this, ReminderReceiver::class.java).putExtra("text", text)
+            val pi = android.app.PendingIntent.getBroadcast(this, id, i, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+            try {
+                if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms())
+                    am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+                else am.set(android.app.AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            } catch (e: Exception) {
+                am.set(android.app.AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            }
+            val ampm = if (h24 < 12) "AM" else "PM"
+            val h12 = if (h24 % 12 == 0) 12 else h24 % 12
+            setMood(R.drawable.char_laugh, "Yaad dila dunga: $text - $h12:%02d $ampm".format(minute))
+        } catch (e: Exception) { setMood(R.drawable.char_sad, "Reminder set nahi ho paya") }
+    }
+
+    private fun monthNum(s: String): Int = when (s.take(3)) {
+        "jan" -> 1; "feb" -> 2; "mar" -> 3; "apr" -> 4; "may" -> 5; "jun" -> 6
+        "jul" -> 7; "aug" -> 8; "sep" -> 9; "oct" -> 10; "nov" -> 11; "dec" -> 12; else -> 1
+    }
+
+    private fun handleEvent(t: String) {
+        val type = if (t.contains("anniversary") || t.contains("saalgirah")) "Anniversary" else "Birthday"
+        var name = ""
+        Regex("([a-z]+)\\s+(?:ka|ki)\\b").find(t)?.let { name = it.groupValues[1] }
+        val dm = Regex("(\\d{1,2})\\s*(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)").find(t)
+        if (dm == null) { setMood(R.drawable.char_think, "Kis date? Jaise 'Abhay ka birthday 5 January'"); return }
+        val day = dm.groupValues[1].toIntOrNull() ?: return
+        val monName = dm.groupValues[2]
+        val mon = monthNum(monName)
+        if (name.isBlank()) name = "Koi"
+        Store.addEvent(this, name.replaceFirstChar { it.uppercase() }, "%02d/%02d".format(day, mon), type)
+        setMood(R.drawable.char_laugh, "$name ka $type $day $monName set kar diya!")
+    }
+
+    private fun parseAskInApp(t: String): Triple<String, String, String>? {
+        val apps = listOf(
+            Triple("chatgpt", "com.openai.chatgpt", "ChatGPT"),
+            Triple("chat gpt", "com.openai.chatgpt", "ChatGPT"),
+            Triple("gemini", "com.google.android.apps.bard", "Gemini"),
+            Triple("telegram", "org.telegram.messenger", "Telegram")
+        )
+        for ((key, pkg, name) in apps) {
+            if (t.contains(key)) {
+                val q = extractQuestion(t)
+                if (q != null) return Triple(pkg, name, q)
+            }
+        }
+        return null
+    }
+
+    private fun extractQuestion(t: String): String? {
+        for (k in listOf(" se ", " me ", " par ", " pe ")) {
+            val i = t.indexOf(k)
+            if (i >= 0) {
+                var q = t.substring(i + k.length).trim()
+                q = q.replace(Regex("\\b(ye|ki|poocho|pucho|puch|likho|likh|bhejo|bhej|send|karo|kar|enter|daba|dabao|please)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+                if (q.isNotBlank()) return q
+            }
+        }
+        return null
+    }
+
+    private fun parseInstall(t: String): String? {
+        if (!(t.contains("install") || t.contains("download") || t.contains("play store") || t.contains("playstore"))) return null
+        var s = t.replace(Regex("(play ?store|playstore)"), " ")
+        s = s.replace(Regex("\\b(install|download|karo|kar|kardo|se|me|par|pe|the|app|please|play|store)\\b"), " ")
+        s = s.replace(Regex("\\s+"), " ").trim()
+        return if (s.isNotBlank()) s else null
+    }
+
+    private fun proactiveGreet() {
+        try {
+            val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            val greet = when {
+                h < 12 -> "Good morning!"
+                h < 17 -> "Good afternoon!"
+                h < 21 -> "Good evening!"
+                else -> "Good night!"
+            }
+            val day = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault()).format(java.util.Date())
+            val date = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+            val today = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault()).format(java.util.Date())
+            val bdays = Store.events(this).filter { it.second == today }
+            var extra = ""
+            if (bdays.isNotEmpty()) extra = " Aaj " + bdays.joinToString(", ") { "${it.first} ka ${it.third}" } + " hai!"
+            setMood(R.drawable.char_happy, "$greet Aaj $day, $date hai.$extra")
+            val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
+            if (key.isNotBlank()) {
+                Thread {
+                    val (ok, txt) = Gemini.ask(key, "Is $date a festival in India? Reply in max 6 words, or reply exactly 'No'.")
+                    if (ok && !txt.trim().lowercase().startsWith("no")) {
+                        main.post { setMood(R.drawable.char_happy, "Aaj $txt hai! $greet") }
+                    }
+                }.start()
+            }
+        } catch (e: Exception) {}
     }
 
     private fun askAI(prompt: String) {
