@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v12
-          name: Bublu APK v12
-          body: "v12 - WhatsApp status viewer: goes to Updates, plays everyone's status, 'skip this status' to advance, reports how many people posted."
+          tag_name: apk-v13
+          name: Bublu APK v13
+          body: "v13 - smarter WhatsApp command understanding (many phrasings), asks if message missing."
           files: app/build/outputs/apk/debug/app-debug.apk

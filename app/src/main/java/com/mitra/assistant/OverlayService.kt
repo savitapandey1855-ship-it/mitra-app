@@ -62,6 +62,7 @@ class OverlayService : Service() {
     private var busy = false
     @Volatile private var statusMode = false
     @Volatile private var skipRequested = false
+    private var pendingWaContact: String? = null
 
     // tickle detection
     private var lastX = 0f
@@ -604,17 +605,25 @@ class OverlayService : Service() {
 
         val wa = parseWhatsApp(t)
         if (wa != null) {
-            if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
-            setMood(R.drawable.char_think, "WhatsApp khol raha hoon...")
-            Thread {
-                val ok = acc.sendWhatsApp(wa.first, wa.second) { status ->
-                    main.post { setMood(R.drawable.char_think, status) }
-                }
-                main.post {
-                    if (ok) setMood(R.drawable.char_laugh, "Done! ${wa.first} ko \"${wa.second}\" bhej diya")
-                    else setMood(R.drawable.char_sad, "WhatsApp flow poora nahi hua, phir try karo")
-                }
-            }.start()
+            if (wa.second.isBlank()) {
+                pendingWaContact = wa.first
+                setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
+                return
+            }
+            doSendWhatsApp(wa.first, wa.second)
+            return
+        }
+
+        // WhatsApp pending: agla vaakya message maan lo
+        val pend = pendingWaContact
+        if (pend != null) {
+            if (n.contains("cancel") || n.contains("rehne") || n == "nahi" || n.contains("nahin")) {
+                pendingWaContact = null
+                setMood(R.drawable.char_happy, "Theek hai, cancel kar diya.")
+                return
+            }
+            pendingWaContact = null
+            doSendWhatsApp(pend, text.trim())
             return
         }
 
@@ -740,18 +749,39 @@ class OverlayService : Service() {
         }.start()
     }
 
+    private fun doSendWhatsApp(contact: String, message: String) {
+        val acc = MitraAccessibilityService.instance
+        if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
+        setMood(R.drawable.char_think, "WhatsApp khol raha hoon...")
+        Thread {
+            val ok = acc.sendWhatsApp(contact, message) { status ->
+                main.post { setMood(R.drawable.char_think, status) }
+            }
+            main.post {
+                if (ok) setMood(R.drawable.char_laugh, "Done! $contact ko \"$message\" bhej diya")
+                else setMood(R.drawable.char_sad, "WhatsApp flow poora nahi hua, phir try karo")
+            }
+        }.start()
+    }
+
+    /** WhatsApp ke kai tarah ke vaaky samajhta hai. Pair(contact, message) deta hai (message khali ho sakta hai). */
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
-        val t = tRaw.lowercase()
+        val t = tRaw.lowercase().trim()
         if (!t.contains("whatsapp")) return null
-        val s = t.replace(Regex("whatsapp\\s*(pe|par|me|on)?"), " ").trim()
+        val s = t.replace(Regex("whatsapp\\s*(pe|par|me|on|se)?"), " ").trim()
         val i = s.indexOf(" ko ")
         if (i < 0) return null
-        val contact = s.substring(0, i).replace(Regex("\\b(pe|par|me|on|ko|se)\\b"), "").trim()
+        var contact = s.substring(0, i).trim()
         var msg = s.substring(i + 4).trim()
-        msg = msg.replace(
-            Regex("\\b(bolo|bol|bhejo|bhej|kaho|kehdo|send|message|msg|kardo|karo|kar|de|do)\\b"), " "
+        contact = contact.replace(
+            Regex("\\b(pe|par|me|on|se|ko|message|massage|massege|msg|text)\\b"), " "
         ).trim()
-        if (contact.isBlank() || msg.isBlank()) return null
+        msg = msg.replace(
+            Regex("\\b(bolo|bol|bhejo|bhej|kaho|kahdo|kehdo|kehta|send|message|massage|massege|msg|text|sandesh|likho|likh|karo|kar|kardo|do|de|please|plz)\\b"),
+            " "
+        ).trim()
+        if (contact.isBlank()) return null
+        if (msg == "kuch" || msg == "kuchh") msg = ""
         return Pair(contact, msg)
     }
 
