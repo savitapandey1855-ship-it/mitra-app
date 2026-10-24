@@ -175,6 +175,61 @@ class MitraAccessibilityService : AccessibilityService() {
         tap((dm.widthPixels * 0.15f).toInt(), (dm.heightPixels * 0.5f).toInt())
     }
 
+    fun swipe(x1: Int, y1: Int, x2: Int, y2: Int) {
+        try {
+            val path = Path()
+            path.moveTo(x1.toFloat(), y1.toFloat())
+            path.lineTo(x2.toFloat(), y2.toFloat())
+            val stroke = GestureDescription.StrokeDescription(path, 0, 260)
+            val g = GestureDescription.Builder().addStroke(stroke).build()
+            dispatchGesture(g, null, null)
+        } catch (e: Exception) {}
+    }
+
+    fun swipeUp() {
+        val dm = resources.displayMetrics
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.75f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.30f).toInt())
+    }
+
+    fun swipeDown() {
+        val dm = resources.displayMetrics
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.30f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.75f).toInt())
+    }
+
+    fun scrollDown() { if (!scrollAction(true)) swipeUp() }
+    fun scrollUp() { if (!scrollAction(false)) swipeDown() }
+
+    private fun scrollAction(forward: Boolean): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val s = findNode(root) { it.isScrollable } ?: return false
+        return s.performAction(
+            if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+            else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+        )
+    }
+
+    // ---------- Gmail compose (AI draft ke saath) ----------
+    fun composeEmail(to: String, subject: String, body: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("Gmail khol raha hoon...")
+            val i = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:" + android.net.Uri.encode(to)))
+            i.putExtra(Intent.EXTRA_SUBJECT, subject)
+            i.putExtra(Intent.EXTRA_TEXT, body)
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+            Thread.sleep(3000)
+            onStatus("Bhej raha hoon...")
+            val sent = clickByDesc("Send") || clickByText("Send")
+            Thread.sleep(1000)
+            home()
+            sent
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     // ---------- App / URL ----------
     fun openApp(pkg: String): Boolean {
         return try {

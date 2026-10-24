@@ -63,6 +63,10 @@ class OverlayService : Service() {
     @Volatile private var statusMode = false
     @Volatile private var skipRequested = false
     private var pendingWaContact: String? = null
+    private var gmailTo: String? = null
+    private var gmailTopic: String? = null
+    private var gmailName: String? = null
+    private var gmailAwait: String? = null
 
     // tickle detection
     private var lastX = 0f
@@ -603,6 +607,41 @@ class OverlayService : Service() {
         if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") { sleep(); return }
         if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) { wakeUp(); return }
 
+        // Gmail pending (agla vaakya email/topic maan lo)
+        if (gmailAwait != null) {
+            if (n.contains("cancel") || n.contains("rehne")) {
+                gmailAwait = null; gmailTo = null; gmailTopic = null; gmailName = null
+                setMood(R.drawable.char_happy, "Cancel kar diya"); return
+            }
+            val utt = text.trim()
+            if (gmailAwait == "email") { gmailTo = cleanEmail(utt); gmailAwait = null; doGmail(); return }
+            if (gmailAwait == "topic") { gmailTopic = utt; gmailAwait = null; doGmail(); return }
+        }
+
+        // Scroll / reels / shorts
+        if (isScrollCmd(n)) {
+            if (acc == null) { setMood(R.drawable.char_sad, "Iske liye Accessibility ON karo"); return }
+            when {
+                n.contains("youtubeshorts") || (n.contains("shorts") && (n.contains("chala") || n.contains("kholo") || n.contains("dikha"))) -> {
+                    setMood(R.drawable.char_think, "YouTube Shorts khol raha hoon...")
+                    Thread {
+                        val ok = acc.openUrl("https://www.youtube.com/shorts")
+                        main.post { if (ok) setMood(R.drawable.char_laugh, "Shorts chalu!") else setMood(R.drawable.char_sad, "Shorts nahi khula") }
+                    }.start()
+                }
+                n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { acc.scrollDown(); setMood(R.drawable.char_happy, "Neeche") }
+                n.contains("scrollup") || n.contains("upar") -> { acc.scrollUp(); setMood(R.drawable.char_happy, "Upar") }
+                n.contains("prev") || n.contains("pichl") -> { acc.swipeDown(); setMood(R.drawable.char_happy, "Pichla") }
+                else -> { acc.swipeUp(); setMood(R.drawable.char_happy, "Agla") }
+            }
+            return
+        }
+
+        // Notes
+        val noteText = after(t, listOf("note banao ", "notes me ", "note me ", "notes me likho ", "note likho "))
+            ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ").trim()
+        if (noteText != null && noteText.isNotBlank()) { createNote(noteText); return }
+
         val wa = parseWhatsApp(t)
         if (wa != null) {
             if (wa.second.isBlank()) {
@@ -625,6 +664,22 @@ class OverlayService : Service() {
             pendingWaContact = null
             doSendWhatsApp(pend, text.trim())
             return
+        }
+
+        // Gmail (AI se draft)
+        val gm = parseGmail(t)
+        if (gm != null) {
+            if (gm.first.contains("@")) { gmailTo = gm.first; gmailName = null } else { gmailName = gm.first; gmailTo = null }
+            gmailTopic = gm.second
+            doGmail()
+            return
+        }
+
+        // "X ka answer dhoondho" -> AI se jawab
+        val mA = Regex("(?:google me |google pe |google par )?(.+?) ka (?:answer|jawab)").find(t)
+        if (mA != null) {
+            val q = mA.groupValues[1].trim()
+            if (q.isNotBlank()) { askAI("Answer briefly and clearly: $q"); return }
         }
 
         if (n.contains("screenshot") || n.contains("screenshort")) {
@@ -765,6 +820,96 @@ class OverlayService : Service() {
     }
 
     /** WhatsApp ke kai tarah ke vaaky samajhta hai. Pair(contact, message) deta hai (message khali ho sakta hai). */
+    private fun isScrollCmd(n: String): Boolean {
+        return n.contains("scrolldown") || n.contains("scrollup") || n.contains("neeche") ||
+            n.contains("upar") || n.contains("nextreel") || n.contains("aglireel") ||
+            n.contains("next") || n.contains("agla") || n.contains("agli") ||
+            n.contains("prev") || n.contains("pichla") || n.contains("pichli") || n.contains("previous") ||
+            n.contains("youtubeshorts") ||
+            (n.contains("shorts") && (n.contains("chala") || n.contains("kholo") || n.contains("dikha")))
+    }
+
+    private fun cleanEmail(s: String): String =
+        s.replace(" at ", "@").replace(" dot ", ".").replace(" ", "").trim()
+
+    private fun parseGmail(tRaw: String): Pair<String, String>? {
+        val t = tRaw.lowercase().trim()
+        val isMail = t.contains("gmail") || t.contains("email") || Regex("\\bmail\\b").containsMatchIn(t)
+        if (!isMail) return null
+        val s = t.replace(Regex("(gmail|email|mail)\\s*(pe|par|me|on|se)?"), " ").trim()
+        val i = s.indexOf(" ko ")
+        if (i < 0) return null
+        val to = s.substring(0, i).replace(Regex("\\b(pe|par|me|on|se|ko)\\b"), " ").trim()
+        var topic = s.substring(i + 4).trim()
+        topic = topic.replace(
+            Regex("\\b(bhejo|bhej|likho|likh|send|karo|kar|kardo|do|de|please|plz|mail|email|gmail|message|msg)\\b"), " "
+        ).trim()
+        if (to.isBlank()) return null
+        return Pair(to, topic)
+    }
+
+    private fun doGmail() {
+        if (gmailTo.isNullOrBlank()) {
+            gmailAwait = "email"
+            val who = gmailName
+            setMood(R.drawable.char_think, if (who.isNullOrBlank()) "Kisko bhejna hai? Email address bolo." else "$who ka email address kya hai? Bolo.")
+            return
+        }
+        if (gmailTopic.isNullOrBlank()) {
+            gmailAwait = "topic"
+            setMood(R.drawable.char_think, "Kya likhna hai? Bolo (jaise 'leave application').")
+            return
+        }
+        val to = gmailTo!!
+        val topic = gmailTopic!!
+        gmailTo = null; gmailTopic = null; gmailName = null; gmailAwait = null
+        setMood(R.drawable.char_think, "Mail likh raha hoon...")
+        Thread {
+            val draft = draftEmail(topic)
+            val a = MitraAccessibilityService.instance
+            val ok = a?.composeEmail(to, draft.first, draft.second) { s ->
+                main.post { setMood(R.drawable.char_think, s) }
+            } ?: false
+            main.post { if (ok) setMood(R.drawable.char_laugh, "Mail bhej diya $to ko!") else setMood(R.drawable.char_sad, "Mail poora nahi hua") }
+        }.start()
+    }
+
+    private fun draftEmail(topic: String): Pair<String, String> {
+        val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) return Pair(topic, topic)
+        val (ok, txt) = Gemini.ask(
+            key,
+            "Write a short polite email about: \"$topic\". Reply ONLY in this format:\nSubject: <one line>\n\n<body 3-5 lines>"
+        )
+        if (!ok) return Pair(topic, topic)
+        var subject = topic
+        var body = txt
+        val lines = txt.split("\n")
+        if (lines.isNotEmpty() && lines[0].lowercase().startsWith("subject:")) {
+            subject = lines[0].substringAfter(":").trim()
+            body = txt.substringAfter("\n").trim()
+        }
+        return Pair(subject, body)
+    }
+
+    private fun createNote(text: String) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Notes ke liye Accessibility ON karo"); return }
+        val pkg = findInstalled("keep") ?: findInstalled("note")
+        if (pkg == null) { setMood(R.drawable.char_sad, "Koi Notes app nahi mila"); return }
+        setMood(R.drawable.char_think, "Notes khol raha hoon...")
+        Thread {
+            a.openAppAndCheck(pkg.first)
+            Thread.sleep(2500)
+            if (!a.clickByDesc("New note") && !a.clickByText("New note")) {
+                a.clickByDesc("Take a note")
+            }
+            Thread.sleep(1500)
+            val ok = a.setTextFocused(text)
+            main.post { if (ok) setMood(R.drawable.char_laugh, "Note bana diya!") else setMood(R.drawable.char_sad, "Note me likh nahi paya") }
+        }.start()
+    }
+
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
         val t = tRaw.lowercase().trim()
         if (!t.contains("whatsapp")) return null

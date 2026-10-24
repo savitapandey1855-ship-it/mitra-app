@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v13
-          name: Bublu APK v13
-          body: "v13 - smarter WhatsApp command understanding (many phrasings), asks if message missing."
+          tag_name: apk-v14
+          name: Bublu APK v14
+          body: "v14 - scroll/reels/shorts (next, previous, scroll up/down), Gmail with AI-drafted mail, Notes, 'answer dhoondho'."
           files: app/build/outputs/apk/debug/app-debug.apk
