@@ -55,6 +55,8 @@ class OverlayService : Service() {
     private var thinkAnim: ObjectAnimator? = null
     private var moodSeq = 0
     private var revertRunnable: Runnable? = null
+    private var busySince = 0L
+    @Volatile private var appIndex: List<Triple<String, String, String>>? = null
     private lateinit var params: WindowManager.LayoutParams
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
@@ -101,6 +103,7 @@ class OverlayService : Service() {
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         buildOverlay()
         initRecognizer()
+        Thread { buildAppIndex() }.start()
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
         } catch (e: Exception) {}
@@ -322,6 +325,8 @@ class OverlayService : Service() {
         val hx = params.x
         val hy = params.y
         busy = true
+        busySince = System.currentTimeMillis()
+        main.postDelayed({ if (System.currentTimeMillis() - busySince >= 8000) busy = false }, 8000)
         face.animate().rotation(face.rotation + 540f).setDuration(650).start()
         setMood(R.drawable.char_happy)
         glideTo(centerX, centerY) {
@@ -464,6 +469,7 @@ class OverlayService : Service() {
         }
         setMood(R.drawable.char_listen, "Sun raha hoon...")
         listening = true
+        main.postDelayed({ listening = false }, 15000)
         try {
             r.startListening(i)
         } catch (e: Exception) {
@@ -1084,16 +1090,30 @@ class OverlayService : Service() {
         return null
     }
 
-    private fun findInstalled(q: String): Pair<String, String>? {
-        val pm = packageManager
-        val target = q.replace(" ", "").lowercase()
-        for (a in pm.getInstalledApplications(0)) {
-            val label = pm.getApplicationLabel(a).toString()
-            if (label.replace(" ", "").lowercase().contains(target)) {
+    private fun buildAppIndex() {
+        if (appIndex != null) return
+        try {
+            val pm = packageManager
+            val list = ArrayList<Triple<String, String, String>>()
+            for (a in pm.getInstalledApplications(0)) {
+                val label = pm.getApplicationLabel(a).toString()
                 if (pm.getLaunchIntentForPackage(a.packageName) != null) {
-                    return Pair(a.packageName, label)
+                    list.add(Triple(label.replace(" ", "").lowercase(), label, a.packageName))
                 }
             }
+            appIndex = list
+        } catch (e: Exception) {}
+    }
+
+    private fun findInstalled(q: String): Pair<String, String>? {
+        val idx = appIndex
+        if (idx == null) {
+            Thread { buildAppIndex() }.start()
+            return null
+        }
+        val target = q.replace(" ", "").lowercase()
+        for (t in idx) {
+            if (t.first.contains(target)) return Pair(t.third, t.second)
         }
         return null
     }

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v24
-          name: Bublu APK v24
-          body: "v24 - after finishing a task, Bublu returns to its normal (idle) reaction after a few seconds."
+          tag_name: apk-v25
+          name: Bublu APK v25
+          body: "v25 - bug fixes: busy/listening stuck-safety timeouts; app list cached in background (no main-thread freeze)."
           files: app/build/outputs/apk/debug/app-debug.apk
