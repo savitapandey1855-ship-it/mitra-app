@@ -43,6 +43,7 @@ class OverlayService : Service() {
     companion object {
         const val ACTION_STOP = "com.mitra.assistant.STOP"
         const val NAME = "Bublu"
+        const val BRAIN_PROMPT = "You convert a user's spoken request (English or Hinglish) into ONE command for an Android assistant. Reply with ONLY the command line, nothing else.\nCommands:\nOPEN <app name>\nCLICK <button text on screen>\nTYPE <text>\nSCROLL_DOWN\nSCROLL_UP\nNEXT\nPREV\nSEARCH <query>\nANSWER <question>\nWHATSAPP <contact> | <message>\nEMAIL <email address> | <subject>\nNOTE <text>\nSCREENSHOT\nBACK\nHOME\nSLEEP\nWAKE\nDANCE\nIf it is just a question or chit-chat, reply: ANSWER <their question>"
     }
 
     private lateinit var wm: WindowManager
@@ -261,16 +262,33 @@ class OverlayService : Service() {
         anim.start()
     }
 
-    /** Ludhak kar target tak jao, phir kaam karo (click/type). */
+    /** Ludhak kar target tak jao, kaam karo, phir wapas apni jagah. */
     private fun glideAndDo(centerX: Int, centerY: Int, say: String, action: () -> Boolean) {
+        val hx = params.x
+        val hy = params.y
         busy = true
         face.animate().rotation(face.rotation + 540f).setDuration(650).start()
         setMood(R.drawable.char_happy)
         glideTo(centerX, centerY) {
             face.rotation = 0f
             val ok = action()
-            busy = false
-            if (ok) setMood(R.drawable.char_laugh, say) else setMood(R.drawable.char_sad, "Wahan kaam nahi hua")
+            glideTo(hx + dp(37), hy + dp(37)) {
+                busy = false
+                if (ok) setMood(R.drawable.char_laugh, say) else setMood(R.drawable.char_sad, "Wahan kaam nahi hua")
+            }
+        }
+    }
+
+    /** Koi bhi kaam: ludhak kar jao, karo, aur wapas aa jao. */
+    private fun rollAround(action: () -> Unit) {
+        val hx = params.x
+        val hy = params.y
+        val dm = resources.displayMetrics
+        face.animate().rotation(face.rotation + 360f).setDuration(500).start()
+        glideTo(dm.widthPixels / 2, dm.heightPixels / 3) {
+            face.rotation = 0f
+            action()
+            glideTo(hx + dp(37), hy + dp(37))
         }
     }
 
@@ -629,10 +647,10 @@ class OverlayService : Service() {
                         main.post { if (ok) setMood(R.drawable.char_laugh, "Shorts chalu!") else setMood(R.drawable.char_sad, "Shorts nahi khula") }
                     }.start()
                 }
-                n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { acc.scrollDown(); setMood(R.drawable.char_happy, "Neeche") }
-                n.contains("scrollup") || n.contains("upar") -> { acc.scrollUp(); setMood(R.drawable.char_happy, "Upar") }
-                n.contains("prev") || n.contains("pichl") -> { acc.swipeDown(); setMood(R.drawable.char_happy, "Pichla") }
-                else -> { acc.swipeUp(); setMood(R.drawable.char_happy, "Agla") }
+                n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { rollAround { acc.scrollDown() }; setMood(R.drawable.char_happy, "Neeche") }
+                n.contains("scrollup") || n.contains("upar") -> { rollAround { acc.scrollUp() }; setMood(R.drawable.char_happy, "Upar") }
+                n.contains("prev") || n.contains("pichl") -> { rollAround { acc.swipeDown() }; setMood(R.drawable.char_happy, "Pichla") }
+                else -> { rollAround { acc.swipeUp() }; setMood(R.drawable.char_happy, "Agla") }
             }
             return
         }
@@ -640,7 +658,7 @@ class OverlayService : Service() {
         // Notes
         val noteText = after(t, listOf("note banao ", "notes me ", "note me ", "notes me likho ", "note likho "))
             ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ")?.trim()
-        if (noteText != null && noteText.isNotBlank()) { createNote(noteText); return }
+        if (noteText != null && noteText.isNotBlank()) { rollAround { createNote(noteText) }; return }
 
         val wa = parseWhatsApp(t)
         if (wa != null) {
@@ -649,7 +667,7 @@ class OverlayService : Service() {
                 setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
                 return
             }
-            doSendWhatsApp(wa.first, wa.second)
+            rollAround { doSendWhatsApp(wa.first, wa.second) }
             return
         }
 
@@ -671,7 +689,7 @@ class OverlayService : Service() {
         if (gm != null) {
             if (gm.first.contains("@")) { gmailTo = gm.first; gmailName = null } else { gmailName = gm.first; gmailTo = null }
             gmailTopic = gm.second
-            doGmail()
+            rollAround { doGmail() }
             return
         }
 
@@ -683,7 +701,7 @@ class OverlayService : Service() {
         }
 
         if (n.contains("screenshot") || n.contains("screenshort")) {
-            if (acc != null && acc.screenshot()) setMood(R.drawable.char_happy, "Screenshot le liya")
+            if (acc != null) { rollAround { acc.screenshot() }; setMood(R.drawable.char_happy, "Screenshot le liya") }
             else setMood(R.drawable.char_sad, "Screenshot ke liye Accessibility ON karo")
             return
         }
@@ -707,7 +725,7 @@ class OverlayService : Service() {
         }
 
         val app = resolveApp(t, n)
-        if (app != null) { openTarget(app.first, app.second); return }
+        if (app != null) { rollAround { openTarget(app.first, app.second) }; return }
 
         val c = canned(t, n)
         if (c != null) { setMood(R.drawable.char_happy, c); return }
@@ -750,7 +768,7 @@ class OverlayService : Service() {
             if (n.contains("notification")) { acc.notifications(); setMood(R.drawable.char_happy, "Notifications"); return }
         }
 
-        askAI(text)
+        geminiBrain(text)
     }
 
     private fun openUrl(url: String) {
@@ -1003,6 +1021,85 @@ class OverlayService : Service() {
                 else setMood(R.drawable.char_sad, "$name nahi khula - Accessibility ya Autostart ON karo")
             }
         }.start()
+    }
+
+    /** Jo command samajh na aaye, Gemini se samjho aur chalao. */
+    private fun geminiBrain(userText: String) {
+        val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) {
+            setMood(R.drawable.char_think, "\"$userText\" - ye mujhe samajh nahi aaya. (Gemini key daalo to main samajh jaunga)")
+            return
+        }
+        setMood(R.drawable.char_think, "Soch raha hoon...")
+        Thread {
+            val (ok, reply) = Gemini.ask(key, BRAIN_PROMPT + "\nUser said: " + userText)
+            main.post {
+                if (!ok) { setMood(R.drawable.char_sad, "Samajh nahi paya"); return@post }
+                val line = reply.trim().lineSequence().firstOrNull()?.trim() ?: ""
+                if (!executeParsed(line, userText)) {
+                    setMood(R.drawable.char_happy, reply.take(240))
+                }
+            }
+        }.start()
+    }
+
+    private fun executeParsed(line: String, original: String): Boolean {
+        val up = line.trim()
+        val sp = up.indexOf(' ')
+        val cmd = (if (sp > 0) up.substring(0, sp) else up).uppercase()
+        val arg = if (sp > 0) up.substring(sp + 1).trim() else ""
+        val acc = MitraAccessibilityService.instance
+        return when (cmd) {
+            "OPEN" -> {
+                if (arg.isBlank()) false
+                else {
+                    val f = findInstalled(arg)
+                    if (f != null) rollAround { openTarget(f.first, f.second) }
+                    else rollAround { openTarget("https://www.google.com/search?q=" + android.net.Uri.encode(arg), arg) }
+                    true
+                }
+            }
+            "CLICK" -> {
+                if (acc == null || arg.isBlank()) false
+                else {
+                    val c = acc.centerOfText(arg)
+                    if (c != null) glideAndDo(c[0], c[1], "Click kar diya!") { acc.clickByText(arg) }
+                    else setMood(R.drawable.char_sad, "\"$arg\" nahi mila")
+                    true
+                }
+            }
+            "TYPE" -> {
+                if (acc == null || arg.isBlank()) false
+                else {
+                    val c = acc.centerOfFocusedEditable()
+                    if (c != null) glideAndDo(c[0], c[1], "Type kar diya!") { acc.typeText(arg) }
+                    else setMood(R.drawable.char_sad, "Koi input box nahi mila")
+                    true
+                }
+            }
+            "SCROLL_DOWN" -> { acc?.let { a -> rollAround { a.scrollDown() } }; setMood(R.drawable.char_happy, "Neeche"); true }
+            "SCROLL_UP" -> { acc?.let { a -> rollAround { a.scrollUp() } }; setMood(R.drawable.char_happy, "Upar"); true }
+            "NEXT" -> { acc?.let { a -> rollAround { a.swipeUp() } }; setMood(R.drawable.char_happy, "Agla"); true }
+            "PREV" -> { acc?.let { a -> rollAround { a.swipeDown() } }; setMood(R.drawable.char_happy, "Pichla"); true }
+            "SEARCH" -> { openUrl("https://www.google.com/search?q=" + android.net.Uri.encode(arg)); setMood(R.drawable.char_happy, "Search kar raha hoon"); true }
+            "ANSWER" -> { askAI(if (arg.isNotBlank()) arg else original); true }
+            "WHATSAPP" -> {
+                val p = arg.split("|", limit = 2)
+                if (p.size == 2) { rollAround { doSendWhatsApp(p[0].trim(), p[1].trim()) }; true } else false
+            }
+            "EMAIL" -> {
+                val p = arg.split("|", limit = 2)
+                if (p.size == 2) { gmailTo = cleanEmail(p[0].trim()); gmailTopic = p[1].trim(); rollAround { doGmail() }; true } else false
+            }
+            "NOTE" -> { if (arg.isBlank()) false else { rollAround { createNote(arg) }; true } }
+            "SCREENSHOT" -> { acc?.let { a -> rollAround { a.screenshot() } }; setMood(R.drawable.char_happy, "Screenshot le liya"); true }
+            "BACK" -> { acc?.back(); setMood(R.drawable.char_happy, "Peeche"); true }
+            "HOME" -> { acc?.home(); setMood(R.drawable.char_happy, "Home"); true }
+            "SLEEP" -> { sleep(); true }
+            "WAKE" -> { wakeUp(); true }
+            "DANCE" -> { dance(); true }
+            else -> false
+        }
     }
 
     private fun askAI(prompt: String) {

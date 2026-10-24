@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v14
-          name: Bublu APK v14
-          body: "v14 - scroll/reels/shorts (next, previous, scroll up/down), Gmail with AI-drafted mail, Notes, 'answer dhoondho'."
+          tag_name: apk-v15
+          name: Bublu APK v15
+          body: "v15 - rolls to do every task then rolls back home; Gemini brain interprets unknown commands (English/Hinglish)."
           files: app/build/outputs/apk/debug/app-debug.apk
