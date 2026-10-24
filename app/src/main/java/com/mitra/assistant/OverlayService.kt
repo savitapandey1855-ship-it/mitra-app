@@ -279,6 +279,70 @@ class OverlayService : Service() {
             }.start()
     }
 
+    private fun listenSarvam(key: String) {
+        listening = true
+        setMood(R.drawable.char_listen, "Sun raha hoon...")
+        Thread {
+            val wav = recordWav()
+            if (wav == null) {
+                main.post { listening = false; setMood(R.drawable.char_sad, "Awaaz nahi aayi, phir bolo") }
+                return@Thread
+            }
+            main.post { setMood(R.drawable.char_think, "Samajh raha hoon...") }
+            val (ok, txt) = Sarvam.transcribe(key, wav)
+            main.post {
+                listening = false
+                if (ok && txt.isNotBlank()) handle(txt)
+                else setMood(R.drawable.char_sad, if (ok) "Kuch samajh nahi aaya" else "STT error: $txt")
+            }
+        }.start()
+    }
+
+    private fun recordWav(maxMs: Int = 8000): ByteArray? {
+        val sr = 16000
+        val minBuf = android.media.AudioRecord.getMinBufferSize(
+            sr, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT
+        )
+        if (minBuf <= 0) return null
+        val rec = try {
+            android.media.AudioRecord(
+                android.media.MediaRecorder.AudioSource.MIC, sr,
+                android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT, minBuf * 2
+            )
+        } catch (e: Exception) { return null }
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ShortArray(minBuf)
+        try {
+            rec.startRecording()
+            val start = System.currentTimeMillis()
+            var lastVoice = start
+            var heard = false
+            while (System.currentTimeMillis() - start < maxMs) {
+                val n = rec.read(buf, 0, buf.size)
+                if (n <= 0) continue
+                var peak = 0
+                for (i in 0 until n) { val a = Math.abs(buf[i].toInt()); if (a > peak) peak = a }
+                if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
+                for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
+                if (heard && System.currentTimeMillis() - lastVoice > 1200) break
+            }
+            rec.stop()
+        } catch (e: Exception) {} finally { try { rec.release() } catch (e: Exception) {} }
+        val pcm = out.toByteArray()
+        if (pcm.size < 3200) return null
+        return wavBytes(pcm, sr)
+    }
+
+    private fun wavBytes(pcm: ByteArray, sr: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        fun w(s: String) { out.write(s.toByteArray()) }
+        fun i(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF); out.write((v shr 16) and 0xFF); out.write((v shr 24) and 0xFF) }
+        fun sh(v: Int) { out.write(v and 0xFF); out.write((v shr 8) and 0xFF) }
+        w("RIFF"); i(36 + pcm.size); w("WAVE"); w("fmt "); i(16); sh(1); sh(1)
+        i(sr); i(sr * 2); sh(2); sh(16); w("data"); i(pcm.size); out.write(pcm)
+        return out.toByteArray()
+    }
+
     private fun moodRes(resId: Int): Int {
         if (mode != "zora") return resId
         return when (resId) {
@@ -517,6 +581,8 @@ class OverlayService : Service() {
     private fun onTap() {
         if (sleeping) { wakeUp(); return }
         if (listening || busy) return
+        val skey = getSharedPreferences("mitra", MODE_PRIVATE).getString("sarvam_key", "")?.trim() ?: ""
+        if (skey.isNotBlank()) { listenSarvam(skey); return }
         if (recognizer == null) initRecognizer()
         val r = recognizer ?: return
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {

@@ -265,7 +265,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSettings() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
-            "Notification access ON karo", "Gemini key", "Test AI",
+            "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)", "Test AI",
             "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
@@ -275,12 +275,30 @@ class MainActivity : AppCompatActivity() {
                 2 -> openAutostart()
                 3 -> openNotifAccess()
                 4 -> showKeyDialog()
-                5 -> testAi()
-                6 -> addAliasDialog()
-                7 -> addGroupDialog()
-                8 -> showDiagnose()
+                5 -> showSarvamKeyDialog()
+                6 -> testAi()
+                7 -> addAliasDialog()
+                8 -> addGroupDialog()
+                9 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun showSarvamKeyDialog() {
+        val input = EditText(this)
+        input.inputType = InputType.TYPE_CLASS_TEXT
+        input.hint = "Sarvam api-subscription-key"
+        input.setText(prefs.getString("sarvam_key", ""))
+        AlertDialog.Builder(this)
+            .setTitle("Sarvam key (Saaras v4 voice)")
+            .setMessage("Key milegi: dashboard.sarvam.ai\nAgar key daali hai to Bublu aapki awaaz Sarvam se samjhega (Hinglish me behtar).\nKey sirf aapke phone me rehti hai.")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                prefs.edit().putString("sarvam_key", input.text.toString().trim()).apply()
+                Toast.makeText(this, "Sarvam key save ho gayi", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun openNotifAccess() {

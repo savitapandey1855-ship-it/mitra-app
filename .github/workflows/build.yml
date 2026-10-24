@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v31
-          name: Bublu APK v31
-          body: "v31 - edit everything in-app (schedule, tasks, notes, aliases, groups, birthdays) + new Zora mode (Jarvis-style with rotating HUD ring)."
+          tag_name: apk-v32
+          name: Bublu APK v32
+          body: "v32 - Sarvam Saaras v4 speech-to-text (user enters their own key in Settings). Better Hinglish/Indic voice recognition."
           files: app/build/outputs/apk/debug/app-debug.apk
