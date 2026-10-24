@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v32
-          name: Bublu APK v32
-          body: "v32 - Sarvam Saaras v4 speech-to-text (user enters their own key in Settings). Better Hinglish/Indic voice recognition."
+          tag_name: apk-v33
+          name: Bublu APK v33
+          body: "v33 - Sarvam Bulbul TTS (optional voice toggle) so Bublu can speak replies."
           files: app/build/outputs/apk/debug/app-debug.apk

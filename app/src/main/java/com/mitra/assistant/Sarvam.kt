@@ -49,4 +49,37 @@ object Sarvam {
             Pair(false, e.message ?: "network error")
         }
     }
+
+    /** Text -> speech (Bulbul). WAV bytes return karta hai. */
+    fun tts(key: String, text: String, lang: String = "en-IN", speaker: String = "priya", model: String = "bulbul:v3"): Pair<Boolean, ByteArray?> {
+        return try {
+            val conn = URL("https://api.sarvam.ai/text-to-speech").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("api-subscription-key", key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 20000
+            conn.readTimeout = 40000
+            val body = org.json.JSONObject().apply {
+                put("text", text)
+                put("language_code", lang)
+                put("speaker", speaker)
+                put("model", model)
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val resp = stream?.bufferedReader()?.readText() ?: ""
+            if (code in 200..299) {
+                val arr = org.json.JSONObject(resp).optJSONArray("audios")
+                val b64 = if (arr != null && arr.length() > 0) arr.getString(0) else null
+                if (b64 == null) Pair(false, null)
+                else Pair(true, android.util.Base64.decode(b64, android.util.Base64.DEFAULT))
+            } else {
+                Pair(false, null)
+            }
+        } catch (e: Exception) {
+            Pair(false, null)
+        }
+    }
 }

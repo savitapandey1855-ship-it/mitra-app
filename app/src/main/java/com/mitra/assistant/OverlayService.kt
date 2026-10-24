@@ -59,6 +59,7 @@ class OverlayService : Service() {
     private lateinit var ring: ImageView
     private var ringAnim: ObjectAnimator? = null
     private var mode = "bublu"
+    private var player: android.media.MediaPlayer? = null
     private var moodSeq = 0
     private var revertRunnable: Runnable? = null
     private var busySince = 0L
@@ -343,6 +344,34 @@ class OverlayService : Service() {
         return out.toByteArray()
     }
 
+    private fun speak(text: String) {
+        val sp = getSharedPreferences("mitra", MODE_PRIVATE)
+        if (!sp.getBoolean("tts_on", false)) return
+        val key = sp.getString("sarvam_key", "")?.trim() ?: return
+        if (key.isBlank()) return
+        val clean = text.replace("\"", " ").take(400)
+        if (clean.isBlank()) return
+        Thread {
+            val (ok, bytes) = Sarvam.tts(key, clean)
+            if (!ok || bytes == null) return@Thread
+            try {
+                val f = java.io.File(cacheDir, "bublu_tts.wav")
+                f.writeBytes(bytes)
+                main.post {
+                    try {
+                        player?.release()
+                        player = android.media.MediaPlayer().apply {
+                            setDataSource(f.absolutePath)
+                            setOnPreparedListener { start() }
+                            setOnCompletionListener { it.release(); if (player === it) player = null }
+                            prepareAsync()
+                        }
+                    } catch (e: Exception) {}
+                }
+            } catch (e: Exception) {}
+        }.start()
+    }
+
     private fun moodRes(resId: Int): Int {
         if (mode != "zora") return resId
         return when (resId) {
@@ -402,6 +431,10 @@ class OverlayService : Service() {
         } else {
             reply.text = say
             reply.visibility = View.VISIBLE
+        }
+        if (say != null && (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
+                resId == R.drawable.char_sad || resId == R.drawable.char_wake)) {
+            speak(say)
         }
         // Kaam ke baad thodi der me wapas normal
         revertRunnable?.let { main.removeCallbacks(it) }
@@ -1844,6 +1877,7 @@ class OverlayService : Service() {
         stopSleepMonitor()
         try { tts?.shutdown() } catch (e: Exception) {}
         try { recognizer?.destroy() } catch (e: Exception) {}
+        try { player?.release() } catch (e: Exception) {}
         try { wm.removeView(root) } catch (e: Exception) {}
     }
 }

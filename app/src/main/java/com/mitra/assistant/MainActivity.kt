@@ -265,7 +265,8 @@ class MainActivity : AppCompatActivity() {
     private fun showSettings() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
-            "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)", "Test AI",
+            "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)",
+            "Awaaz (TTS) ON/OFF", "Test AI",
             "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
@@ -276,12 +277,24 @@ class MainActivity : AppCompatActivity() {
                 3 -> openNotifAccess()
                 4 -> showKeyDialog()
                 5 -> showSarvamKeyDialog()
-                6 -> testAi()
-                7 -> addAliasDialog()
-                8 -> addGroupDialog()
-                9 -> showDiagnose()
+                6 -> toggleTts()
+                7 -> testAi()
+                8 -> addAliasDialog()
+                9 -> addGroupDialog()
+                10 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun toggleTts() {
+        val on = !(prefs.getBoolean("tts_on", false))
+        prefs.edit().putBoolean("tts_on", on).apply()
+        val keyOk = (prefs.getString("sarvam_key", "") ?: "").isNotBlank()
+        Toast.makeText(
+            this,
+            if (on) (if (keyOk) "Awaaz ON - Bublu bolega (Sarvam Bulbul)" else "Awaaz ON - par pehle Sarvam key daalo") else "Awaaz OFF",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     private fun showSarvamKeyDialog() {
