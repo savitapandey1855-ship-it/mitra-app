@@ -2,6 +2,7 @@ package com.mitra.assistant
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -9,7 +10,9 @@ import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -21,9 +24,17 @@ import android.view.animation.OvershootInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.math.abs
 
 class OverlayService : Service() {
+
+    companion object {
+        const val ACTION_STOP = "com.mitra.assistant.STOP"
+    }
 
     private lateinit var wm: WindowManager
     private lateinit var root: LinearLayout
@@ -32,6 +43,7 @@ class OverlayService : Service() {
     private lateinit var params: WindowManager.LayoutParams
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
+    private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -43,7 +55,14 @@ class OverlayService : Service() {
         initRecognizer()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            getSharedPreferences("mitra", MODE_PRIVATE).edit().putBoolean("running", false).apply()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        return START_STICKY
+    }
 
     private fun startForegroundNotif() {
         val chId = "mitra_ch"
@@ -52,11 +71,17 @@ class OverlayService : Service() {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(ch)
         }
+        val stopIntent = Intent(this, OverlayService::class.java).setAction(ACTION_STOP)
+        val pi = PendingIntent.getService(
+            this, 0, stopIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val notif = NotificationCompat.Builder(this, chId)
             .setContentTitle("Mitra chal raha hai")
             .setContentText("Bubble pe tap karke bolo")
             .setSmallIcon(R.drawable.ic_launcher)
             .setOngoing(true)
+            .addAction(0, "Band karo", pi)
             .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
@@ -78,11 +103,10 @@ class OverlayService : Service() {
             setBackgroundResource(R.drawable.bubble_bg)
             val p = (12 * resources.displayMetrics.density).toInt()
             setPadding(p, p, p, p)
-            maxWidth = (220 * resources.displayMetrics.density).toInt()
+            maxWidth = (240 * resources.displayMetrics.density).toInt()
         }
         val rlp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         )
         rlp.bottomMargin = (8 * resources.displayMetrics.density).toInt()
         root.addView(reply, rlp)
@@ -96,8 +120,7 @@ class OverlayService : Service() {
             setPadding(p, p, p, p)
         }
         root.addView(bubble, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ))
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -230,7 +253,68 @@ class OverlayService : Service() {
             setFace("\u23F0", "Abhi $now")
             return
         }
-        setFace("\uD83E\uDD14", "\"$text\" - ye abhi nahi aata, par main seekh raha hoon!")
+        askAI(text)
+    }
+
+    private fun askAI(prompt: String) {
+        val key = getSharedPreferences("mitra", MODE_PRIVATE)
+            .getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) {
+            setFace("\uD83E\uDD14", "\"$prompt\" - AI jawab ke liye app me apni Gemini key daalo")
+            return
+        }
+        setFace("\uD83E\uDD14", "Soch raha hoon...")
+        Thread {
+            val ans = callGemini(key, prompt)
+            main.post {
+                if (ans != null) setFace("\uD83E\uDD16", ans.take(240))
+                else setFace("\uD83D\uDE05", "Jawab nahi mila - internet ya key check karo")
+            }
+        }.start()
+    }
+
+    private fun callGemini(key: String, prompt: String): String? {
+        return try {
+            val url = URL(
+                "https://generativelanguage.googleapis.com/v1beta/models/" +
+                    "gemini-2.0-flash:generateContent?key=$key"
+            )
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            val body = JSONObject().apply {
+                put(
+                    "contents",
+                    JSONArray().put(
+                        JSONObject().put(
+                            "parts",
+                            JSONArray().put(
+                                JSONObject().put(
+                                    "text",
+                                    "You are Mitra, a cute helpful assistant for a school student in India. " +
+                                        "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
+                                        "Question: $prompt"
+                                )
+                            )
+                        )
+                    )
+                )
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val resp = stream?.bufferedReader()?.readText() ?: ""
+            if (code in 200..299) {
+                JSONObject(resp).getJSONArray("candidates").getJSONObject(0)
+                    .getJSONObject("content").getJSONArray("parts").getJSONObject(0)
+                    .getString("text").trim()
+            } else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun tryOpen(t: String): String? {

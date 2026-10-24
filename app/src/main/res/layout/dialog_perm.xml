@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="22dp"
+    android:background="@drawable/card_bg">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="&#127881;"
+        android:textSize="44sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Bas 3 chhoti permissions!"
+        android:textColor="#2A2350"
+        android:textStyle="bold"
+        android:textSize="18sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:lineSpacingExtra="8dp"
+        android:text="&#129690;  Screen ke upar dikhne ke liye\n&#127908;  Awaaz sunne ke liye\n&#128276;  Notification ke liye"
+        android:textColor="#4A4270"
+        android:textSize="15sp" />
+
+    <Button
+        android:id="@+id/allowAll"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/btn_bg"
+        android:text="Sab Allow karo"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/later"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:padding="6dp"
+        android:text="Baad me"
+        android:textColor="#7A729E"
+        android:textSize="14sp" />
+
+</LinearLayout>

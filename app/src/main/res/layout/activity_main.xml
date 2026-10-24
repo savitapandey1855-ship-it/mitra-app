@@ -23,32 +23,47 @@
         android:textSize="34sp" />
 
     <TextView
+        android:id="@+id/statusTxt"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Tumhara cute floating assistant"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="Band hai"
         android:textColor="#C9D4FF"
         android:textSize="15sp" />
 
-    <TextView
+    <Button
+        android:id="@+id/toggleBtn"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:lineSpacingExtra="6dp"
-        android:text="1.  Start dabao\n2.  Overlay + Mic permission do\n3.  Screen pe tairte bubble pe tap karke bolo"
-        android:textColor="#AEB9E6"
+        android:layout_height="60dp"
+        android:layout_marginTop="26dp"
+        android:background="@drawable/btn_bg"
+        android:text="ON karo"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/permBtn"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/btn_soft"
+        android:text="Permissions do &#10024;"
+        android:textAllCaps="false"
+        android:textColor="#E7ECFF"
         android:textSize="15sp" />
 
     <Button
-        android:id="@+id/startBtn"
+        android:id="@+id/keyBtn"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginTop="30dp"
-        android:background="@drawable/btn_bg"
-        android:text="Start Mitra"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/btn_soft"
+        android:text="Gemini key &#128273;"
         android:textAllCaps="false"
-        android:textColor="#FFFFFF"
-        android:textSize="17sp"
-        android:textStyle="bold" />
+        android:textColor="#E7ECFF"
+        android:textSize="15sp" />
 
 </LinearLayout>
