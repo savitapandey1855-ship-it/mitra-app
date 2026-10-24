@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v11
-          name: Bublu APK v11
-          body: "v11 - fixed WhatsApp flow: opens real chat (not search box), verifies before typing, scrolls results, honest not-found."
+          tag_name: apk-v12
+          name: Bublu APK v12
+          body: "v12 - WhatsApp status viewer: goes to Updates, plays everyone's status, 'skip this status' to advance, reports how many people posted."
           files: app/build/outputs/apk/debug/app-debug.apk

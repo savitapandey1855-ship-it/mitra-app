@@ -1,13 +1,16 @@
 package com.mitra.assistant
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.content.Intent
+import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.util.ArrayList
+import java.util.HashSet
 
 /**
  * Bublu ko doosri apps me click / type / paste / screenshot / app kholne deti hai.
@@ -151,6 +154,27 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
+    // ---------- Touch gesture (status aage/peeche) ----------
+    fun tap(x: Int, y: Int) {
+        try {
+            val path = Path()
+            path.moveTo(x.toFloat(), y.toFloat())
+            val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+            val gesture = GestureDescription.Builder().addStroke(stroke).build()
+            dispatchGesture(gesture, null, null)
+        } catch (e: Exception) {}
+    }
+
+    fun tapRight() {
+        val dm = resources.displayMetrics
+        tap((dm.widthPixels * 0.85f).toInt(), (dm.heightPixels * 0.5f).toInt())
+    }
+
+    fun tapLeft() {
+        val dm = resources.displayMetrics
+        tap((dm.widthPixels * 0.15f).toInt(), (dm.heightPixels * 0.5f).toInt())
+    }
+
     // ---------- App / URL ----------
     fun openApp(pkg: String): Boolean {
         return try {
@@ -189,7 +213,75 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     // =========================================================
-    //  WhatsApp — careful, verified, multi-step
+    //  WhatsApp Status (Updates) — sabke status chalao
+    // =========================================================
+    fun isInWhatsApp(): Boolean =
+        try { rootInActiveWindow?.packageName?.toString() == "com.whatsapp" } catch (e: Exception) { false }
+
+    /** Updates tab kholo aur pehla status chalao. Return: kitne logon ne status lagaya hai (ya -1 = fail). */
+    fun openStatusTabAndFirst(): Int {
+        try {
+            if (!openApp("com.whatsapp")) return -1
+            Thread.sleep(3200)
+
+            // Updates tab pe jao
+            if (!clickByDesc("Updates") && !clickByDesc("Status")) {
+                // tab na mile to bottom nav me try
+                clickByText("Updates")
+            }
+            Thread.sleep(1600)
+
+            val rows = statusRows()
+            if (rows.isEmpty()) return 0
+            val count = rows.size
+            clickNode(rows.first())
+            Thread.sleep(1600)
+            return count
+        } catch (e: Exception) {
+            return -1
+        }
+    }
+
+    /** Status list (Updates) par wapas aa gaye? */
+    fun isOnStatusList(): Boolean {
+        val root = rootInActiveWindow ?: return true
+        return findNode(root) {
+            it.contentDescription?.toString()?.lowercase()?.contains("updates") == true
+        } != null
+    }
+
+    private fun statusRows(): ArrayList<AccessibilityNodeInfo> {
+        val root = rootInActiveWindow ?: return ArrayList()
+        val out = ArrayList<AccessibilityNodeInfo>()
+        val seen = HashSet<String>()
+        collectStatusRows(root, out, seen)
+        return out
+    }
+
+    private fun collectStatusRows(
+        node: AccessibilityNodeInfo,
+        out: ArrayList<AccessibilityNodeInfo>,
+        seen: HashSet<String>
+    ) {
+        val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
+        if (node.isClickable && txt.isNotEmpty() &&
+            !txt.contains("my status") && !txt.contains("add status") &&
+            !txt.contains("tap to") && !txt.contains("text status")
+        ) {
+            val r = Rect(); node.getBoundsInScreen(r)
+            val key = "${r.left},${r.top},${r.right},${r.bottom}"
+            if (!seen.contains(key)) {
+                seen.add(key)
+                out.add(node)
+            }
+        }
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { collectStatusRows(it, out, seen) }
+        }
+    }
+
+    // =========================================================
+    //  WhatsApp — message bhejo
     // =========================================================
     fun sendWhatsApp(contact: String, message: String, onStatus: (String) -> Unit): Boolean {
         try {
@@ -197,19 +289,16 @@ class MitraAccessibilityService : AccessibilityService() {
             if (!openApp("com.whatsapp")) { onStatus("WhatsApp nahi khula"); return false }
             Thread.sleep(3000)
 
-            // 1) Search kholo
             onStatus("Search khol raha hoon...")
             if (!clickByDesc("Search") && !clickByText("Search")) {
                 clickByDesc("Search or start new chat")
             }
             Thread.sleep(1000)
 
-            // 2) Naam search karo
             onStatus("$contact dhoondh raha hoon...")
             if (!setTextFocused(contact)) { onStatus("Search box nahi mila"); return false }
             Thread.sleep(2000)
 
-            // 3) Result me se CHAT row kholo (search box ko NAHI)
             if (!openFirstChatResult(contact)) {
                 onStatus("Thoda neeche scroll karke dekhta hoon...")
                 scrollResults()
@@ -222,9 +311,7 @@ class MitraAccessibilityService : AccessibilityService() {
             }
             Thread.sleep(1900)
 
-            // 4) Pakka karo ki CHAT khuli hai (search box nahi)
             if (!isInChat()) {
-                // ek aur baar try
                 if (openFirstChatResult(contact)) Thread.sleep(1800)
             }
             if (!isInChat()) {
@@ -232,7 +319,6 @@ class MitraAccessibilityService : AccessibilityService() {
                 return false
             }
 
-            // 5) Message type karo (sirf chat ke input box me)
             onStatus("Message likh raha hoon...")
             val box = findChatInput()
             if (box == null || !setNodeText(box, message)) {
@@ -241,12 +327,10 @@ class MitraAccessibilityService : AccessibilityService() {
             }
             Thread.sleep(900)
 
-            // 6) Send
             onStatus("Bhej raha hoon...")
             if (!clickByDesc("Send")) clickByText("Send")
             Thread.sleep(1000)
 
-            // 7) Check ki bhej diya (input box khali ho gaya)
             val empty = try { findChatInput()?.text?.toString().isNullOrBlank() } catch (e: Exception) { true }
             onStatus(if (empty) "Ho gaya! Wapas ja raha hoon..." else "Send shayad nahi hua...")
 
@@ -257,7 +341,6 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** Search results me se naam wali CHAT row kholo (input box skip karo). */
     private fun openFirstChatResult(contact: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val q = contact.lowercase().trim()
@@ -275,7 +358,7 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     private fun collectRows(node: AccessibilityNodeInfo, q: String, out: ArrayList<AccessibilityNodeInfo>) {
-        if (node.isEditable) return // search box aur koi input skip
+        if (node.isEditable) return
         val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
         if (txt.isNotEmpty() && txt.contains(q)) {
             out.add(node)
@@ -285,7 +368,6 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** Chat ke message input box (hint me "message") dhoondo. */
     private fun findChatInput(): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
         val byHint = findNode(root) { n ->
@@ -297,7 +379,6 @@ class MitraAccessibilityService : AccessibilityService() {
         return byHint ?: findEditable(root)
     }
 
-    /** Chat khuli hai ya nahi (search box nahi). */
     private fun isInChat(): Boolean {
         val input = findChatInput() ?: return false
         val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) input.hintText?.toString()?.lowercase() ?: "" else ""

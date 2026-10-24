@@ -60,6 +60,8 @@ class OverlayService : Service() {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var busy = false
+    @Volatile private var statusMode = false
+    @Volatile private var skipRequested = false
 
     // tickle detection
     private var lastX = 0f
@@ -544,8 +546,8 @@ class OverlayService : Service() {
             )
         if (n.contains("whatcanyoudo") || n.contains("help") || n.contains("madad") ||
             n.contains("kyakarsakte"))
-            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, search, " +
-                "jokes, shayari, dance, battery, coin-toss - aur sawaalon ke jawab. Bas bolo!"
+            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, WhatsApp status, " +
+                "search, jokes, shayari, dance, battery, coin-toss - aur sawaalon ke jawab. Bas bolo!"
         if (n == "bye" || n.contains("goodbye") || n.contains("alvida"))
             return pick("Bye! Phir milenge.", "Chalo, phir milte hain!")
         if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
@@ -567,6 +569,25 @@ class OverlayService : Service() {
         val t = text.lowercase().trim()
         val n = t.replace(" ", "")
         val acc = MitraAccessibilityService.instance
+
+        // Status mode ke andar commands
+        if (statusMode) {
+            if (n.contains("skip") || n.contains("next") || n.contains("aage") || n.contains("agla")) {
+                skipRequested = true; setMood(R.drawable.char_happy, "Agla status!"); return
+            }
+            if (n.contains("back") || n.contains("peeche") || n.contains("pichla")) {
+                acc?.tapLeft(); setMood(R.drawable.char_happy, "Pichla status"); return
+            }
+            if (n.contains("band") || n.contains("exit") || n.contains("bas") || n.contains("stop") || n.contains("ruko")) {
+                statusMode = false; setMood(R.drawable.char_happy, "Status band kar diya"); return
+            }
+            return
+        }
+
+        // WhatsApp status dikhao
+        if (n.contains("status") && (n.contains("dikha") || n.contains("dekh") || n.contains("chala") || n.contains("play"))) {
+            startStatusMode(); return
+        }
 
         if (n.contains("gudgudi") || n.contains("tickle")) { tickle(); return }
         if (n.contains("dance") || n.contains("naach") || n.contains("naacho")) { dance(); return }
@@ -676,6 +697,47 @@ class OverlayService : Service() {
             web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(web)
         } catch (e: Exception) {}
+    }
+
+    private fun startStatusMode() {
+        val acc = MitraAccessibilityService.instance
+        if (acc == null) { setMood(R.drawable.char_sad, "Status ke liye Accessibility ON karo"); return }
+        statusMode = true
+        skipRequested = false
+        setMood(R.drawable.char_think, "WhatsApp status khol raha hoon...")
+        Thread {
+            val count = acc.openStatusTabAndFirst()
+            if (count < 0) {
+                main.post { statusMode = false; setMood(R.drawable.char_sad, "WhatsApp status nahi khula") }
+                return@Thread
+            }
+            if (count == 0) {
+                main.post { statusMode = false; setMood(R.drawable.char_sad, "Aaj kisi ne status nahi lagaya") }
+                try { acc.home() } catch (e: Exception) {}
+                return@Thread
+            }
+            main.post { setMood(R.drawable.char_think, "$count logon ne status lagaya hai. Dekh raha hoon... ('skip' bolo aage badhne ke liye)") }
+            var seen = 0
+            while (statusMode) {
+                val start = System.currentTimeMillis()
+                while (statusMode && !skipRequested && System.currentTimeMillis() - start < 5500) {
+                    Thread.sleep(150)
+                }
+                skipRequested = false
+                if (!statusMode) break
+                if (!acc.isInWhatsApp()) break
+                if (acc.isOnStatusList()) break
+                seen++
+                acc.tapRight()
+                Thread.sleep(500)
+            }
+            main.post {
+                statusMode = false
+                if (seen == 0) setMood(R.drawable.char_sad, "Koi status nahi dekha")
+                else setMood(R.drawable.char_laugh, "Bas itne hi logon ne aaj status lagaya hai! ($count log)")
+            }
+            try { acc.home() } catch (e: Exception) {}
+        }.start()
     }
 
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
