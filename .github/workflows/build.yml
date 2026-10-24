@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v2
-          name: Mitra APK v2
-          body: "Cute floating assistant v2 - on/off button, cute permissions popup, AI answers, background running."
+          tag_name: apk-v3
+          name: Mitra APK v3
+          body: "v3 - fixed AI (naya Gemini model), Test AI button, asli error dikhta hai."
           files: app/build/outputs/apk/debug/app-debug.apk

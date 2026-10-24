@@ -66,4 +66,15 @@
         android:textColor="#E7ECFF"
         android:textSize="15sp" />
 
+    <Button
+        android:id="@+id/testBtn"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/btn_soft"
+        android:text="Test AI &#9989;"
+        android:textAllCaps="false"
+        android:textColor="#E7ECFF"
+        android:textSize="15sp" />
+
 </LinearLayout>

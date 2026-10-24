@@ -24,10 +24,6 @@ import android.view.animation.OvershootInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
-import org.json.JSONArray
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.math.abs
 
 class OverlayService : Service() {
@@ -103,7 +99,7 @@ class OverlayService : Service() {
             setBackgroundResource(R.drawable.bubble_bg)
             val p = (12 * resources.displayMetrics.density).toInt()
             setPadding(p, p, p, p)
-            maxWidth = (240 * resources.displayMetrics.density).toInt()
+            maxWidth = (250 * resources.displayMetrics.density).toInt()
         }
         val rlp = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
@@ -264,57 +260,16 @@ class OverlayService : Service() {
             return
         }
         setFace("\uD83E\uDD14", "Soch raha hoon...")
+        val full = "You are Mitra, a cute helpful assistant for a school student in India. " +
+            "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
+            "Question: $prompt"
         Thread {
-            val ans = callGemini(key, prompt)
+            val (ok, text) = Gemini.ask(key, full)
             main.post {
-                if (ans != null) setFace("\uD83E\uDD16", ans.take(240))
-                else setFace("\uD83D\uDE05", "Jawab nahi mila - internet ya key check karo")
+                if (ok) setFace("\uD83E\uDD16", text.take(240))
+                else setFace("\uD83D\uDE05", "AI error: " + text.take(170))
             }
         }.start()
-    }
-
-    private fun callGemini(key: String, prompt: String): String? {
-        return try {
-            val url = URL(
-                "https://generativelanguage.googleapis.com/v1beta/models/" +
-                    "gemini-2.0-flash:generateContent?key=$key"
-            )
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.doOutput = true
-            conn.connectTimeout = 15000
-            conn.readTimeout = 20000
-            val body = JSONObject().apply {
-                put(
-                    "contents",
-                    JSONArray().put(
-                        JSONObject().put(
-                            "parts",
-                            JSONArray().put(
-                                JSONObject().put(
-                                    "text",
-                                    "You are Mitra, a cute helpful assistant for a school student in India. " +
-                                        "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
-                                        "Question: $prompt"
-                                )
-                            )
-                        )
-                    )
-                )
-            }.toString()
-            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val resp = stream?.bufferedReader()?.readText() ?: ""
-            if (code in 200..299) {
-                JSONObject(resp).getJSONArray("candidates").getJSONObject(0)
-                    .getJSONObject("content").getJSONArray("parts").getJSONObject(0)
-                    .getString("text").trim()
-            } else null
-        } catch (e: Exception) {
-            null
-        }
     }
 
     private fun tryOpen(t: String): String? {

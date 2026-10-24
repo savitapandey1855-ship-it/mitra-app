@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
         toggleBtn = findViewById(R.id.toggleBtn)
         findViewById<Button>(R.id.permBtn).setOnClickListener { showPermDialog() }
         findViewById<Button>(R.id.keyBtn).setOnClickListener { showKeyDialog() }
+        findViewById<Button>(R.id.testBtn).setOnClickListener { testAi() }
         toggleBtn.setOnClickListener {
             if (isRunning()) stopMitra() else tryStart()
         }
@@ -116,20 +117,37 @@ class MainActivity : AppCompatActivity() {
     private fun showKeyDialog() {
         val input = EditText(this)
         input.inputType = InputType.TYPE_CLASS_TEXT
-        input.hint = "AIza... (Gemini key)"
+        input.hint = "AQ... ya AIza... (Gemini key)"
         input.setText(prefs.getString("gemini_key", ""))
         AlertDialog.Builder(this)
             .setTitle("Gemini API key \uD83D\uDD11")
             .setMessage("Ye key sirf aapke phone me rehti hai, kisi ko nahi jaati.\n" +
                 "Free key: aistudio.google.com/app/apikey\n" +
-                "(Bina key ke bhi apps khulenge, bas AI jawab nahi dega.)")
+                "Save ke baad 'Test AI' dabao.")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
                 prefs.edit().putString("gemini_key", input.text.toString().trim()).apply()
-                Toast.makeText(this, "Save ho gayi \u2705", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Save ho gayi \u2705 - ab Test AI dabao", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun testAi() {
+        val key = prefs.getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) {
+            Toast.makeText(this, "Pehle Gemini key daalo \uD83D\uDD11", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, "Check kar raha hoon...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val (ok, text) = Gemini.ask(key, "Reply with exactly one word: OK")
+            runOnUiThread {
+                val msg = if (ok) "AI chal raha hai \u2705\n$text"
+                else "AI error \u274C\n$text"
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+            }
+        }.start()
     }
 
     override fun onRequestPermissionsResult(

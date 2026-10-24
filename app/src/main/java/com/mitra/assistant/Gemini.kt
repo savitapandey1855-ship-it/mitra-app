@@ -1,0 +1,95 @@
+package com.mitra.assistant
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+/**
+ * Small helper to talk to the Gemini API.
+ * Tries several current model names until one works, and returns the real error text.
+ */
+object Gemini {
+
+    // Naye models pehle, purane baad me (purane band ho chuke hain).
+    private val MODELS = listOf(
+        "gemini-flash-latest",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash"
+    )
+
+    /** Returns Pair(ok, text). On failure, text is a short readable error. */
+    fun ask(key: String, prompt: String): Pair<Boolean, String> {
+        var last = "koi model kaam nahi kiya"
+        for (m in MODELS) {
+            val r = call(key, m, prompt)
+            if (r.first) return r
+            last = r.second
+            val e = r.second.lowercase()
+            // Agar key hi galat hai to doosre model try karne ka fayda nahi.
+            if (e.contains("api key not valid") || e.contains("api_key_invalid") ||
+                e.contains("permission_denied") || e.contains("leaked") ||
+                e.contains("unauthenticated")
+            ) return r
+        }
+        return Pair(false, last)
+    }
+
+    private fun call(key: String, model: String, prompt: String): Pair<Boolean, String> {
+        return try {
+            val url = URL(
+                "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
+            )
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("x-goog-api-key", key)
+            conn.doOutput = true
+            conn.connectTimeout = 15000
+            conn.readTimeout = 25000
+            val body = JSONObject().apply {
+                put(
+                    "contents",
+                    JSONArray().put(
+                        JSONObject().put(
+                            "parts",
+                            JSONArray().put(JSONObject().put("text", prompt))
+                        )
+                    )
+                )
+                put("generationConfig", JSONObject().put("maxOutputTokens", 300))
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val resp = stream?.bufferedReader()?.readText() ?: ""
+
+            if (code in 200..299) {
+                val parts = JSONObject(resp)
+                    .getJSONArray("candidates").getJSONObject(0)
+                    .getJSONObject("content").getJSONArray("parts")
+                val sb = StringBuilder()
+                for (i in 0 until parts.length()) {
+                    val p = parts.getJSONObject(i)
+                    if (!p.optBoolean("thought", false) && p.has("text")) {
+                        sb.append(p.getString("text"))
+                    }
+                }
+                val txt = sb.toString().trim()
+                if (txt.isEmpty()) Pair(false, "$model: khali jawab") else Pair(true, txt)
+            } else {
+                val msg = try {
+                    JSONObject(resp).getJSONObject("error").getString("message")
+                } catch (e: Exception) {
+                    "HTTP $code"
+                }
+                Pair(false, "$model -> $msg")
+            }
+        } catch (e: Exception) {
+            Pair(false, "$model -> ${e.message}")
+        }
+    }
+}
