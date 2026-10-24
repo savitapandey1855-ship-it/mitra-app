@@ -1,5 +1,8 @@
 package com.mitra.assistant
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -56,8 +59,9 @@ class OverlayService : Service() {
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var busy = false
 
-    // tickle (gudgudi) detection
+    // tickle detection
     private var lastX = 0f
     private var lastDir = 0
     private var flips = 0
@@ -167,7 +171,6 @@ class OverlayService : Service() {
                     startTouchX = e.rawX; startTouchY = e.rawY
                     moved = false
                     lastX = e.rawX; lastDir = 0
-                    // rapid taps -> gudgudi
                     val now = System.currentTimeMillis()
                     tapTimes.add(now)
                     tapTimes.removeAll { now - it > 1800 }
@@ -184,7 +187,6 @@ class OverlayService : Service() {
                     params.x = startX + dx
                     params.y = startY + dy
                     wm.updateViewLayout(root, params)
-                    // rubbing back-and-forth -> gudgudi
                     val now = System.currentTimeMillis()
                     if (now - flipWindowStart > 1600) { flipWindowStart = now; flips = 0 }
                     val d = e.rawX - lastX
@@ -230,7 +232,42 @@ class OverlayService : Service() {
         }
     }
 
-    // ---------- Tickle / laugh ----------
+    // ---------- Movement (ludhak kar jana) ----------
+    private fun glideTo(centerX: Int, centerY: Int, then: (() -> Unit)? = null) {
+        val dm = resources.displayMetrics
+        val half = dp(37)
+        val ex = (centerX - half).coerceIn(dp(2), dm.widthPixels - dp(78)).toFloat()
+        val ey = (centerY - half).coerceIn(dp(2), dm.heightPixels - dp(120)).toFloat()
+        val sx = params.x.toFloat()
+        val sy = params.y.toFloat()
+        val anim = ValueAnimator.ofFloat(0f, 1f)
+        anim.duration = 650
+        anim.addUpdateListener { a ->
+            val f = a.animatedValue as Float
+            params.x = (sx + (ex - sx) * f).toInt()
+            params.y = (sy + (ey - sy) * f).toInt()
+            try { wm.updateViewLayout(root, params) } catch (e: Exception) {}
+        }
+        anim.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(a: Animator?) { then?.invoke() }
+        })
+        anim.start()
+    }
+
+    /** Ludhak kar target tak jao, phir kaam karo (click/type). */
+    private fun glideAndDo(centerX: Int, centerY: Int, say: String, action: () -> Boolean) {
+        busy = true
+        face.animate().rotation(face.rotation + 540f).setDuration(650).start()
+        setMood(R.drawable.char_happy)
+        glideTo(centerX, centerY) {
+            face.rotation = 0f
+            val ok = action()
+            busy = false
+            if (ok) setMood(R.drawable.char_laugh, say) else setMood(R.drawable.char_sad, "Wahan kaam nahi hua")
+        }
+    }
+
+    // ---------- Fun animations ----------
     private fun tickle() {
         if (sleeping) { wakeUp(); return }
         tickleCooldownUntil = System.currentTimeMillis() + 2500
@@ -246,6 +283,29 @@ class OverlayService : Service() {
         wobble()
         vibrate(70)
         speakLaugh()
+    }
+
+    private fun dance() {
+        setMood(R.drawable.char_laugh, pick("Yay! Dance time!", "Dekho meri dance!", "Nacho nacho!"))
+        val bounce = android.animation.ObjectAnimator.ofFloat(face, "translationY", 0f, -18f, 0f)
+        bounce.duration = 360; bounce.repeatCount = 6
+        val spin = android.animation.ObjectAnimator.ofFloat(face, "rotation", 0f, 360f)
+        spin.duration = 360; spin.repeatCount = 6
+        bounce.start(); spin.start()
+        vibrate(120)
+        speakLaugh()
+    }
+
+    private fun jump() {
+        setMood(R.drawable.char_happy, pick("Uchak! Kya masti!", "Jump!", "Uppar!"))
+        face.animate().translationY(-34f).setDuration(170).withEndAction {
+            face.animate().translationY(0f).setDuration(230).start()
+        }.start()
+    }
+
+    private fun spin() {
+        setMood(R.drawable.char_happy, pick("Chakkar! Dizzy!", "Ghoom raha hoon!", "Wheee!"))
+        face.animate().rotation(face.rotation + 1080f).setDuration(900).start()
     }
 
     private fun wobble() {
@@ -306,7 +366,7 @@ class OverlayService : Service() {
 
     private fun onTap() {
         if (sleeping) { wakeUp(); return }
-        if (listening) return
+        if (listening || busy) return
         if (recognizer == null) initRecognizer()
         val r = recognizer ?: return
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -343,9 +403,7 @@ class OverlayService : Service() {
         face.scaleY = 1f
         setMood(R.drawable.char_wake, "Kya hua?! Main chauk gaya!")
         try { recognizer?.cancel() } catch (e: Exception) {}
-        main.postDelayed({
-            if (!sleeping) setMood(R.drawable.char_idle)
-        }, 2600)
+        main.postDelayed({ if (!sleeping) setMood(R.drawable.char_idle) }, 2600)
     }
 
     private fun startSleepMonitor() {
@@ -390,7 +448,7 @@ class OverlayService : Service() {
         sleepThread = null
     }
 
-    // ---------- Canned / offline answers ----------
+    // ---------- Canned / offline ----------
     private fun pick(vararg opts: String): String = opts[(Math.random() * opts.size).toInt()]
 
     private fun batteryText(): String {
@@ -433,8 +491,6 @@ class OverlayService : Service() {
             return "Main to bas battery aur pyaar khaata hoon!"
         if (n.contains("favouritecolour") || n.contains("favouritecolor") || n.contains("favourite"))
             return "Mujhe neela aur purple bahut pasand hai - jaise mera face!"
-        if (n.contains("where") && (n.contains("rehte") || n.contains("live")))
-            return "Main tumhare phone me rehta hoon, hamesha paas!"
         if (n.contains("thank") || n.contains("shukriya") || n.contains("dhanyavad"))
             return pick("Arre, koi baat nahi!", "Koi baat nahi, khushi hui!")
         if (n == "sorry" || n.contains("sorry"))
@@ -452,7 +508,7 @@ class OverlayService : Service() {
         if (n.contains("goodluck") || n.contains("allthebest"))
             return "All the best! Tum zaroor kar loge!"
         if (n.contains("bored") || n.contains("bore") || n.contains("boring"))
-            return pick("Chalo 'joke' bolo ya 'shayari' - maza aayega!", "Bolo 'coin' ya 'dice' - khelte hain!")
+            return pick("Chalo 'joke' bolo ya 'shayari' - maza aayega!", "Bolo 'dance' ya 'coin' - khelte hain!")
         if (n.contains("joke") || n.contains("chutkula") || n.contains("hasao") || n.contains("hasana"))
             return pick(
                 "Teacher: Homework kahan hai? Student: Sir, WiFi ne saath chhod diya!",
@@ -488,8 +544,8 @@ class OverlayService : Service() {
             )
         if (n.contains("whatcanyoudo") || n.contains("help") || n.contains("madad") ||
             n.contains("kyakarsakte"))
-            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, jokes, " +
-                "shayari, battery, coin-toss - aur sawaalon ke jawab. Bas bolo!"
+            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, search, " +
+                "jokes, shayari, dance, battery, coin-toss - aur sawaalon ke jawab. Bas bolo!"
         if (n == "bye" || n.contains("goodbye") || n.contains("alvida"))
             return pick("Bye! Phir milenge.", "Chalo, phir milte hain!")
         if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
@@ -513,13 +569,17 @@ class OverlayService : Service() {
         val acc = MitraAccessibilityService.instance
 
         if (n.contains("gudgudi") || n.contains("tickle")) { tickle(); return }
-
-        if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") {
-            sleep(); return
+        if (n.contains("dance") || n.contains("naach") || n.contains("naacho")) { dance(); return }
+        if (n.contains("jump") || n.contains("uchlo") || n.contains("uchak") || n.contains("kud")) { jump(); return }
+        if (n.contains("spin") || n.contains("ghumo") || n.contains("chakkar")) { spin(); return }
+        if (n.contains("kahanho") || n.contains("whereareyou") || n.contains("kahaaho")) {
+            val dm = resources.displayMetrics
+            setMood(R.drawable.char_happy, "Yahan hoon! Main tumhare paas hi hoon.")
+            glideTo(dm.widthPixels / 2, dm.heightPixels / 3)
+            return
         }
-        if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) {
-            wakeUp(); return
-        }
+        if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") { sleep(); return }
+        if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) { wakeUp(); return }
 
         val wa = parseWhatsApp(t)
         if (wa != null) {
@@ -541,6 +601,24 @@ class OverlayService : Service() {
             return
         }
 
+        // YouTube search
+        val ytQ = after(t, listOf("youtube pe ", "youtube par "))
+        if (ytQ != null) {
+            val url = "https://www.youtube.com/results?search_query=" + android.net.Uri.encode(ytQ)
+            openUrl(url)
+            setMood(R.drawable.char_happy, "YouTube pe \"$ytQ\" dhoondh raha hoon")
+            return
+        }
+
+        // Google search
+        val searchQ = after(t, listOf("search ", "dhundo ", "google karo ", "google search "))
+        if (searchQ != null) {
+            val url = "https://www.google.com/search?q=" + android.net.Uri.encode(searchQ)
+            openUrl(url)
+            setMood(R.drawable.char_happy, "Google pe \"$searchQ\" search kar raha hoon")
+            return
+        }
+
         val opened = tryOpen(t, n)
         if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
 
@@ -553,16 +631,31 @@ class OverlayService : Service() {
                 return
             }
         } else {
-            if (after(t, listOf("type ", "likho ", "likh "))?.let { acc.typeText(it) } == true) {
-                setMood(R.drawable.char_happy, "Type kar diya"); return
+            // Type -> ludhak kar input box tak, phir type
+            val typeWhat = after(t, listOf("type ", "likho ", "likh "))
+            if (typeWhat != null) {
+                val ctr = acc.centerOfFocusedEditable()
+                if (ctr != null) {
+                    glideAndDo(ctr[0], ctr[1], "Type kar diya!") { acc.typeText(typeWhat) }
+                } else {
+                    if (acc.typeText(typeWhat)) setMood(R.drawable.char_laugh, "Type kar diya!")
+                    else setMood(R.drawable.char_sad, "Koi input box nahi mila")
+                }
+                return
             }
             if (n.contains("paste") || n.contains("chipka")) {
-                if (acc.paste()) { setMood(R.drawable.char_happy, "Paste kar diya"); return }
+                if (acc.paste()) { setMood(R.drawable.char_laugh, "Paste kar diya!"); return }
             }
+            // Click -> ludhak kar us jagah, phir click
             val clickWhat = after(t, listOf("click ", "tap "))
             if (clickWhat != null) {
-                if (acc.clickByText(clickWhat)) { setMood(R.drawable.char_happy, "Click kar diya"); return }
-                else { setMood(R.drawable.char_sad, "\"$clickWhat\" nahi mila screen pe"); return }
+                val ctr = acc.centerOfText(clickWhat)
+                if (ctr != null) {
+                    glideAndDo(ctr[0], ctr[1], "Click kar diya!") { acc.clickByText(clickWhat) }
+                } else {
+                    setMood(R.drawable.char_sad, "\"$clickWhat\" nahi mila screen pe")
+                }
+                return
             }
             if (n == "back" || n.contains("goback") || n.contains("peeche")) { acc.back(); setMood(R.drawable.char_happy, "Peeche"); return }
             if (n == "home" || n.contains("gohome") || n.contains("ghar")) { acc.home(); setMood(R.drawable.char_happy, "Home"); return }
@@ -571,6 +664,16 @@ class OverlayService : Service() {
         }
 
         askAI(text)
+    }
+
+    private fun openUrl(url: String) {
+        val acc = MitraAccessibilityService.instance
+        if (acc != null && acc.openUrl(url)) return
+        try {
+            val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(web)
+        } catch (e: Exception) {}
     }
 
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {

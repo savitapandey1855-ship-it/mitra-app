@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v8
-          name: Bublu APK v8
-          body: "v8 - tickle/laugh (gudgudi), many more offline answers (jokes, shayari, battery, coin, dice)."
+          tag_name: apk-v9
+          name: Bublu APK v9
+          body: "v9 - rolling movement to click/type target, dance/jump/spin, search commands."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -2,6 +2,7 @@ package com.mitra.assistant
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
@@ -39,7 +40,6 @@ class MitraAccessibilityService : AccessibilityService() {
         return setNodeText(target, newText)
     }
 
-    // ---------- Set text (replace) ----------
     fun setTextFocused(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
@@ -82,6 +82,26 @@ class MitraAccessibilityService : AccessibilityService() {
             depth++
         }
         return false
+    }
+
+    // ---------- Target location (Bublu wahan ludhak kar jayega) ----------
+    fun centerOfText(text: String): IntArray? {
+        val root = rootInActiveWindow ?: return null
+        val n = findNode(root) { it.text?.toString()?.contains(text, true) == true } ?: return null
+        return centerOf(n)
+    }
+
+    fun centerOfFocusedEditable(): IntArray? {
+        val root = rootInActiveWindow ?: return null
+        val n = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return null
+        return centerOf(n)
+    }
+
+    private fun centerOf(n: AccessibilityNodeInfo): IntArray? {
+        val r = Rect()
+        n.getBoundsInScreen(r)
+        if (r.width() <= 0 || r.height() <= 0) return null
+        return intArrayOf(r.centerX(), r.centerY())
     }
 
     // ---------- Global ----------
@@ -133,32 +153,25 @@ class MitraAccessibilityService : AccessibilityService() {
             if (!openApp("com.whatsapp")) return false
             Thread.sleep(3000)
 
-            // 1) Search button kholo
             if (!clickByDesc("Search") && !clickByText("Search")) {
-                // kuch versions me search icon alag hota hai; try "Search or start"
                 clickByDesc("Search or start new chat")
             }
             Thread.sleep(900)
 
-            // 2) Contact ka naam type karo
             if (!setTextFocused(contact)) return false
             Thread.sleep(1800)
 
-            // 3) Pehla result (contact) click karo
             if (!clickByText(contact)) return false
             Thread.sleep(1600)
 
-            // 4) Message type karo
             if (!setTextFocused(message)) return false
             Thread.sleep(700)
 
-            // 5) Send
             if (!clickByDesc("Send")) {
                 clickByText("Send")
             }
             Thread.sleep(700)
 
-            // 6) Wapas home
             home()
             true
         } catch (e: Exception) {
