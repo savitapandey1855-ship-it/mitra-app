@@ -53,6 +53,8 @@ class OverlayService : Service() {
     private lateinit var reply: TextView
     private lateinit var thinkBubble: ImageView
     private var thinkAnim: ObjectAnimator? = null
+    private var moodSeq = 0
+    private var revertRunnable: Runnable? = null
     private lateinit var params: WindowManager.LayoutParams
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
@@ -252,6 +254,8 @@ class OverlayService : Service() {
     }
 
     private fun setMood(resId: Int, say: String? = null) {
+        moodSeq++
+        val mySeq = moodSeq
         face.setImageResource(resId)
         pop()
         if (resId == R.drawable.char_think) {
@@ -274,6 +278,20 @@ class OverlayService : Service() {
         } else {
             reply.text = say
             reply.visibility = View.VISIBLE
+        }
+        // Kaam ke baad thodi der me wapas normal
+        revertRunnable?.let { main.removeCallbacks(it) }
+        if (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
+            resId == R.drawable.char_sad || resId == R.drawable.char_wake
+        ) {
+            val r = Runnable {
+                if (moodSeq == mySeq) {
+                    face.setImageResource(R.drawable.char_idle)
+                    reply.visibility = View.GONE
+                }
+            }
+            revertRunnable = r
+            main.postDelayed(r, 3000)
         }
     }
 

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v23
-          name: Bublu APK v23
-          body: "v23 - Archived flow: look first (no scroll), then scroll, then back, then search; match name by text or description."
+          tag_name: apk-v24
+          name: Bublu APK v24
+          body: "v24 - after finishing a task, Bublu returns to its normal (idle) reaction after a few seconds."
           files: app/build/outputs/apk/debug/app-debug.apk
