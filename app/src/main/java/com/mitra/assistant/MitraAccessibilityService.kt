@@ -180,7 +180,7 @@ class MitraAccessibilityService : AccessibilityService() {
             val path = Path()
             path.moveTo(x1.toFloat(), y1.toFloat())
             path.lineTo(x2.toFloat(), y2.toFloat())
-            val stroke = GestureDescription.StrokeDescription(path, 0, 260)
+            val stroke = GestureDescription.StrokeDescription(path, 0, 300)
             val g = GestureDescription.Builder().addStroke(stroke).build()
             dispatchGesture(g, null, null)
         } catch (e: Exception) {}
@@ -382,37 +382,45 @@ class MitraAccessibilityService : AccessibilityService() {
         try {
             onStatus("WhatsApp khol raha hoon...")
             if (!openApp("com.whatsapp")) { onStatus("WhatsApp nahi khula"); return false }
-            Thread.sleep(3000)
+            Thread.sleep(3200)
 
-            onStatus("Search khol raha hoon...")
-            if (!clickByDesc("Search") && !clickByText("Search")) {
-                clickByDesc("Search or start new chat")
+            if (isInChat()) { back(); Thread.sleep(1200) }
+
+            var opened = false
+
+            // 1) Home (chat list) me dhoondho
+            onStatus("Chat list me $contact dhoondh raha hoon...")
+            opened = findInChatList(contact)
+
+            // 2) Archived me dhoondho
+            if (!opened) {
+                onStatus("Archived me dhoondh raha hoon...")
+                scrollTop()
+                Thread.sleep(800)
+                if (clickArchived()) {
+                    Thread.sleep(1600)
+                    opened = findInChatList(contact)
+                    if (!opened) { back(); Thread.sleep(1000) }
+                }
             }
-            Thread.sleep(1000)
 
-            onStatus("$contact dhoondh raha hoon...")
-            if (!setTextFocused(contact)) { onStatus("Search box nahi mila"); return false }
-            Thread.sleep(2000)
-
-            if (!openFirstChatResult(contact)) {
-                onStatus("Thoda neeche scroll karke dekhta hoon...")
-                scrollResults()
-                Thread.sleep(1300)
+            // 3) Search se dhoondho
+            if (!opened) {
+                onStatus("Search se dhoondh raha hoon...")
+                opened = searchAndOpen(contact)
             }
-            if (!openFirstChatResult(contact)) {
+
+            if (!opened) {
                 onStatus("Are! $contact mila hi nahi")
                 try { back() } catch (e: Exception) {}
                 return false
             }
-            Thread.sleep(1900)
 
+            Thread.sleep(1600)
             if (!isInChat()) {
-                if (openFirstChatResult(contact)) Thread.sleep(1800)
+                if (openFirstChatResult(contact)) Thread.sleep(1600)
             }
-            if (!isInChat()) {
-                onStatus("$contact ki chat nahi khul payi")
-                return false
-            }
+            if (!isInChat()) { onStatus("$contact ki chat nahi khuli"); return false }
 
             onStatus("Message likh raha hoon...")
             val box = findChatInput()
@@ -434,6 +442,50 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             return false
         }
+    }
+
+    /** Chat list me naam dhoondho (scroll karke bhi). Mile to chat kholo. */
+    private fun findInChatList(contact: String): Boolean {
+        for (i in 0 until 6) {
+            if (openFirstChatResult(contact)) return true
+            scrollResults()
+            Thread.sleep(900)
+        }
+        return false
+    }
+
+    private fun clickArchived(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val n = findNode(root) {
+            val tx = it.text?.toString()?.lowercase() ?: ""
+            val dc = it.contentDescription?.toString()?.lowercase() ?: ""
+            tx.contains("archived") || dc.contains("archived")
+        } ?: return false
+        return clickNode(n)
+    }
+
+    private fun scrollTop() {
+        val root = rootInActiveWindow ?: return
+        val s = findNode(root) { it.isScrollable } ?: return
+        for (i in 0 until 4) {
+            s.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+            Thread.sleep(350)
+        }
+    }
+
+    /** Search se kholo. */
+    private fun searchAndOpen(contact: String): Boolean {
+        if (!clickByDesc("Search") && !clickByText("Search")) {
+            clickByDesc("Search or start new chat")
+        }
+        Thread.sleep(1100)
+        if (!setTextFocused(contact)) return false
+        Thread.sleep(2000)
+        if (!openFirstChatResult(contact)) {
+            scrollResults()
+            Thread.sleep(1200)
+        }
+        return openFirstChatResult(contact)
     }
 
     private fun openFirstChatResult(contact: String): Boolean {

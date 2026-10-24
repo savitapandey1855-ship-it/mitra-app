@@ -329,6 +329,14 @@ class OverlayService : Service() {
         }
     }
 
+    /** Scroll ke liye: seedha (sirf upar-neeche jhool), tirchha nahi. */
+    private fun nudgeScroll(action: () -> Unit) {
+        action()
+        face.animate().translationY(-9f).setDuration(110).withEndAction {
+            face.animate().translationY(0f).setDuration(140).start()
+        }.start()
+    }
+
     // ---------- Fun animations ----------
     private fun tickle() {
         if (sleeping) { wakeUp(); return }
@@ -684,10 +692,10 @@ class OverlayService : Service() {
                         main.post { if (ok) setMood(R.drawable.char_laugh, "Shorts chalu!") else setMood(R.drawable.char_sad, "Shorts nahi khula") }
                     }.start()
                 }
-                n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { rollAround { acc.scrollDown() }; setMood(R.drawable.char_happy, "Neeche") }
-                n.contains("scrollup") || n.contains("upar") -> { rollAround { acc.scrollUp() }; setMood(R.drawable.char_happy, "Upar") }
-                n.contains("prev") || n.contains("pichl") -> { rollAround { acc.swipeDown() }; setMood(R.drawable.char_happy, "Pichla") }
-                else -> { rollAround { acc.swipeUp() }; setMood(R.drawable.char_happy, "Agla") }
+                n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { nudgeScroll { acc.scrollDown() }; setMood(R.drawable.char_happy, "Neeche") }
+                n.contains("scrollup") || n.contains("upar") -> { nudgeScroll { acc.scrollUp() }; setMood(R.drawable.char_happy, "Upar") }
+                n.contains("prev") || n.contains("pichl") -> { nudgeScroll { acc.swipeDown() }; setMood(R.drawable.char_happy, "Pichla") }
+                else -> { nudgeScroll { acc.swipeUp() }; setMood(R.drawable.char_happy, "Agla") }
             }
             return
         }
@@ -1153,10 +1161,10 @@ class OverlayService : Service() {
                     true
                 }
             }
-            "SCROLL_DOWN" -> { acc?.let { a -> rollAround { a.scrollDown() } }; setMood(R.drawable.char_happy, "Neeche"); true }
-            "SCROLL_UP" -> { acc?.let { a -> rollAround { a.scrollUp() } }; setMood(R.drawable.char_happy, "Upar"); true }
-            "NEXT" -> { acc?.let { a -> rollAround { a.swipeUp() } }; setMood(R.drawable.char_happy, "Agla"); true }
-            "PREV" -> { acc?.let { a -> rollAround { a.swipeDown() } }; setMood(R.drawable.char_happy, "Pichla"); true }
+            "SCROLL_DOWN" -> { acc?.let { a -> nudgeScroll { a.scrollDown() } }; setMood(R.drawable.char_happy, "Neeche"); true }
+            "SCROLL_UP" -> { acc?.let { a -> nudgeScroll { a.scrollUp() } }; setMood(R.drawable.char_happy, "Upar"); true }
+            "NEXT" -> { acc?.let { a -> nudgeScroll { a.swipeUp() } }; setMood(R.drawable.char_happy, "Agla"); true }
+            "PREV" -> { acc?.let { a -> nudgeScroll { a.swipeDown() } }; setMood(R.drawable.char_happy, "Pichla"); true }
             "SEARCH" -> { openUrl("https://www.google.com/search?q=" + android.net.Uri.encode(arg)); setMood(R.drawable.char_happy, "Search kar raha hoon"); true }
             "ANSWER" -> { askAI(if (arg.isNotBlank()) arg else original); true }
             "WHATSAPP" -> {
