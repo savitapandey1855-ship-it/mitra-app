@@ -443,13 +443,18 @@ class MitraAccessibilityService : AccessibilityService() {
 
             onStatus("Bhej raha hoon...")
             if (!clickByDesc("Send")) clickByText("Send")
-            Thread.sleep(1000)
-
-            val empty = try { findChatInput()?.text?.toString().isNullOrBlank() } catch (e: Exception) { true }
-            onStatus(if (empty) "Ho gaya! Wapas ja raha hoon..." else "Send shayad nahi hua...")
+            Thread.sleep(1300)
+            var sent = boxEmptyOrGone()
+            if (!sent) {
+                if (!clickByDesc("Send")) clickByText("Send")
+                Thread.sleep(1300)
+                sent = boxEmptyOrGone()
+            }
+            if (!sent) sent = lastMessageIs(message)
+            onStatus(if (sent) "Ho gaya! Wapas ja raha hoon..." else "Send confirm nahi hua...")
 
             home()
-            return empty
+            return sent
         } catch (e: Exception) {
             return false
         }
@@ -541,6 +546,26 @@ class MitraAccessibilityService : AccessibilityService() {
         for (i in 0 until node.childCount) {
             node.getChild(i)?.let { collectRows(it, q, out) }
         }
+    }
+
+    private fun boxEmptyOrGone(): Boolean {
+        val box = findChatInput()
+        return box == null || box.text?.toString().isNullOrBlank()
+    }
+
+    /** Chat me hamara bheja hua message (bubble) dikh raha hai? */
+    private fun lastMessageIs(text: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val dm = resources.displayMetrics
+        val list = try { root.findAccessibilityNodeInfosByText(text) } catch (e: Exception) { null } ?: return false
+        for (n in list) {
+            if (n.isEditable) continue
+            val t = n.text?.toString()?.trim() ?: continue
+            if (!t.equals(text.trim(), true)) continue
+            val r = Rect(); n.getBoundsInScreen(r)
+            if (r.top > dm.heightPixels * 0.45) return true
+        }
+        return false
     }
 
     private fun findChatInput(): AccessibilityNodeInfo? {

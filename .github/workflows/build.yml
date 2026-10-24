@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v25
-          name: Bublu APK v25
-          body: "v25 - bug fixes: busy/listening stuck-safety timeouts; app list cached in background (no main-thread freeze)."
+          tag_name: apk-v26
+          name: Bublu APK v26
+          body: "v26 - WhatsApp send confirmation fixed (retry + sent-bubble check), so it no longer says 'flow not complete' after a successful send."
           files: app/build/outputs/apk/debug/app-debug.apk

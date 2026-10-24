@@ -910,7 +910,7 @@ class OverlayService : Service() {
             }
             main.post {
                 if (ok) setMood(R.drawable.char_laugh, "Done! $contact ko \"$message\" bhej diya")
-                else setMood(R.drawable.char_sad, "WhatsApp flow poora nahi hua, phir try karo")
+                else setMood(R.drawable.char_sad, "Send confirm nahi hua - WhatsApp me ek baar check kar lo")
             }
         }.start()
     }
