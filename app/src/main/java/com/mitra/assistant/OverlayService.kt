@@ -21,6 +21,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
@@ -34,7 +35,7 @@ class OverlayService : Service() {
 
     private lateinit var wm: WindowManager
     private lateinit var root: LinearLayout
-    private lateinit var bubble: TextView
+    private lateinit var face: ImageView
     private lateinit var reply: TextView
     private lateinit var params: WindowManager.LayoutParams
     private var recognizer: SpeechRecognizer? = null
@@ -74,8 +75,8 @@ class OverlayService : Service() {
         )
         val notif = NotificationCompat.Builder(this, chId)
             .setContentTitle("Mitra chal raha hai")
-            .setContentText("Bubble pe tap karke bolo")
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setContentText("Character pe tap karke bolo")
+            .setSmallIcon(R.drawable.ic_notif)
             .setOngoing(true)
             .addAction(0, "Band karo", pi)
             .build()
@@ -85,6 +86,8 @@ class OverlayService : Service() {
             startForeground(1, notif)
         }
     }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun buildOverlay() {
         root = LinearLayout(this).apply {
@@ -97,27 +100,19 @@ class OverlayService : Service() {
             textSize = 13f
             setTextColor(0xFF3A2E5A.toInt())
             setBackgroundResource(R.drawable.bubble_bg)
-            val p = (12 * resources.displayMetrics.density).toInt()
-            setPadding(p, p, p, p)
-            maxWidth = (250 * resources.displayMetrics.density).toInt()
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            maxWidth = dp(230)
         }
         val rlp = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         )
-        rlp.bottomMargin = (8 * resources.displayMetrics.density).toInt()
+        rlp.bottomMargin = dp(6)
         root.addView(reply, rlp)
 
-        bubble = TextView(this).apply {
-            text = "\uD83D\uDE0A"
-            textSize = 34f
-            gravity = Gravity.CENTER
-            setBackgroundResource(R.drawable.bubble_circle)
-            val p = (14 * resources.displayMetrics.density).toInt()
-            setPadding(p, p, p, p)
+        face = ImageView(this).apply {
+            setImageResource(R.drawable.char_idle)
         }
-        root.addView(bubble, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
+        root.addView(face, LinearLayout.LayoutParams(dp(74), dp(74)))
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -170,15 +165,15 @@ class OverlayService : Service() {
     }
 
     private fun pop() {
-        bubble.animate().scaleX(1.25f).scaleY(1.25f).setDuration(120)
+        face.animate().scaleX(1.22f).scaleY(1.22f).setDuration(120)
             .withEndAction {
-                bubble.animate().scaleX(1f).scaleY(1f)
+                face.animate().scaleX(1f).scaleY(1f)
                     .setInterpolator(OvershootInterpolator()).setDuration(180).start()
             }.start()
     }
 
-    private fun setFace(emoji: String, say: String? = null) {
-        bubble.text = emoji
+    private fun setMood(resId: Int, say: String? = null) {
+        face.setImageResource(resId)
         pop()
         if (say == null) {
             reply.visibility = View.GONE
@@ -190,25 +185,25 @@ class OverlayService : Service() {
 
     private fun initRecognizer() {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            setFace("\uD83D\uDE15", "Mic nahi mila")
+            setMood(R.drawable.char_sad, "Mic nahi mila")
             return
         }
         recognizer = SpeechRecognizer.createSpeechRecognizer(this)
         recognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(p0: Bundle?) { setFace("\uD83D\uDC42") }
+            override fun onReadyForSpeech(p0: Bundle?) { setMood(R.drawable.char_listen) }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(p0: Float) {}
             override fun onBufferReceived(p0: ByteArray?) {}
-            override fun onEndOfSpeech() { setFace("\uD83E\uDD14") }
+            override fun onEndOfSpeech() { setMood(R.drawable.char_think) }
             override fun onError(p0: Int) {
                 listening = false
-                setFace("\uD83D\uDE05", "Samajh nahi aaya, phir bolo")
+                setMood(R.drawable.char_sad, "Samajh nahi aaya, phir bolo")
             }
             override fun onResults(p0: Bundle?) {
                 listening = false
                 val list = p0?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = list?.firstOrNull() ?: ""
-                if (text.isBlank()) setFace("\uD83D\uDE05", "Kuch sunai nahi diya")
+                if (text.isBlank()) setMood(R.drawable.char_sad, "Kuch sunai nahi diya")
                 else handle(text)
             }
             override fun onPartialResults(p0: Bundle?) {}
@@ -225,82 +220,153 @@ class OverlayService : Service() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Bolo...")
         }
-        setFace("\uD83D\uDC42", "Sun raha hoon...")
+        setMood(R.drawable.char_listen, "Sun raha hoon...")
         listening = true
         try {
             r.startListening(i)
         } catch (e: Exception) {
             listening = false
-            setFace("\uD83D\uDE05", "Mic me dikkat")
+            setMood(R.drawable.char_sad, "Mic me dikkat")
         }
     }
 
     private fun handle(text: String) {
-        val t = text.lowercase()
-        val opened = tryOpen(t)
-        if (opened != null) {
-            setFace("\uD83D\uDE04", "Ye lo: $opened")
+        val t = text.lowercase().trim()
+        val n = t.replace(" ", "")   // "you tube" -> "youtube"
+
+        // 1) Apps kholna
+        val opened = tryOpen(t, n)
+        if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
+
+        // 2) Time
+        if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
+            val now = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            setMood(R.drawable.char_happy, "Abhi $now")
             return
         }
-        if (t.contains("time") || t.contains("samay")) {
-            val now = java.text.SimpleDateFormat(
-                "hh:mm a", java.util.Locale.getDefault()
-            ).format(java.util.Date())
-            setFace("\u23F0", "Abhi $now")
-            return
+
+        // 3) Click / type / paste / navigation (accessibility)
+        val acc = MitraAccessibilityService.instance
+        if (acc == null) {
+            if (looksLikeAction(t)) {
+                setMood(R.drawable.char_sad, "Click/type ke liye Settings me Mitra ki Accessibility ON karo")
+                return
+            }
+        } else {
+            if (after(t, listOf("type ", "likho ", "likh "))?.let { acc.typeText(it) } == true) {
+                setMood(R.drawable.char_happy, "Type kar diya"); return
+            }
+            if (n.contains("paste") || n.contains("chipka")) {
+                if (acc.paste()) { setMood(R.drawable.char_happy, "Paste kar diya"); return }
+            }
+            val clickWhat = after(t, listOf("click ", "tap "))
+            if (clickWhat != null) {
+                if (acc.clickByText(clickWhat)) { setMood(R.drawable.char_happy, "Click kar diya"); return }
+                else { setMood(R.drawable.char_sad, "\"$clickWhat\" nahi mila screen pe"); return }
+            }
+            if (n == "back" || n.contains("goback") || n.contains("peeche")) { acc.back(); setMood(R.drawable.char_happy, "Peeche"); return }
+            if (n == "home" || n.contains("gohome") || n.contains("ghar")) { acc.home(); setMood(R.drawable.char_happy, "Home"); return }
+            if (n.contains("recent")) { acc.recents(); setMood(R.drawable.char_happy, "Recent apps"); return }
+            if (n.contains("notification")) { acc.notifications(); setMood(R.drawable.char_happy, "Notifications"); return }
         }
+
+        // 4) Warna AI se poocho
         askAI(text)
+    }
+
+    private fun looksLikeAction(t: String): Boolean {
+        return t.startsWith("type ") || t.contains(" type ") || t.contains("paste") ||
+            t.contains("click ") || t.contains("chipka") || t.contains("likho")
+    }
+
+    /** keyword ke baad ka text nikaalo */
+    private fun after(t: String, keys: List<String>): String? {
+        for (k in keys) {
+            val i = t.indexOf(k)
+            if (i >= 0) {
+                val v = t.substring(i + k.length).trim()
+                if (v.isNotBlank()) return v
+            }
+        }
+        return null
+    }
+
+    private fun tryOpen(t: String, n: String): String? {
+        val known = listOf(
+            Triple("youtube", "com.google.android.youtube", "YouTube"),
+            Triple("whatsapp", "com.whatsapp", "WhatsApp"),
+            Triple("instagram", "com.instagram.android", "Instagram"),
+            Triple("gmail", "com.google.android.gm", "Gmail"),
+            Triple("chrome", "com.android.chrome", "Chrome"),
+            Triple("spotify", "com.spotify.music", "Spotify"),
+            Triple("maps", "com.google.android.apps.maps", "Maps"),
+            Triple("settings", "com.android.settings", "Settings")
+        )
+        for ((key, pkg, name) in known) {
+            if (n.contains(key)) return launchPkg(pkg, name)
+        }
+        // generic: "open <app>" / "<app> kholo"
+        val m = Regex("(?:open|kholo|khol|launch|start|chalu)\\s+([a-z0-9 ]+)").find(t)
+        if (m != null) {
+            val word = m.groupValues[1]
+                .replace(Regex("\\b(karo|kar|do|de|please|app|application)\\b"), "")
+                .trim()
+            if (word.isNotBlank()) {
+                val found = findInstalled(word)
+                if (found != null) return launchPkg(found.first, found.second)
+            }
+        }
+        return null
+    }
+
+    private fun findInstalled(q: String): Pair<String, String>? {
+        val pm = packageManager
+        val target = q.replace(" ", "").lowercase()
+        for (a in pm.getInstalledApplications(0)) {
+            val label = pm.getApplicationLabel(a).toString()
+            if (label.replace(" ", "").lowercase().contains(target)) {
+                if (pm.getLaunchIntentForPackage(a.packageName) != null) {
+                    return Pair(a.packageName, label)
+                }
+            }
+        }
+        return null
+    }
+
+    private fun launchPkg(pkg: String, name: String): String? {
+        val i = packageManager.getLaunchIntentForPackage(pkg)
+        if (i != null) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try { startActivity(i); return name } catch (e: Exception) {}
+        }
+        val web = Intent(
+            Intent.ACTION_VIEW,
+            android.net.Uri.parse("https://www.google.com/search?q=" + android.net.Uri.encode(name))
+        )
+        web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { startActivity(web); return "$name (web)" } catch (e: Exception) {}
+        return null
     }
 
     private fun askAI(prompt: String) {
         val key = getSharedPreferences("mitra", MODE_PRIVATE)
             .getString("gemini_key", "")?.trim() ?: ""
         if (key.isBlank()) {
-            setFace("\uD83E\uDD14", "\"$prompt\" - AI jawab ke liye app me apni Gemini key daalo")
+            setMood(R.drawable.char_think, "\"$prompt\" - AI ke liye app me Gemini key daalo")
             return
         }
-        setFace("\uD83E\uDD14", "Soch raha hoon...")
+        setMood(R.drawable.char_think, "Soch raha hoon...")
         val full = "You are Mitra, a cute helpful assistant for a school student in India. " +
             "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
             "Question: $prompt"
         Thread {
             val (ok, text) = Gemini.ask(key, full)
             main.post {
-                if (ok) setFace("\uD83E\uDD16", text.take(240))
-                else setFace("\uD83D\uDE05", "AI error: " + text.take(170))
+                if (ok) setMood(R.drawable.char_happy, text.take(240))
+                else setMood(R.drawable.char_sad, "AI error: " + text.take(170))
             }
         }.start()
-    }
-
-    private fun tryOpen(t: String): String? {
-        val apps = listOf(
-            Triple("youtube", "com.google.android.youtube", "YouTube"),
-            Triple("whatsapp", "com.whatsapp", "WhatsApp"),
-            Triple("instagram", "com.instagram.android", "Instagram"),
-            Triple("gmail", "com.google.android.gm", "Gmail"),
-            Triple("chrome", "com.android.chrome", "Chrome"),
-            Triple("camera", "com.android.camera", "Camera"),
-            Triple("settings", "com.android.settings", "Settings"),
-            Triple("spotify", "com.spotify.music", "Spotify"),
-            Triple("maps", "com.google.android.apps.maps", "Maps")
-        )
-        for ((key, pkg, name) in apps) {
-            if (t.contains(key)) {
-                val intent = packageManager.getLaunchIntentForPackage(pkg)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    try { startActivity(intent); return name } catch (e: Exception) {}
-                } else {
-                    val web = Intent(
-                        Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://www.google.com/search?q=$name")
-                    )
-                    web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    try { startActivity(web); return "$name (web)" } catch (e: Exception) {}
-                }
-            }
-        }
-        return null
     }
 
     override fun onDestroy() {

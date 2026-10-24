@@ -4,23 +4,23 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="28dp"
+    android:padding="26dp"
     android:background="@drawable/bg_gradient">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="&#128512;"
-        android:textSize="76sp" />
+    <ImageView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:src="@drawable/char_idle"
+        android:contentDescription="@string/app_name" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
         android:text="Mitra"
         android:textColor="#FFFFFF"
         android:textStyle="bold"
-        android:textSize="34sp" />
+        android:textSize="32sp" />
 
     <TextView
         android:id="@+id/statusTxt"
@@ -35,8 +35,8 @@
     <Button
         android:id="@+id/toggleBtn"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:layout_marginTop="26dp"
+        android:layout_height="58dp"
+        android:layout_marginTop="22dp"
         android:background="@drawable/btn_bg"
         android:text="ON karo"
         android:textAllCaps="false"
@@ -47,10 +47,21 @@
     <Button
         android:id="@+id/permBtn"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="14dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
         android:background="@drawable/btn_soft"
-        android:text="Permissions do &#10024;"
+        android:text="Permissions do"
+        android:textAllCaps="false"
+        android:textColor="#E7ECFF"
+        android:textSize="15sp" />
+
+    <Button
+        android:id="@+id/accBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/btn_soft"
+        android:text="Click/Type permission"
         android:textAllCaps="false"
         android:textColor="#E7ECFF"
         android:textSize="15sp" />
@@ -58,10 +69,10 @@
     <Button
         android:id="@+id/keyBtn"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/btn_soft"
-        android:text="Gemini key &#128273;"
+        android:text="Gemini key"
         android:textAllCaps="false"
         android:textColor="#E7ECFF"
         android:textSize="15sp" />
@@ -69,10 +80,10 @@
     <Button
         android:id="@+id/testBtn"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/btn_soft"
-        android:text="Test AI &#9989;"
+        android:text="Test AI"
         android:textAllCaps="false"
         android:textColor="#E7ECFF"
         android:textSize="15sp" />

@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.permBtn).setOnClickListener { showPermDialog() }
         findViewById<Button>(R.id.keyBtn).setOnClickListener { showKeyDialog() }
         findViewById<Button>(R.id.testBtn).setOnClickListener { testAi() }
+        findViewById<Button>(R.id.accBtn).setOnClickListener { openAccSettings() }
         toggleBtn.setOnClickListener {
             if (isRunning()) stopMitra() else tryStart()
         }
@@ -48,7 +49,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUi() {
         if (isRunning()) {
-            statusTxt.text = "Chal raha hai \u2705\nBubble pe tap karke bolo"
+            statusTxt.text = "Chal raha hai\nCharacter pe tap karke bolo"
             toggleBtn.text = "OFF karo"
         } else {
             statusTxt.text = "Band hai"
@@ -89,6 +90,13 @@ class MainActivity : AppCompatActivity() {
         dlg.show()
     }
 
+    private fun isAccEnabled(): Boolean {
+        val s = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: ""
+        return s.contains(packageName) && s.contains("MitraAccessibilityService")
+    }
+
     private fun grantNext() {
         if (!Settings.canDrawOverlays(this)) {
             startActivityForResult(
@@ -110,8 +118,20 @@ class MainActivity : AppCompatActivity() {
             )
             return
         }
-        Toast.makeText(this, "Sab permissions mil gayi! \uD83C\uDF89", Toast.LENGTH_SHORT).show()
+        if (!isAccEnabled()) {
+            Toast.makeText(this, "Click/type ke liye Mitra ko ON karo", Toast.LENGTH_SHORT).show()
+            openAccSettings()
+            return
+        }
+        Toast.makeText(this, "Sab set! Ab ON karo", Toast.LENGTH_SHORT).show()
         startMitra()
+    }
+
+    private fun openAccSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Toast.makeText(this, "List me 'Mitra' dhoondh ke ON karo", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {}
     }
 
     private fun showKeyDialog() {
@@ -120,14 +140,12 @@ class MainActivity : AppCompatActivity() {
         input.hint = "AQ... ya AIza... (Gemini key)"
         input.setText(prefs.getString("gemini_key", ""))
         AlertDialog.Builder(this)
-            .setTitle("Gemini API key \uD83D\uDD11")
-            .setMessage("Ye key sirf aapke phone me rehti hai, kisi ko nahi jaati.\n" +
-                "Free key: aistudio.google.com/app/apikey\n" +
-                "Save ke baad 'Test AI' dabao.")
+            .setTitle("Gemini API key")
+            .setMessage("Ye key sirf aapke phone me rehti hai.\nFree key: aistudio.google.com/app/apikey")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
                 prefs.edit().putString("gemini_key", input.text.toString().trim()).apply()
-                Toast.makeText(this, "Save ho gayi \u2705 - ab Test AI dabao", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Save ho gayi - ab Test AI dabao", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -136,15 +154,14 @@ class MainActivity : AppCompatActivity() {
     private fun testAi() {
         val key = prefs.getString("gemini_key", "")?.trim() ?: ""
         if (key.isBlank()) {
-            Toast.makeText(this, "Pehle Gemini key daalo \uD83D\uDD11", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Pehle Gemini key daalo", Toast.LENGTH_SHORT).show()
             return
         }
         Toast.makeText(this, "Check kar raha hoon...", Toast.LENGTH_SHORT).show()
         Thread {
             val (ok, text) = Gemini.ask(key, "Reply with exactly one word: OK")
             runOnUiThread {
-                val msg = if (ok) "AI chal raha hai \u2705\n$text"
-                else "AI error \u274C\n$text"
+                val msg = if (ok) "AI chal raha hai\n$text" else "AI error\n$text"
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             }
         }.start()

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v3
-          name: Mitra APK v3
-          body: "v3 - fixed AI (naya Gemini model), Test AI button, asli error dikhta hai."
+          tag_name: apk-v4
+          name: Mitra APK v4
+          body: "v4 - click/type/paste (accessibility), fixed app opening, cute 3D character (no emojis), smaller popup."
           files: app/build/outputs/apk/debug/app-debug.apk
