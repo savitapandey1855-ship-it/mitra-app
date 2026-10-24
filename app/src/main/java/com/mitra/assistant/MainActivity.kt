@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.testBtn).setOnClickListener { testAi() }
         findViewById<Button>(R.id.accBtn).setOnClickListener { openAccSettings() }
         findViewById<Button>(R.id.autoBtn).setOnClickListener { openAutostart() }
+        findViewById<Button>(R.id.diagBtn).setOnClickListener { showDiagnose() }
         toggleBtn.setOnClickListener {
             if (isRunning()) stopMitra() else tryStart()
         }
@@ -151,6 +152,24 @@ class MainActivity : AppCompatActivity() {
             )
             Toast.makeText(this, "Bublu ki settings me 'Autostart'/'Background' ON karo", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {}
+    }
+
+    private fun showDiagnose() {
+        val accOn = isAccEnabled()
+        val overlayOn = Settings.canDrawOverlays(this)
+        val micOn = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val keyOn = (prefs.getString("gemini_key", "") ?: "").isNotBlank()
+        val msg = "1. Accessibility: " + (if (accOn) "ON (theek)" else "OFF (gadbad!) - Settings > Accessibility > Bublu > ON karo") +
+            "\n2. Screen ke upar dikhna (Overlay): " + (if (overlayOn) "ON (theek)" else "OFF (gadbad!)") +
+            "\n3. Microphone: " + (if (micOn) "ON (theek)" else "OFF (gadbad!)") +
+            "\n4. Gemini key: " + (if (keyOn) "daali hui (theek)" else "nahi daali") +
+            "\n\nAgar Accessibility OFF dikhe, to isko ON karna zaroori hai - warna apps kholna, click, type kuch nahi chalega."
+        AlertDialog.Builder(this)
+            .setTitle("Bublu ki jaanch")
+            .setMessage(msg)
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Accessibility kholo") { _, _ -> openAccSettings() }
+            .show()
     }
 
     private fun openAccSettings() {

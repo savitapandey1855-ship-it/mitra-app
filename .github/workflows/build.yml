@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v15
-          name: Bublu APK v15
-          body: "v15 - rolls to do every task then rolls back home; Gemini brain interprets unknown commands (English/Hinglish)."
+          tag_name: apk-v16
+          name: Bublu APK v16
+          body: "v16 - fixed WhatsApp never opening Google, robust app launch with real feedback, Hindi/Devanagari support, Jaanch (diagnose) button."
           files: app/build/outputs/apk/debug/app-debug.apk

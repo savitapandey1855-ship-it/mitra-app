@@ -246,14 +246,54 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    fun openAppAndCheck(pkg: String): Boolean {
-        if (!openApp(pkg)) return false
-        for (i in 0 until 5) {
-            Thread.sleep(700)
-            val cur = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
-            if (cur == pkg) return true
-        }
+    fun foregroundPackage(): String? =
+        try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+
+    fun openAppSmart(pkg: String, name: String): Boolean {
+        try {
+            val i = packageManager.getLaunchIntentForPackage(pkg)
+            if (i != null) {
+                i.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                )
+                startActivity(i)
+                return true
+            }
+        } catch (e: Exception) {}
+        try {
+            val target = name.replace(" ", "").lowercase()
+            for (a in packageManager.getInstalledApplications(0)) {
+                val label = packageManager.getApplicationLabel(a).toString()
+                if (label.replace(" ", "").lowercase().contains(target)) {
+                    val i = packageManager.getLaunchIntentForPackage(a.packageName)
+                    if (i != null) {
+                        i.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                        )
+                        startActivity(i)
+                        return true
+                    }
+                }
+            }
+        } catch (e: Exception) {}
         return false
+    }
+
+    /** returns actual foreground package, or "LAUNCH_FAIL". */
+    fun openAppAndCheck(pkg: String, name: String): String {
+        val before = foregroundPackage()
+        if (!openAppSmart(pkg, name)) return "LAUNCH_FAIL"
+        for (i in 0 until 6) {
+            Thread.sleep(600)
+            val cur = foregroundPackage()
+            if (cur == pkg) return pkg
+            if (cur != null && cur != before) return cur
+        }
+        return foregroundPackage() ?: ""
     }
 
     fun openUrl(url: String): Boolean {

@@ -660,14 +660,32 @@ class OverlayService : Service() {
             ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ")?.trim()
         if (noteText != null && noteText.isNotBlank()) { rollAround { createNote(noteText) }; return }
 
-        val wa = parseWhatsApp(t)
-        if (wa != null) {
-            if (wa.second.isBlank()) {
-                pendingWaContact = wa.first
-                setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
+        // Gmail pehle (taaki "gmail ... message" WhatsApp na bane)
+        val isGmail = t.contains("gmail") || t.contains("email") || Regex("\\bmails?\\b").containsMatchIn(t) ||
+            t.contains("जीमेल") || t.contains("ईमेल")
+        if (isGmail) {
+            val gm = parseGmail(t)
+            if (gm != null) {
+                if (gm.first.contains("@")) { gmailTo = gm.first; gmailName = null } else { gmailName = gm.first; gmailTo = null }
+                gmailTopic = gm.second
+                rollAround { doGmail() }
                 return
             }
-            rollAround { doSendWhatsApp(wa.first, wa.second) }
+        }
+
+        // WhatsApp — gehri samajh (kabhi Google search nahi)
+        if (isWhatsAppIntent(t)) {
+            val wa = parseWhatsApp(t)
+            if (wa != null) {
+                if (wa.second.isBlank()) {
+                    pendingWaContact = wa.first
+                    setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
+                    return
+                }
+                rollAround { doSendWhatsApp(wa.first, wa.second) }
+                return
+            }
+            setMood(R.drawable.char_think, "Kisko message bhejna hai aur kya? Bolo, jaise 'Rahul ko Hi'")
             return
         }
 
@@ -681,15 +699,6 @@ class OverlayService : Service() {
             }
             pendingWaContact = null
             doSendWhatsApp(pend, text.trim())
-            return
-        }
-
-        // Gmail (AI se draft)
-        val gm = parseGmail(t)
-        if (gm != null) {
-            if (gm.first.contains("@")) { gmailTo = gm.first; gmailName = null } else { gmailName = gm.first; gmailTo = null }
-            gmailTopic = gm.second
-            rollAround { doGmail() }
             return
         }
 
@@ -917,7 +926,7 @@ class OverlayService : Service() {
         if (pkg == null) { setMood(R.drawable.char_sad, "Koi Notes app nahi mila"); return }
         setMood(R.drawable.char_think, "Notes khol raha hoon...")
         Thread {
-            a.openAppAndCheck(pkg.first)
+            a.openAppAndCheck(pkg.first, pkg.second)
             Thread.sleep(2500)
             if (!a.clickByDesc("New note") && !a.clickByText("New note")) {
                 a.clickByDesc("Take a note")
@@ -928,10 +937,21 @@ class OverlayService : Service() {
         }.start()
     }
 
+    private fun isWhatsAppIntent(t: String): Boolean {
+        if (t.contains("whatsapp") || t.contains("whats app") || t.contains("whatsap") || t.contains("watsapp") ||
+            t.contains("व्हाट्सएप") || t.contains("वाट्सएप") || t.contains("वॉट्सऐप") || t.contains("व्हाट्सऐप")
+        ) return true
+        val ko = t.contains(" ko ") || t.contains("को")
+        val msg = t.contains("message") || t.contains("msg") || t.contains("massage") || t.contains("sandesh") ||
+            t.contains("मैसेज") || t.contains("संदेश") || t.contains("मेसेज")
+        return ko && msg
+    }
+
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
-        val t = tRaw.lowercase().trim()
-        if (!t.contains("whatsapp")) return null
-        val s = t.replace(Regex("whatsapp\\s*(pe|par|me|on|se)?"), " ").trim()
+        var s = tRaw.lowercase().trim()
+        s = s.replace(Regex("(whatsapp|whats app|whatsap|watsapp)\\s*(pe|par|me|on|se)?"), " ")
+        s = s.replace(Regex("(व्हाट्सएप|वाट्सएप|वॉट्सऐप|व्हाट्सऐप)\\s*(पर|पे|में)?"), " ")
+        s = s.replace("को", " ko ").replace(Regex("\\s+"), " ").trim()
         val i = s.indexOf(" ko ")
         if (i < 0) return null
         var contact = s.substring(0, i).trim()
@@ -939,12 +959,14 @@ class OverlayService : Service() {
         contact = contact.replace(
             Regex("\\b(pe|par|me|on|se|ko|message|massage|massege|msg|text)\\b"), " "
         ).trim()
+        contact = contact.replace(Regex("(को|पर|पे|में)"), " ").trim()
         msg = msg.replace(
             Regex("\\b(bolo|bol|bhejo|bhej|kaho|kahdo|kehdo|kehta|send|message|massage|massege|msg|text|sandesh|likho|likh|karo|kar|kardo|do|de|please|plz)\\b"),
             " "
         ).trim()
+        msg = msg.replace(Regex("(भेजो|भेज|बोलो|बोल|कहो|लिखो|लिख|करो|कर|संदेश|मैसेज|मेसेज)"), " ").trim()
         if (contact.isBlank()) return null
-        if (msg == "kuch" || msg == "kuchh") msg = ""
+        if (msg == "kuch" || msg == "kuchh" || msg == "कुछ") msg = ""
         return Pair(contact, msg)
     }
 
@@ -1010,15 +1032,24 @@ class OverlayService : Service() {
     private fun openTarget(target: String, name: String) {
         val acc = MitraAccessibilityService.instance
         if (acc == null) {
-            setMood(R.drawable.char_sad, "Kholne ke liye Accessibility ON karo (app me 'Click/Type permission')")
+            setMood(R.drawable.char_sad, "Pehle Accessibility ON karo: Settings > Accessibility > Bublu > ON")
             return
         }
         setMood(R.drawable.char_think, "$name khol raha hoon...")
         Thread {
-            val ok = if (target.startsWith("http")) acc.openUrl(target) else acc.openAppAndCheck(target)
+            if (target.startsWith("http")) {
+                val ok = acc.openUrl(target)
+                main.post { if (ok) setMood(R.drawable.char_laugh, "Ye lo!") else setMood(R.drawable.char_sad, "Nahi khula") }
+                return@Thread
+            }
+            val res = acc.openAppAndCheck(target, name)
             main.post {
-                if (ok) setMood(R.drawable.char_laugh, "Ye lo: $name!")
-                else setMood(R.drawable.char_sad, "$name nahi khula - Accessibility ya Autostart ON karo")
+                when {
+                    res == target -> setMood(R.drawable.char_laugh, "Ye lo: $name!")
+                    res == "LAUNCH_FAIL" -> setMood(R.drawable.char_sad, "$name nahi mila. App installed hai? Naam sahi hai?")
+                    res.isBlank() -> setMood(R.drawable.char_sad, "$name nahi khula - Settings > Apps > Bublu > Autostart ON karo")
+                    else -> setMood(R.drawable.char_sad, "$name ki jagah '$res' khula")
+                }
             }
         }.start()
     }

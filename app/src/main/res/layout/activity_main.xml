@@ -78,6 +78,17 @@
         android:textSize="15sp" />
 
     <Button
+        android:id="@+id/diagBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/btn_soft"
+        android:text="Jaanch (diagnose)"
+        android:textAllCaps="false"
+        android:textColor="#E7ECFF"
+        android:textSize="15sp" />
+
+    <Button
         android:id="@+id/keyBtn"
         android:layout_width="match_parent"
         android:layout_height="48dp"
