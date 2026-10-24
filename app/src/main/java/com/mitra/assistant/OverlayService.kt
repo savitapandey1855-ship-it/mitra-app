@@ -2,6 +2,7 @@ package com.mitra.assistant
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -50,6 +51,8 @@ class OverlayService : Service() {
     private lateinit var root: LinearLayout
     private lateinit var face: ImageView
     private lateinit var reply: TextView
+    private lateinit var thinkBubble: ImageView
+    private var thinkAnim: ObjectAnimator? = null
     private lateinit var params: WindowManager.LayoutParams
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
@@ -143,6 +146,14 @@ class OverlayService : Service() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
+
+        thinkBubble = ImageView(this).apply {
+            setImageResource(R.drawable.think_bubble)
+            visibility = View.GONE
+        }
+        val tlp = LinearLayout.LayoutParams(dp(50), dp(38))
+        tlp.gravity = Gravity.START
+        root.addView(thinkBubble, tlp)
 
         reply = TextView(this).apply {
             visibility = View.GONE
@@ -243,6 +254,21 @@ class OverlayService : Service() {
     private fun setMood(resId: Int, say: String? = null) {
         face.setImageResource(resId)
         pop()
+        if (resId == R.drawable.char_think) {
+            thinkBubble.visibility = View.VISIBLE
+            if (thinkAnim == null) {
+                thinkAnim = ObjectAnimator.ofFloat(thinkBubble, "alpha", 0.35f, 1f).apply {
+                    duration = 650
+                    repeatMode = ValueAnimator.REVERSE
+                    repeatCount = ValueAnimator.INFINITE
+                    start()
+                }
+            }
+        } else {
+            thinkBubble.visibility = View.GONE
+            thinkAnim?.cancel()
+            thinkAnim = null
+        }
         if (say == null) {
             reply.visibility = View.GONE
         } else {
@@ -1080,7 +1106,7 @@ class OverlayService : Service() {
             setMood(R.drawable.char_think, "\"$userText\" - ye mujhe samajh nahi aaya. (Gemini key daalo to main samajh jaunga)")
             return
         }
-        setMood(R.drawable.char_think, "Soch raha hoon...")
+        setMood(R.drawable.char_think, "Thinking...")
         Thread {
             val (ok, reply) = Gemini.ask(key, BRAIN_PROMPT + "\nUser said: " + userText)
             main.post {
@@ -1159,7 +1185,7 @@ class OverlayService : Service() {
             setMood(R.drawable.char_think, "\"$prompt\" - AI ke liye app me Gemini key daalo")
             return
         }
-        setMood(R.drawable.char_think, "Soch raha hoon...")
+        setMood(R.drawable.char_think, "Thinking...")
         val full = "You are $NAME, a cute helpful assistant for a school student in India. " +
             "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
             "Question: $prompt"

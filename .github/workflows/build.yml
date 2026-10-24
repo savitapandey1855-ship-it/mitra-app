@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v17
-          name: Bublu APK v17
-          body: "v17 - if an app won't open directly, Bublu opens it via URL/link (WhatsApp, YouTube, Instagram, Gmail, etc.)."
+          tag_name: apk-v18
+          name: Bublu APK v18
+          body: "v18 - 'Thinking' text with a cute animated thought bubble (no emoji)."
           files: app/build/outputs/apk/debug/app-debug.apk
