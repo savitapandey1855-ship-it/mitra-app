@@ -400,21 +400,21 @@ class MitraAccessibilityService : AccessibilityService() {
 
             var opened = false
 
-            // 1) Home chat list: pehle jo SAMNE DIKH raha hai, phir thoda scroll
+            // 1) Home chat list: pehle jo SAMNE DIKH raha hai (bina scroll), phir thoda scroll
             onStatus("Chat list me $contact dhoondh raha hoon...")
-            opened = openFirstChatResult(contact)
+            opened = findVisibleWithRetry(contact, 2)
             if (!opened) opened = findInChatList(contact, 4)
 
-            // 2) Archived: pehle jo SAMNE DIKH raha hai, phir thoda scroll
+            // 2) Archived: pehle SAMNE DIKHNE wala (bina scroll), phir scroll, phir back
             if (!opened) {
                 onStatus("Archived me dhoondh raha hoon...")
                 scrollTop()
                 Thread.sleep(700)
                 if (clickArchived()) {
-                    Thread.sleep(1800)
-                    opened = openFirstChatResult(contact)
-                    if (!opened) opened = findInChatList(contact, 3)
-                    if (!opened) { back(); Thread.sleep(1000) }
+                    Thread.sleep(2000)
+                    opened = findVisibleWithRetry(contact, 3)          // bina scroll dekho
+                    if (!opened) opened = findInChatList(contact, 3)   // phir scroll
+                    if (!opened) { back(); Thread.sleep(1000) }        // phir back
                 }
             }
 
@@ -453,6 +453,15 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             return false
         }
+    }
+
+    /** Bina scroll kiye, jo saamne dikh raha hai wahi dhoondho (thoda intezaar ke saath). */
+    private fun findVisibleWithRetry(contact: String, tries: Int): Boolean {
+        for (i in 0 until tries) {
+            if (openFirstChatResult(contact)) return true
+            Thread.sleep(600)
+        }
+        return false
     }
 
     /** Chat list me naam dhoondho (scroll karke bhi). Mile to chat kholo. */
@@ -525,7 +534,8 @@ class MitraAccessibilityService : AccessibilityService() {
     private fun collectRows(node: AccessibilityNodeInfo, q: String, out: ArrayList<AccessibilityNodeInfo>) {
         if (node.isEditable) return
         val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
-        if (txt.isNotEmpty() && txt.contains(q)) {
+        val desc = node.contentDescription?.toString()?.lowercase()?.trim() ?: ""
+        if ((txt.isNotEmpty() && txt.contains(q)) || (desc.isNotEmpty() && desc.contains(q))) {
             out.add(node)
         }
         for (i in 0 until node.childCount) {
