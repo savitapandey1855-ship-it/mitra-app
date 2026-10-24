@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v5
-          name: Bublu APK v5
-          body: "v5 - renamed to Bublu, added ready-made greetings (hi, hello, good morning/night, time, date, etc.)."
+          tag_name: apk-v6
+          name: Bublu APK v6
+          body: "v6 - fixed app opening (launch via AccessibilityService, background-start fix)."
           files: app/build/outputs/apk/debug/app-debug.apk

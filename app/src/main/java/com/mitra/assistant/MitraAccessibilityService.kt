@@ -1,6 +1,7 @@
 package com.mitra.assistant
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -72,6 +73,33 @@ class MitraAccessibilityService : AccessibilityService() {
     fun home() { performGlobalAction(GLOBAL_ACTION_HOME) }
     fun recents() { performGlobalAction(GLOBAL_ACTION_RECENTS) }
     fun notifications() { performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) }
+
+    // ---------- App / URL kholna (system-bound service se, BAL block nahi hota) ----------
+    fun openApp(pkg: String): Boolean {
+        return try {
+            val i = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+            i.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+            )
+            startActivity(i)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun openUrl(url: String): Boolean {
+        return try {
+            val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     private fun findEditable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         if (node.isEditable) return node

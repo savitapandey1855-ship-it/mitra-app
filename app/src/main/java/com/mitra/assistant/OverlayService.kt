@@ -384,15 +384,25 @@ class OverlayService : Service() {
     }
 
     private fun launchPkg(pkg: String, name: String): String? {
+        // 1) AccessibilityService se kholo (ye system-bound hai, background se bhi chalta hai)
+        val acc = MitraAccessibilityService.instance
+        if (acc != null && acc.openApp(pkg)) return name
+
+        // 2) Apne aap se koshish (agar accessibility off ho)
         val i = packageManager.getLaunchIntentForPackage(pkg)
         if (i != null) {
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            i.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+            )
             try { startActivity(i); return name } catch (e: Exception) {}
         }
-        val web = Intent(
-            Intent.ACTION_VIEW,
-            android.net.Uri.parse("https://www.google.com/search?q=" + android.net.Uri.encode(name))
-        )
+
+        // 3) Web fallback
+        val url = "https://www.google.com/search?q=" + android.net.Uri.encode(name)
+        if (acc != null && acc.openUrl(url)) return "$name (web)"
+        val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
         web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try { startActivity(web); return "$name (web)" } catch (e: Exception) {}
         return null
