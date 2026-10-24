@@ -1,6 +1,17 @@
 <resources>
     <style name="Theme.Mitra" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">#10163A</item>
+        <item name="android:navigationBarColor">#10163A</item>
         <item name="android:windowBackground">#10163A</item>
+        <item name="colorPrimary">#5B8BFF</item>
+        <item name="colorAccent">#7C3AED</item>
+        <item name="android:textColorPrimary">#1B2350</item>
+        <item name="alertDialogTheme">@style/BubluDialog</item>
+    </style>
+
+    <style name="BubluDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">#5B8BFF</item>
+        <item name="colorAccent">#7C3AED</item>
+        <item name="android:textColorPrimary">#1B2350</item>
     </style>
 </resources>

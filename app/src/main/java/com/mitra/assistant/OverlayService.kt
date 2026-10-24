@@ -756,10 +756,13 @@ class OverlayService : Service() {
             return
         }
 
-        // Notes
-        val noteText = after(t, listOf("note banao ", "notes me ", "note me ", "notes me likho ", "note likho "))
+        // Notes (app ke andar save hote hain)
+        if (n.contains("notesdikhao") || n.contains("notespadho") || n.contains("notesbatao") || n.contains("notesunao") || n.contains("notesunado")) {
+            readNotes(); return
+        }
+        val noteText = after(t, listOf("note banao ", "note add ", "notes me ", "note me ", "notes me likho ", "note likho "))
             ?.replace(Regex("\\b(likho|likh|banao|bana|add|karo|kar|do|de|please)\\b"), " ")?.trim()
-        if (noteText != null && noteText.isNotBlank()) { rollAround { createNote(noteText) }; return }
+        if (noteText != null && noteText.isNotBlank()) { saveNote(noteText); return }
 
         // Gmail pehle (taaki "gmail ... message" WhatsApp na bane)
         val isGmail = t.contains("gmail") || t.contains("email") || Regex("\\bmails?\\b").containsMatchIn(t) ||
@@ -869,6 +872,46 @@ class OverlayService : Service() {
                 main.post { if (ok) setMood(R.drawable.char_laugh, "$inst install kar raha hoon!") else setMood(R.drawable.char_sad, "Install nahi ho paya") }
             }.start()
             return
+        }
+
+        // ---- Calculator ----
+        if (looksLikeMath(t, n)) {
+            val ans = calcAnswer(t)
+            if (ans != null) { setMood(R.drawable.char_laugh, "= $ans"); return }
+        }
+
+        // ---- Flashlight ----
+        if (n.contains("flashlight") || n.contains("torch") || n.contains("batti")) {
+            flashlight(!(n.contains("off") || n.contains("band")))
+            return
+        }
+
+        // ---- Volume ----
+        if (n.contains("volume")) {
+            if (n.contains("mute") || n.contains("silent")) muteVolume()
+            else volume(!(n.contains("down") || n.contains("kam") || n.contains("ghata")))
+            return
+        }
+
+        // ---- Call / dial ----
+        if (n.contains("call") || n.contains("dial")) { dial(t); return }
+
+        // ---- Translate / meaning ----
+        if (n.contains("translate") || n.contains("matlab") || n.contains("meaning")) {
+            askAI("Explain or translate in simple Hinglish: " + t); return
+        }
+
+        // ---- Tasks ----
+        if (n.contains("task")) {
+            if (n.contains("dikhao") || n.contains("list") || n.contains("batao")) { listTasks(); return }
+            if (n.contains("done") || n.contains("complete")) {
+                val what = t.replace(Regex("\\b(task|done|complete|mark|karo|kar|ka|ki|ho|gaya)\\b"), " ").trim()
+                Store.doneTask(this, what)
+                setMood(R.drawable.char_laugh, "Task done!")
+                return
+            }
+            val what = after(t, listOf("task add ", "task "))?.trim()
+            if (!what.isNullOrBlank()) { addTask(what); return }
         }
 
         val app = resolveApp(t, n)
@@ -1487,6 +1530,87 @@ class OverlayService : Service() {
                 }.start()
             }
         } catch (e: Exception) {}
+    }
+
+    private fun saveNote(text: String) {
+        Store.addNote(this, text)
+        setMood(R.drawable.char_laugh, "Note save kar diya!")
+    }
+
+    private fun readNotes() {
+        val ns = Store.notes(this)
+        if (ns.isEmpty()) setMood(R.drawable.char_happy, "Koi note nahi hai")
+        else setMood(R.drawable.char_happy, "Notes: " + ns.takeLast(3).joinToString("  |  "))
+    }
+
+    private fun addTask(text: String) {
+        Store.addTask(this, text)
+        setMood(R.drawable.char_laugh, "Task add kar diya: $text")
+    }
+
+    private fun listTasks() {
+        val ts = Store.tasks(this).filter { !it.second }
+        if (ts.isEmpty()) setMood(R.drawable.char_happy, "Koi pending task nahi")
+        else setMood(R.drawable.char_happy, "Tasks: " + ts.take(5).joinToString(", ") { it.first })
+    }
+
+    private fun looksLikeMath(t: String, n: String): Boolean {
+        val words = n.contains("plus") || n.contains("minus") || n.contains("into") || n.contains("dividedby") ||
+            n.contains("multiply") || n.contains("times") || n.contains("jod") || n.contains("ghata")
+        val ops = t.contains("+") || t.contains("*") || t.contains("/")
+        return t.any { it.isDigit() } && (words || ops)
+    }
+
+    private fun calcAnswer(t: String): String? {
+        var s = t.lowercase()
+        s = s.replace("plus", "+").replace("jod", "+")
+        s = s.replace("minus", "-").replace("ghata", "-")
+        s = s.replace("multiplied by", "*").replace("multiply", "*").replace("into", "*").replace("times", "*")
+        s = s.replace("divided by", "/").replace("divide", "/")
+        val clean = s.filter { it.isDigit() || it == '+' || it == '-' || it == '*' || it == '/' || it == '(' || it == ')' || it == '.' }
+        if (clean.count { it.isDigit() } == 0) return null
+        val v = Calc.eval(clean) ?: return null
+        return if (v == Math.floor(v) && !v.isInfinite() && Math.abs(v) < 1e15) v.toLong().toString()
+        else "%.2f".format(v)
+    }
+
+    private fun flashlight(on: Boolean) {
+        try {
+            val cm = getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+            val id = cm.cameraIdList.firstOrNull {
+                cm.getCameraCharacteristics(it).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+            if (id == null) { setMood(R.drawable.char_sad, "Flashlight nahi mila"); return }
+            cm.setTorchMode(id, on)
+            setMood(R.drawable.char_happy, if (on) "Flashlight ON" else "Flashlight OFF")
+        } catch (e: Exception) { setMood(R.drawable.char_sad, "Flashlight nahi mila") }
+    }
+
+    private fun volume(up: Boolean) {
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            am.adjustStreamVolume(
+                android.media.AudioManager.STREAM_MUSIC,
+                if (up) android.media.AudioManager.ADJUST_RAISE else android.media.AudioManager.ADJUST_LOWER,
+                android.media.AudioManager.FLAG_SHOW_UI
+            )
+            setMood(R.drawable.char_happy, if (up) "Volume badha diya" else "Volume kam kar diya")
+        } catch (e: Exception) {}
+    }
+
+    private fun muteVolume() {
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+            setMood(R.drawable.char_happy, "Mute kar diya")
+        } catch (e: Exception) {}
+    }
+
+    private fun dial(t: String) {
+        val num = Regex("(\\+?\\d[\\d ]{5,})").find(t)?.groupValues?.get(1)?.replace(" ", "")
+        val i = if (num != null) Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$num")) else Intent(Intent.ACTION_DIAL)
+        val ok = MitraAccessibilityService.instance?.openIntent(i) ?: false
+        setMood(if (ok) R.drawable.char_happy else R.drawable.char_sad, if (ok) "Dialer khol diya" else "Dialer nahi khula")
     }
 
     private fun askAI(prompt: String) {

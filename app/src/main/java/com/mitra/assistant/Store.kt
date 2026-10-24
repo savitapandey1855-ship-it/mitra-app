@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** App ke andar ka chhota data store: reminders (schedule) aur birthdays/anniversaries. */
+/** App ke andar ka chhota data store: reminders, birthdays, notes, tasks. */
 object Store {
     private fun p(c: Context) = c.getSharedPreferences("bublu_store", Context.MODE_PRIVATE)
 
@@ -56,5 +56,56 @@ object Store {
         val l = events(c)
         l.add(Triple(name, date, type))
         saveEvents(c, l)
+    }
+
+    // ---- Notes ----
+    fun notes(c: Context): MutableList<String> {
+        val out = ArrayList<String>()
+        try {
+            val arr = JSONArray(p(c).getString("notes", "[]"))
+            for (i in 0 until arr.length()) out.add(arr.getString(i))
+        } catch (e: Exception) {}
+        return out
+    }
+
+    fun addNote(c: Context, text: String) {
+        val l = notes(c)
+        l.add(text)
+        val arr = JSONArray()
+        for (x in l) arr.put(x)
+        p(c).edit().putString("notes", arr.toString()).apply()
+    }
+
+    // ---- Tasks ----
+    fun tasks(c: Context): MutableList<Pair<String, Boolean>> {
+        val out = ArrayList<Pair<String, Boolean>>()
+        try {
+            val arr = JSONArray(p(c).getString("tasks", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                out.add(Pair(o.getString("text"), o.getBoolean("done")))
+            }
+        } catch (e: Exception) {}
+        return out
+    }
+
+    fun saveTasks(c: Context, list: List<Pair<String, Boolean>>) {
+        val arr = JSONArray()
+        for (t in list) arr.put(JSONObject().put("text", t.first).put("done", t.second))
+        p(c).edit().putString("tasks", arr.toString()).apply()
+    }
+
+    fun addTask(c: Context, text: String) {
+        val l = tasks(c)
+        l.add(Pair(text, false))
+        saveTasks(c, l)
+    }
+
+    fun doneTask(c: Context, text: String) {
+        val l = tasks(c)
+        for (i in l.indices) {
+            if (l[i].first.lowercase().contains(text.lowercase())) l[i] = Pair(l[i].first, true)
+        }
+        saveTasks(c, l)
     }
 }

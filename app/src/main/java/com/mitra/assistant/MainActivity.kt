@@ -33,6 +33,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toggleBtn: Button
     private lateinit var schedBox: LinearLayout
     private lateinit var eventBox: LinearLayout
+    private lateinit var taskBox: LinearLayout
+    private lateinit var noteBox: LinearLayout
     private val prefs by lazy { getSharedPreferences("mitra", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +44,8 @@ class MainActivity : AppCompatActivity() {
         toggleBtn = findViewById(R.id.toggleBtn)
         schedBox = findViewById(R.id.schedBox)
         eventBox = findViewById(R.id.eventBox)
+        taskBox = findViewById(R.id.taskBox)
+        noteBox = findViewById(R.id.noteBox)
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
         toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
     }
@@ -72,6 +76,16 @@ class MainActivity : AppCompatActivity() {
             val d = SimpleDateFormat("d MMM, hh:mm a", Locale.getDefault()).format(Date(r.second))
             schedBox.addView(row("$d  -  ${r.third}"))
         }
+        taskBox.removeAllViews()
+        val tasks = Store.tasks(this)
+        if (tasks.isEmpty()) taskBox.addView(row("Koi task nahi - bolo 'task add karo ...'"))
+        else for (t in tasks) taskBox.addView(row((if (t.second) "[done]  " else "[ ]  ") + t.first))
+
+        noteBox.removeAllViews()
+        val notes = Store.notes(this)
+        if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'"))
+        else for (nt in notes.takeLast(6)) noteBox.addView(row(nt))
+
         eventBox.removeAllViews()
         val evs = Store.events(this)
         if (evs.isEmpty()) eventBox.addView(row("Koi birthday/anniversary set nahi"))
@@ -83,7 +97,7 @@ class MainActivity : AppCompatActivity() {
         t.text = s
         t.textSize = 14f
         t.setTextColor(0xFF22305A.toInt())
-        t.setBackgroundResource(R.drawable.bubble_bg)
+        t.setBackgroundResource(R.drawable.card_row)
         val p = (10 * resources.displayMetrics.density).toInt()
         t.setPadding(p, p, p, p)
         val lp = LinearLayout.LayoutParams(

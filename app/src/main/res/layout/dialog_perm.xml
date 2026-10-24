@@ -4,53 +4,43 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center_horizontal"
-    android:padding="16dp"
-    android:background="@drawable/card_bg">
+    android:padding="18dp"
+    android:background="@drawable/dialog_bg">
 
     <ImageView
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
         android:src="@drawable/char_happy"
-        android:contentDescription="@string/app_name" />
+        android:contentDescription="Bublu" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="Chhoti si setup"
-        android:textColor="#2A2350"
+        android:text="Bas 3 chhoti permissions!"
+        android:textColor="#1B2350"
         android:textStyle="bold"
-        android:textSize="16sp" />
+        android:textSize="17sp" />
 
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:lineSpacingExtra="6dp"
-        android:text="Screen ke upar dikhna\nAwaaz sunna\nNotification\nClick/Type karne ki permission"
-        android:textColor="#4A4270"
-        android:textSize="13.5sp" />
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:text="1. Screen ke upar dikhna (float karne ke liye)\n2. Microphone (aapki awaaz sunne ke liye)\n3. Notification (reminder/alarm ke liye)"
+        android:textColor="#3A4470"
+        android:textSize="14sp" />
 
     <Button
         android:id="@+id/allowAll"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:layout_marginTop="14dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="16dp"
         android:background="@drawable/btn_bg"
         android:text="Sab Allow karo"
         android:textAllCaps="false"
         android:textColor="#FFFFFF"
-        android:textSize="15sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/later"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:padding="4dp"
-        android:text="Baad me"
-        android:textColor="#7A729E"
-        android:textSize="13sp" />
-
 </LinearLayout>

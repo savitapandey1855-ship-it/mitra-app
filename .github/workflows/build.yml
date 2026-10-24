@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v27
-          name: Bublu APK v27
-          body: "v27 - button knowledge, ask-in-any-app (ChatGPT), Play Store install, alarms, reminders, birthdays, time greetings, in-app schedule UI."
+          tag_name: apk-v28
+          name: Bublu APK v28
+          body: "v28 - next-level UI (3D cards, gradient buttons, pro dialogs), plus calculator, flashlight, volume, call, in-app Notes & Tasks, translate/meaning."
           files: app/build/outputs/apk/debug/app-debug.apk
