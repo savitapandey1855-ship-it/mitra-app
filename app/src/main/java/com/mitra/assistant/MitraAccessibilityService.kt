@@ -2,13 +2,13 @@ package com.mitra.assistant
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 /**
- * Ye service Mitra ko doosri apps me click / type / paste karne deti hai.
- * User ise Settings > Accessibility me ON karta hai.
+ * Bublu ko doosri apps me click / type / paste / screenshot / app kholne deti hai.
  */
 class MitraAccessibilityService : AccessibilityService() {
 
@@ -23,7 +23,6 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
-
     override fun onInterrupt() {}
 
     override fun onDestroy() {
@@ -31,16 +30,27 @@ class MitraAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    // ---------- Type ----------
+    // ---------- Type (append) ----------
     fun typeText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
         val existing = target.text?.toString() ?: ""
         val newText = if (existing.isBlank()) text else "$existing $text"
+        return setNodeText(target, newText)
+    }
+
+    // ---------- Set text (replace) ----------
+    fun setTextFocused(text: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
+        return setNodeText(target, text)
+    }
+
+    private fun setNodeText(node: AccessibilityNodeInfo, text: String): Boolean {
         val args = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
-        return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
     }
 
     // ---------- Paste ----------
@@ -50,31 +60,47 @@ class MitraAccessibilityService : AccessibilityService() {
         return target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
     }
 
-    // ---------- Click by text ----------
+    // ---------- Click ----------
     fun clickByText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val nodes = root.findAccessibilityNodeInfosByText(text) ?: return false
-        for (n in nodes) {
-            var node: AccessibilityNodeInfo? = n
-            var depth = 0
-            while (node != null && depth < 6) {
-                if (node.isClickable &&
-                    node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                ) return true
-                node = node.parent
-                depth++
-            }
+        val n = findNode(root) { it.text?.toString()?.contains(text, true) == true } ?: return false
+        return clickNode(n)
+    }
+
+    fun clickByDesc(desc: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val n = findNode(root) { it.contentDescription?.toString()?.contains(desc, true) == true } ?: return false
+        return clickNode(n)
+    }
+
+    private fun clickNode(n: AccessibilityNodeInfo): Boolean {
+        var node: AccessibilityNodeInfo? = n
+        var depth = 0
+        while (node != null && depth < 8) {
+            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            node = node.parent
+            depth++
         }
         return false
     }
 
-    // ---------- Global actions ----------
+    // ---------- Global ----------
     fun back() { performGlobalAction(GLOBAL_ACTION_BACK) }
     fun home() { performGlobalAction(GLOBAL_ACTION_HOME) }
     fun recents() { performGlobalAction(GLOBAL_ACTION_RECENTS) }
     fun notifications() { performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) }
 
-    // ---------- App / URL kholna (system-bound service se, BAL block nahi hota) ----------
+    fun screenshot(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ---------- App / URL kholna ----------
     fun openApp(pkg: String): Boolean {
         return try {
             val i = packageManager.getLaunchIntentForPackage(pkg) ?: return false
@@ -101,11 +127,61 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
+    // ---------- WhatsApp: kholo -> search -> chat -> type -> send -> home ----------
+    fun sendWhatsApp(contact: String, message: String): Boolean {
+        return try {
+            if (!openApp("com.whatsapp")) return false
+            Thread.sleep(3000)
+
+            // 1) Search button kholo
+            if (!clickByDesc("Search") && !clickByText("Search")) {
+                // kuch versions me search icon alag hota hai; try "Search or start"
+                clickByDesc("Search or start new chat")
+            }
+            Thread.sleep(900)
+
+            // 2) Contact ka naam type karo
+            if (!setTextFocused(contact)) return false
+            Thread.sleep(1800)
+
+            // 3) Pehla result (contact) click karo
+            if (!clickByText(contact)) return false
+            Thread.sleep(1600)
+
+            // 4) Message type karo
+            if (!setTextFocused(message)) return false
+            Thread.sleep(700)
+
+            // 5) Send
+            if (!clickByDesc("Send")) {
+                clickByText("Send")
+            }
+            Thread.sleep(700)
+
+            // 6) Wapas home
+            home()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ---------- Helpers ----------
     private fun findEditable(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         if (node.isEditable) return node
         for (i in 0 until node.childCount) {
             val c = node.getChild(i) ?: continue
             val r = findEditable(c)
+            if (r != null) return r
+        }
+        return null
+    }
+
+    private fun findNode(node: AccessibilityNodeInfo, pred: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        if (pred(node)) return node
+        for (i in 0 until node.childCount) {
+            val c = node.getChild(i) ?: continue
+            val r = findNode(c, pred)
             if (r != null) return r
         }
         return null

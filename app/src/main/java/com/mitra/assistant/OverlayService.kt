@@ -8,6 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -42,6 +45,9 @@ class OverlayService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
     private val main = Handler(Looper.getMainLooper())
+
+    @Volatile private var sleeping = false
+    private var sleepThread: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -183,6 +189,8 @@ class OverlayService : Service() {
     }
 
     private fun initRecognizer() {
+        try { recognizer?.destroy() } catch (e: Exception) {}
+        recognizer = null
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             setMood(R.drawable.char_sad, "Mic nahi mila")
             return
@@ -211,6 +219,7 @@ class OverlayService : Service() {
     }
 
     private fun onTap() {
+        if (sleeping) { wakeUp(); return }
         if (listening) return
         if (recognizer == null) initRecognizer()
         val r = recognizer ?: return
@@ -229,9 +238,75 @@ class OverlayService : Service() {
         }
     }
 
+    // ---------- Sleep / Wake ----------
+    private fun sleep() {
+        if (sleeping) return
+        sleeping = true
+        try { recognizer?.cancel() } catch (e: Exception) {}
+        setMood(R.drawable.char_sleep, "Zzz... sone ja raha hoon")
+        face.animate().alpha(0.55f).scaleX(0.82f).scaleY(0.82f).setDuration(1800).start()
+        startSleepMonitor()
+    }
+
+    private fun wakeUp() {
+        if (!sleeping) return
+        sleeping = false
+        stopSleepMonitor()
+        face.alpha = 1f
+        face.scaleX = 1f
+        face.scaleY = 1f
+        setMood(R.drawable.char_wake, "Kya hua?! Main chauk gaya!")
+        try { recognizer?.cancel() } catch (e: Exception) {}
+        main.postDelayed({
+            if (!sleeping) setMood(R.drawable.char_idle)
+        }, 2600)
+    }
+
+    private fun startSleepMonitor() {
+        stopSleepMonitor()
+        sleepThread = Thread {
+            val sr = 16000
+            val minBuf = AudioRecord.getMinBufferSize(
+                sr, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
+            )
+            val bufSize = maxOf(minBuf, 4096)
+            var rec: AudioRecord? = null
+            try {
+                rec = AudioRecord(
+                    MediaRecorder.AudioSource.MIC, sr,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufSize
+                )
+                if (rec.state != AudioRecord.STATE_INITIALIZED) return@Thread
+                rec.startRecording()
+                val buf = ShortArray(1024)
+                while (sleeping) {
+                    val n = rec.read(buf, 0, buf.size)
+                    if (n > 0) {
+                        var max = 0
+                        for (i in 0 until n) {
+                            val a = abs(buf[i].toInt())
+                            if (a > max) max = a
+                        }
+                        if (max > 9000) { main.post { wakeUp() }; break }
+                    }
+                }
+            } catch (e: Exception) {
+            } finally {
+                try { rec?.stop() } catch (e: Exception) {}
+                try { rec?.release() } catch (e: Exception) {}
+            }
+        }
+        sleepThread?.start()
+    }
+
+    private fun stopSleepMonitor() {
+        try { sleepThread?.interrupt() } catch (e: Exception) {}
+        sleepThread = null
+    }
+
+    // ---------- Canned ----------
     private fun pick(vararg opts: String): String = opts[(Math.random() * opts.size).toInt()]
 
-    /** Pehle se set cute jawab (greeting, time, date, etc.) */
     private fun canned(t: String, n: String): String? {
         if (n == "hi" || n == "hii" || n == "hlo" || n == "hello" || n == "hey" ||
             n.startsWith("hello") || n.contains("namaste") || n.contains("namaskar"))
@@ -241,17 +316,9 @@ class OverlayService : Service() {
                 "Namaste! Main $NAME hoon, tumhara cute assistant."
             )
         if (n.contains("goodmorning") || n == "gm")
-            return pick(
-                "Good morning! Aaj ka din shandar ho!",
-                "Subah bakhair! Kya mast subah hai!",
-                "Good morning! Aaj kuch naya seekhte hain!"
-            )
+            return pick("Good morning! Aaj ka din shandar ho!", "Subah bakhair! Kya mast subah hai!")
         if (n.contains("goodnight") || n == "gn")
-            return pick(
-                "Good night! Meetha sapna dekhna.",
-                "Shubh ratri! Aaram se so jao.",
-                "Good night! Kal phir milte hain."
-            )
+            return pick("Good night! Meetha sapna dekhna.", "Shubh ratri! Aaram se so jao.")
         if (n.contains("goodevening")) return pick("Good evening! Kaise ho?", "Shubh sandhya! Kaise ho?")
         if (n.contains("goodafternoon")) return pick("Good afternoon!", "Namaste! Dopahar bakhair.")
         if (n.contains("howareyou") || n.contains("kaiseho") || n.contains("kaisihai"))
@@ -265,7 +332,7 @@ class OverlayService : Service() {
             return "Aww, main bhi tumse pyaar karta hoon!"
         if (n.contains("whatcanyoudo") || n.contains("help") || n.contains("madad") ||
             n.contains("kyakarsakte"))
-            return "Main apps khol sakta hoon, type/click/paste kar sakta hoon, aur koi bhi sawaal ka jawab de sakta hoon. Bas bolo!"
+            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, aur sawaalon ke jawab. Bas bolo!"
         if (n == "bye" || n.contains("goodbye") || n.contains("alvida"))
             return pick("Bye! Phir milenge.", "Chalo, phir milte hain!")
         if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
@@ -285,20 +352,51 @@ class OverlayService : Service() {
         return null
     }
 
+    // ---------- Main handle ----------
     private fun handle(text: String) {
         val t = text.lowercase().trim()
         val n = t.replace(" ", "")
+        val acc = MitraAccessibilityService.instance
 
-        // 1) Apps kholna
+        // 1) Sleep / Wake
+        if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") {
+            sleep(); return
+        }
+        if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) {
+            wakeUp(); return
+        }
+
+        // 2) WhatsApp message flow
+        val wa = parseWhatsApp(t)
+        if (wa != null) {
+            if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
+            setMood(R.drawable.char_think, "WhatsApp khol raha hoon...")
+            Thread {
+                val ok = acc.sendWhatsApp(wa.first, wa.second)
+                main.post {
+                    if (ok) setMood(R.drawable.char_happy, "Done! ${wa.first} ko \"${wa.second}\" bhej diya")
+                    else setMood(R.drawable.char_sad, "WhatsApp flow poora nahi hua, phir try karo")
+                }
+            }.start()
+            return
+        }
+
+        // 3) Screenshot
+        if (n.contains("screenshot") || n.contains("screenshort")) {
+            if (acc != null && acc.screenshot()) setMood(R.drawable.char_happy, "Screenshot le liya")
+            else setMood(R.drawable.char_sad, "Screenshot ke liye Accessibility ON karo")
+            return
+        }
+
+        // 4) Apps kholna
         val opened = tryOpen(t, n)
         if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
 
-        // 2) Pehle se set cute jawab
+        // 5) Canned replies
         val c = canned(t, n)
         if (c != null) { setMood(R.drawable.char_happy, c); return }
 
-        // 3) Click / type / paste / navigation (accessibility)
-        val acc = MitraAccessibilityService.instance
+        // 6) Click / type / paste / navigation
         if (acc == null) {
             if (looksLikeAction(t)) {
                 setMood(R.drawable.char_sad, "Click/type ke liye Settings me $NAME ki Accessibility ON karo")
@@ -322,13 +420,29 @@ class OverlayService : Service() {
             if (n.contains("notification")) { acc.notifications(); setMood(R.drawable.char_happy, "Notifications"); return }
         }
 
-        // 4) Warna AI se poocho
+        // 7) AI
         askAI(text)
+    }
+
+    private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
+        val t = tRaw.lowercase()
+        if (!t.contains("whatsapp")) return null
+        val s = t.replace(Regex("whatsapp\\s*(pe|par|me|on)?"), " ").trim()
+        val i = s.indexOf(" ko ")
+        if (i < 0) return null
+        val contact = s.substring(0, i).replace(Regex("\\b(pe|par|me|on|ko|se)\\b"), "").trim()
+        var msg = s.substring(i + 4).trim()
+        msg = msg.replace(
+            Regex("\\b(bolo|bol|bhejo|bhej|kaho|kehdo|send|message|msg|kardo|karo|kar|de|do)\\b"), " "
+        ).trim()
+        if (contact.isBlank() || msg.isBlank()) return null
+        return Pair(contact, msg)
     }
 
     private fun looksLikeAction(t: String): Boolean {
         return t.startsWith("type ") || t.contains(" type ") || t.contains("paste") ||
-            t.contains("click ") || t.contains("chipka") || t.contains("likho")
+            t.contains("click ") || t.contains("chipka") || t.contains("likho") ||
+            t.contains("screenshot")
     }
 
     private fun after(t: String, keys: List<String>): String? {
@@ -345,7 +459,6 @@ class OverlayService : Service() {
     private fun tryOpen(t: String, n: String): String? {
         val known = listOf(
             Triple("youtube", "com.google.android.youtube", "YouTube"),
-            Triple("whatsapp", "com.whatsapp", "WhatsApp"),
             Triple("instagram", "com.instagram.android", "Instagram"),
             Triple("gmail", "com.google.android.gm", "Gmail"),
             Triple("chrome", "com.android.chrome", "Chrome"),
@@ -356,6 +469,8 @@ class OverlayService : Service() {
         for ((key, pkg, name) in known) {
             if (n.contains(key)) return launchPkg(pkg, name)
         }
+        // whatsapp generic (bina message ke) -> sirf kholo
+        if (n.contains("whatsapp")) return launchPkg("com.whatsapp", "WhatsApp")
         val m = Regex("(?:open|kholo|khol|launch|start|chalu)\\s+([a-z0-9 ]+)").find(t)
         if (m != null) {
             val word = m.groupValues[1]
@@ -384,11 +499,8 @@ class OverlayService : Service() {
     }
 
     private fun launchPkg(pkg: String, name: String): String? {
-        // 1) AccessibilityService se kholo (ye system-bound hai, background se bhi chalta hai)
         val acc = MitraAccessibilityService.instance
         if (acc != null && acc.openApp(pkg)) return name
-
-        // 2) Apne aap se koshish (agar accessibility off ho)
         val i = packageManager.getLaunchIntentForPackage(pkg)
         if (i != null) {
             i.addFlags(
@@ -398,8 +510,6 @@ class OverlayService : Service() {
             )
             try { startActivity(i); return name } catch (e: Exception) {}
         }
-
-        // 3) Web fallback
         val url = "https://www.google.com/search?q=" + android.net.Uri.encode(name)
         if (acc != null && acc.openUrl(url)) return "$name (web)"
         val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
@@ -430,6 +540,8 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        sleeping = false
+        stopSleepMonitor()
         try { recognizer?.destroy() } catch (e: Exception) {}
         try { wm.removeView(root) } catch (e: Exception) {}
     }

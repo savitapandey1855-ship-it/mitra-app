@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v6
-          name: Bublu APK v6
-          body: "v6 - fixed app opening (launch via AccessibilityService, background-start fix)."
+          tag_name: apk-v7
+          name: Bublu APK v7
+          body: "v7 - screenshot, sleeping animation (wake on loud sound), WhatsApp message flow."
           files: app/build/outputs/apk/debug/app-debug.apk
