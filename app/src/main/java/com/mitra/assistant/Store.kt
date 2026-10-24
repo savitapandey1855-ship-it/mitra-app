@@ -133,4 +133,22 @@ object Store {
         l.add(Pair(nick, target))
         saveAliases(c, l)
     }
+
+    // ---- Important WhatsApp groups ----
+    fun importantGroups(c: Context): MutableList<String> {
+        val out = ArrayList<String>()
+        try {
+            val arr = JSONArray(p(c).getString("impgroups", "[]"))
+            for (i in 0 until arr.length()) out.add(arr.getString(i))
+        } catch (e: Exception) {}
+        return out
+    }
+
+    fun addImportantGroup(c: Context, g: String) {
+        val l = importantGroups(c)
+        if (l.none { it.equals(g, true) }) l.add(g)
+        val arr = JSONArray()
+        for (x in l) arr.put(x)
+        p(c).edit().putString("impgroups", arr.toString()).apply()
+    }
 }

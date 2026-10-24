@@ -44,6 +44,8 @@ class OverlayService : Service() {
     companion object {
         const val ACTION_STOP = "com.mitra.assistant.STOP"
         const val NAME = "Bublu"
+        @Volatile var live: OverlayService? = null
+        fun onImportantMessage(title: String, text: String) { live?.showGroupMessage(title, text) }
         const val BRAIN_PROMPT = "You convert a user's spoken request (English or Hinglish) into ONE command for an Android assistant. Reply with ONLY the command line, nothing else.\nCommands:\nOPEN <app name>\nCLICK <button text on screen>\nTYPE <text>\nSCROLL_DOWN\nSCROLL_UP\nNEXT\nPREV\nSEARCH <query>\nANSWER <question>\nWHATSAPP <contact> | <message>\nEMAIL <email address> | <subject>\nNOTE <text>\nSCREENSHOT\nBACK\nHOME\nSLEEP\nWAKE\nDANCE\nIf it is just a question or chit-chat, reply: ANSWER <their question>"
     }
 
@@ -106,6 +108,7 @@ class OverlayService : Service() {
         super.onCreate()
         startForegroundNotif()
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        live = this
         buildOverlay()
         initRecognizer()
         Thread { buildAppIndex() }.start()
@@ -875,6 +878,26 @@ class OverlayService : Service() {
             return
         }
 
+        // ---- Important WhatsApp group set ----
+        if (n.contains("important")) {
+            if (n.contains("dikhao") || n.contains("list") || n.contains("batao")) {
+                val gs = Store.importantGroups(this)
+                setMood(R.drawable.char_happy, if (gs.isEmpty()) "Koi important group set nahi" else "Important: " + gs.joinToString(", "))
+                return
+            }
+            var g = ""
+            Regex("(.+?)\\s+(?:group|grp)?\\s*ko\\s+important").find(t)?.let { g = it.groupValues[1] }
+            if (g.isBlank()) Regex("important\\s+(?:group\\s+)?(.+)").find(t)?.let { g = it.groupValues[1] }
+            g = g.replace(Regex("\\b(group|grp|ko|set|karo|kar|important|add|please|as|the|me|ke|liye|se)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+            if (g.isNotBlank()) {
+                Store.addImportantGroup(this, g)
+                setMood(R.drawable.char_laugh, "'$g' important set! Ab uske messages bataunga.")
+            } else {
+                setMood(R.drawable.char_think, "Kaunsa group important set karun? Jaise 'school group ko important set karo'")
+            }
+            return
+        }
+
         // ---- Alias set: "bhaiya ka naam Ravi rakho" / "bhaiya ko Ravi bulao" / "bhaiya ka number 98765 save karo" ----
         val aliasTrig = n.contains("bulao") || n.contains("nickname") ||
             (t.contains(" ka naam ") && (n.contains("rakho") || n.contains("save") || n.contains("set") || n.contains("karo"))) ||
@@ -1595,6 +1618,10 @@ class OverlayService : Service() {
         }
     }
 
+    private fun showGroupMessage(title: String, text: String) {
+        main.post { setMood(R.drawable.char_laugh, "$title: $text") }
+    }
+
     private fun saveNote(text: String) {
         Store.addNote(this, text)
         setMood(R.drawable.char_laugh, "Note save kar diya!")
@@ -1698,6 +1725,7 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        live = null
         sleeping = false
         stopSleepMonitor()
         try { tts?.shutdown() } catch (e: Exception) {}

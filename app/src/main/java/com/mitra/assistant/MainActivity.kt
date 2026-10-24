@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var taskBox: LinearLayout
     private lateinit var noteBox: LinearLayout
     private lateinit var aliasBox: LinearLayout
+    private lateinit var groupBox: LinearLayout
     private val prefs by lazy { getSharedPreferences("mitra", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         taskBox = findViewById(R.id.taskBox)
         noteBox = findViewById(R.id.noteBox)
         aliasBox = findViewById(R.id.aliasBox)
+        groupBox = findViewById(R.id.groupBox)
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
         toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
     }
@@ -88,6 +90,11 @@ class MainActivity : AppCompatActivity() {
         val notes = Store.notes(this)
         if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'"))
         else for (nt in notes.takeLast(6)) noteBox.addView(row(nt))
+
+        groupBox.removeAllViews()
+        val grps = Store.importantGroups(this)
+        if (grps.isEmpty()) groupBox.addView(row("Koi group nahi - bolo 'school group ko important set karo'"))
+        else for (g in grps) groupBox.addView(row(g))
 
         aliasBox.removeAllViews()
         val aliases = Store.aliases(this)
@@ -152,19 +159,45 @@ class MainActivity : AppCompatActivity() {
     private fun showSettings() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
-            "Gemini key", "Test AI", "Alias add karo (nickname)", "Jaanch (diagnose)"
+            "Notification access ON karo", "Gemini key", "Test AI",
+            "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
             when (w) {
                 0 -> showPermDialog()
                 1 -> openAccSettings()
                 2 -> openAutostart()
-                3 -> showKeyDialog()
-                4 -> testAi()
-                5 -> addAliasDialog()
-                6 -> showDiagnose()
+                3 -> openNotifAccess()
+                4 -> showKeyDialog()
+                5 -> testAi()
+                6 -> addAliasDialog()
+                7 -> addGroupDialog()
+                8 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun openNotifAccess() {
+        try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {}
+        Toast.makeText(this, "List me 'Bublu' ko ON karo", Toast.LENGTH_LONG).show()
+    }
+
+    private fun addGroupDialog() {
+        val input = EditText(this)
+        input.hint = "Group ka naam (jaise School Group)"
+        AlertDialog.Builder(this)
+            .setTitle("Important group add karo")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val g = input.text.toString().trim()
+                if (g.isNotBlank()) {
+                    Store.addImportantGroup(this, g)
+                    loadLists()
+                    Toast.makeText(this, "Save: $g", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun addAliasDialog() {
