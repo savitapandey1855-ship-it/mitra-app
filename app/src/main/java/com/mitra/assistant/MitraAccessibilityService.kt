@@ -61,7 +61,7 @@ class MitraAccessibilityService : AccessibilityService() {
         return target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
     }
 
-    // ---------- Smart target finding (text + content-description, best match) ----------
+    // ---------- Smart target finding ----------
     private fun findClickTarget(query: String): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
         val q = query.lowercase().trim()
@@ -93,7 +93,6 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ---------- Click ----------
     fun clickByText(text: String): Boolean {
         val n = findClickTarget(text) ?: return false
         return clickNode(n)
@@ -117,7 +116,7 @@ class MitraAccessibilityService : AccessibilityService() {
         return false
     }
 
-    // ---------- Target location (Bublu wahan ludhak kar jayega) ----------
+    // ---------- Location ----------
     fun centerOfText(text: String): IntArray? {
         val n = findClickTarget(text) ?: return null
         return centerOf(n)
@@ -168,7 +167,6 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** App kholo aur verify karo ki wo aage aaya (honest reporting). */
     fun openAppAndCheck(pkg: String): Boolean {
         if (!openApp(pkg)) return false
         for (i in 0 until 5) {
@@ -190,41 +188,129 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ---------- WhatsApp: status ke saath ----------
+    // =========================================================
+    //  WhatsApp — careful, verified, multi-step
+    // =========================================================
     fun sendWhatsApp(contact: String, message: String, onStatus: (String) -> Unit): Boolean {
-        return try {
+        try {
             onStatus("WhatsApp khol raha hoon...")
             if (!openApp("com.whatsapp")) { onStatus("WhatsApp nahi khula"); return false }
             Thread.sleep(3000)
 
+            // 1) Search kholo
             onStatus("Search khol raha hoon...")
             if (!clickByDesc("Search") && !clickByText("Search")) {
                 clickByDesc("Search or start new chat")
             }
-            Thread.sleep(900)
+            Thread.sleep(1000)
 
+            // 2) Naam search karo
             onStatus("$contact dhoondh raha hoon...")
             if (!setTextFocused(contact)) { onStatus("Search box nahi mila"); return false }
+            Thread.sleep(2000)
+
+            // 3) Result me se CHAT row kholo (search box ko NAHI)
+            if (!openFirstChatResult(contact)) {
+                onStatus("Thoda neeche scroll karke dekhta hoon...")
+                scrollResults()
+                Thread.sleep(1300)
+            }
+            if (!openFirstChatResult(contact)) {
+                onStatus("Are! $contact mila hi nahi")
+                try { back() } catch (e: Exception) {}
+                return false
+            }
             Thread.sleep(1900)
 
-            onStatus("Chat khol raha hoon...")
-            if (!clickByText(contact)) { onStatus("$contact nahi mila"); return false }
-            Thread.sleep(1700)
+            // 4) Pakka karo ki CHAT khuli hai (search box nahi)
+            if (!isInChat()) {
+                // ek aur baar try
+                if (openFirstChatResult(contact)) Thread.sleep(1800)
+            }
+            if (!isInChat()) {
+                onStatus("$contact ki chat nahi khul payi")
+                return false
+            }
 
+            // 5) Message type karo (sirf chat ke input box me)
             onStatus("Message likh raha hoon...")
-            if (!setTextFocused(message)) { onStatus("Message box nahi mila"); return false }
-            Thread.sleep(800)
+            val box = findChatInput()
+            if (box == null || !setNodeText(box, message)) {
+                onStatus("Message box nahi mila")
+                return false
+            }
+            Thread.sleep(900)
 
+            // 6) Send
             onStatus("Bhej raha hoon...")
             if (!clickByDesc("Send")) clickByText("Send")
-            Thread.sleep(800)
+            Thread.sleep(1000)
 
-            onStatus("Ho gaya! Home ja raha hoon...")
+            // 7) Check ki bhej diya (input box khali ho gaya)
+            val empty = try { findChatInput()?.text?.toString().isNullOrBlank() } catch (e: Exception) { true }
+            onStatus(if (empty) "Ho gaya! Wapas ja raha hoon..." else "Send shayad nahi hua...")
+
             home()
-            true
+            return empty
         } catch (e: Exception) {
-            false
+            return false
         }
+    }
+
+    /** Search results me se naam wali CHAT row kholo (input box skip karo). */
+    private fun openFirstChatResult(contact: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val q = contact.lowercase().trim()
+        if (q.isEmpty()) return false
+        val rows = ArrayList<AccessibilityNodeInfo>()
+        collectRows(root, q, rows)
+        if (rows.isEmpty()) return false
+        rows.sortBy {
+            val r = Rect(); it.getBoundsInScreen(r); r.top
+        }
+        for (row in rows) {
+            if (clickNode(row)) return true
+        }
+        return false
+    }
+
+    private fun collectRows(node: AccessibilityNodeInfo, q: String, out: ArrayList<AccessibilityNodeInfo>) {
+        if (node.isEditable) return // search box aur koi input skip
+        val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
+        if (txt.isNotEmpty() && txt.contains(q)) {
+            out.add(node)
+        }
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { collectRows(it, q, out) }
+        }
+    }
+
+    /** Chat ke message input box (hint me "message") dhoondo. */
+    private fun findChatInput(): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val byHint = findNode(root) { n ->
+            if (!n.isEditable) return@findNode false
+            val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) n.hintText?.toString()?.lowercase() ?: "" else ""
+            val desc = n.contentDescription?.toString()?.lowercase() ?: ""
+            (hint + " " + desc).contains("message")
+        }
+        return byHint ?: findEditable(root)
+    }
+
+    /** Chat khuli hai ya nahi (search box nahi). */
+    private fun isInChat(): Boolean {
+        val input = findChatInput() ?: return false
+        val hint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) input.hintText?.toString()?.lowercase() ?: "" else ""
+        val desc = input.contentDescription?.toString()?.lowercase() ?: ""
+        val combined = "$hint $desc"
+        if (combined.contains("search")) return false
+        return combined.contains("message")
+    }
+
+    private fun scrollResults(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val s = findNode(root) { it.isScrollable } ?: return false
+        return s.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
     }
 
     // ---------- Helpers ----------
