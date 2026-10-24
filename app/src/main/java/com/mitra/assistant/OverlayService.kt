@@ -11,14 +11,18 @@ import android.graphics.PixelFormat
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -28,6 +32,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import java.util.Locale
 import kotlin.math.abs
 
 class OverlayService : Service() {
@@ -49,6 +54,17 @@ class OverlayService : Service() {
     @Volatile private var sleeping = false
     private var sleepThread: Thread? = null
 
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+
+    // tickle (gudgudi) detection
+    private var lastX = 0f
+    private var lastDir = 0
+    private var flips = 0
+    private var flipWindowStart = 0L
+    private val tapTimes = ArrayList<Long>()
+    private var tickleCooldownUntil = 0L
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -57,6 +73,9 @@ class OverlayService : Service() {
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         buildOverlay()
         initRecognizer()
+        try {
+            tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
+        } catch (e: Exception) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -147,6 +166,15 @@ class OverlayService : Service() {
                     startX = params.x; startY = params.y
                     startTouchX = e.rawX; startTouchY = e.rawY
                     moved = false
+                    lastX = e.rawX; lastDir = 0
+                    // rapid taps -> gudgudi
+                    val now = System.currentTimeMillis()
+                    tapTimes.add(now)
+                    tapTimes.removeAll { now - it > 1800 }
+                    if (tapTimes.size >= 4 && now > tickleCooldownUntil) {
+                        tapTimes.clear()
+                        tickle()
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -156,6 +184,20 @@ class OverlayService : Service() {
                     params.x = startX + dx
                     params.y = startY + dy
                     wm.updateViewLayout(root, params)
+                    // rubbing back-and-forth -> gudgudi
+                    val now = System.currentTimeMillis()
+                    if (now - flipWindowStart > 1600) { flipWindowStart = now; flips = 0 }
+                    val d = e.rawX - lastX
+                    val dir = if (d > 4f) 1 else if (d < -4f) -1 else 0
+                    if (dir != 0) {
+                        if (lastDir != 0 && dir != lastDir) flips++
+                        lastDir = dir
+                    }
+                    lastX = e.rawX
+                    if (flips >= 6 && now > tickleCooldownUntil) {
+                        flips = 0
+                        tickle()
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -186,6 +228,50 @@ class OverlayService : Service() {
             reply.text = say
             reply.visibility = View.VISIBLE
         }
+    }
+
+    // ---------- Tickle / laugh ----------
+    private fun tickle() {
+        if (sleeping) { wakeUp(); return }
+        tickleCooldownUntil = System.currentTimeMillis() + 2500
+        setMood(
+            R.drawable.char_laugh,
+            pick(
+                "Hahaha! Gudgudi ho rahi hai!",
+                "Hihihi! Ruko na yaar!",
+                "Hahaha! Bahut gudgudi hai!",
+                "Hehehe! Hasi nahi ruk rahi!"
+            )
+        )
+        wobble()
+        vibrate(70)
+        speakLaugh()
+    }
+
+    private fun wobble() {
+        face.animate().rotation(10f).setDuration(90).withEndAction {
+            face.animate().rotation(-10f).setDuration(120).withEndAction {
+                face.animate().rotation(0f).setDuration(120).start()
+            }.start()
+        }.start()
+    }
+
+    private fun vibrate(ms: Long) {
+        try {
+            val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION") v.vibrate(ms)
+            }
+        } catch (e: Exception) {}
+    }
+
+    private fun speakLaugh() {
+        if (!ttsReady) return
+        try {
+            tts?.speak("Hahaha hahaha! Hehehe hihihi!", TextToSpeech.QUEUE_FLUSH, null, "laugh")
+        } catch (e: Exception) {}
     }
 
     private fun initRecognizer() {
@@ -304,8 +390,18 @@ class OverlayService : Service() {
         sleepThread = null
     }
 
-    // ---------- Canned ----------
+    // ---------- Canned / offline answers ----------
     private fun pick(vararg opts: String): String = opts[(Math.random() * opts.size).toInt()]
+
+    private fun batteryText(): String {
+        return try {
+            val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            val lvl = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            if (lvl in 0..100) "Battery $lvl% hai." else "Battery ka pata nahi chala."
+        } catch (e: Exception) {
+            "Battery ka pata nahi chala."
+        }
+    }
 
     private fun canned(t: String, n: String): String? {
         if (n == "hi" || n == "hii" || n == "hlo" || n == "hello" || n == "hey" ||
@@ -326,27 +422,85 @@ class OverlayService : Service() {
         if (n.contains("yourname") || n.contains("tumharanaam") || n.contains("teranaam") ||
             n.contains("whoareyou") || n.contains("tumkaun"))
             return "Main $NAME hoon - tumhara cute assistant!"
+        if (n.contains("kisnebanaya") || n.contains("kaunbanaya") || n.contains("whomadeyou") ||
+            n.contains("whocreatedyou"))
+            return "Mujhe tumne banaya! Main poori tarah tumhara hoon."
+        if (n.contains("kitnesaal") || n.contains("howold") || n.contains("tumariumar") || n.contains("umar"))
+            return "Main abhi naya naya bana hoon, par bahut samajhdaar hoon!"
+        if (n.contains("kyakarrahe") || n.contains("whatareyoudoing") || n.contains("kyakarrhe"))
+            return pick("Bas tumhara intezaar kar raha hoon! Kya karein?", "Tumse baat karne me maza aa raha hai!")
+        if (n.contains("kyakharaha") || n.contains("whatareyoueating"))
+            return "Main to bas battery aur pyaar khaata hoon!"
+        if (n.contains("favouritecolour") || n.contains("favouritecolor") || n.contains("favourite"))
+            return "Mujhe neela aur purple bahut pasand hai - jaise mera face!"
+        if (n.contains("where") && (n.contains("rehte") || n.contains("live")))
+            return "Main tumhare phone me rehta hoon, hamesha paas!"
         if (n.contains("thank") || n.contains("shukriya") || n.contains("dhanyavad"))
             return pick("Arre, koi baat nahi!", "Koi baat nahi, khushi hui!")
+        if (n == "sorry" || n.contains("sorry"))
+            return "Arre, koi baat nahi yaar! Main to dost hoon."
         if (n.contains("loveyou") || n.contains("iloveyou"))
             return "Aww, main bhi tumse pyaar karta hoon!"
+        if (n.contains("sundar") || n.contains("cuteho") || n.contains("handsome") || n.contains("pyariho"))
+            return "Aww, thank you! Tum bhi bahut cute ho!"
+        if (n.contains("dost") || n.contains("friend"))
+            return "Haan! Main tumhara best friend hoon, hamesha!"
+        if (n.contains("birthday") || n.contains("janamdin"))
+            return "Happy Birthday! Aaj tumhara special din hai!"
+        if (n.contains("exam") || n.contains("padhai") || n.contains("study"))
+            return "Padhai me dhyaan do, main saath hoon. All the best!"
+        if (n.contains("goodluck") || n.contains("allthebest"))
+            return "All the best! Tum zaroor kar loge!"
+        if (n.contains("bored") || n.contains("bore") || n.contains("boring"))
+            return pick("Chalo 'joke' bolo ya 'shayari' - maza aayega!", "Bolo 'coin' ya 'dice' - khelte hain!")
+        if (n.contains("joke") || n.contains("chutkula") || n.contains("hasao") || n.contains("hasana"))
+            return pick(
+                "Teacher: Homework kahan hai? Student: Sir, WiFi ne saath chhod diya!",
+                "Computer doctor ke paas gaya. Doctor: Kya problem? Computer: Mere windows band nahi ho rahe!",
+                "Mummy: Padhai karo. Beta: Main AI se padhai kar raha hoon. Mummy: Toh AI ko exam me bhej do!",
+                "Bacche ne poocha: Bublu, tum thakte nahi? Bublu: Main to charge pe rehta hoon!",
+                "Phone doctor ke paas gaya. Doctor: Kya hua? Phone: Main apne contacts kho gaya!"
+            )
+        if (n.contains("shayari") || n.contains("poem") || n.contains("kavita"))
+            return pick(
+                "Chand bhi sharma jaye tumhe dekh kar, sitare bhi jal jaye - aise ho tum mere cute dost!",
+                "Raat ki khamoshi me ek awaaz aayi, dekha to Bublu muskura raha tha!"
+            )
+        if (n.contains("motivat") || n.contains("honsla") || n.contains("housla"))
+            return pick(
+                "Koshish karne walon ki kabhi haar nahi hoti. Tum kar sakte ho!",
+                "Aaj mehnat karo, kal tum star banoge!",
+                "Thoda-thoda karke bhi bada kaam ho jata hai. Bas rukna mat!"
+            )
+        if (n.contains("battery") || n.contains("charge") || n.contains("charging"))
+            return batteryText()
+        if (n.contains("sikka") || n.contains("coin") || n.contains("toss"))
+            return pick("Sikka uchala... Heads (chit)!", "Sikka uchala... Tails (pat)!")
+        if (n.contains("dice") || n.contains("pasa") || n.contains("pasha"))
+            return "Dice ne " + ((1..6).random()) + " dikhaya!"
+        if (n.contains("randomnumber") || n.contains("random") || n.contains("konsanumber"))
+            return "Random number: " + ((1..100).random())
+        if (n.contains("aajkaisa") || n.contains("meradin") || n.contains("fortune") || n.contains("kismat"))
+            return pick(
+                "Aaj ka din tumhare liye shandar hai! Kuch naya try karo.",
+                "Aaj kuch accha hone wala hai. Muskurate raho!",
+                "Aaj ka luck mast hai - koi nayi cheez shuru karo!"
+            )
         if (n.contains("whatcanyoudo") || n.contains("help") || n.contains("madad") ||
             n.contains("kyakarsakte"))
-            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, aur sawaalon ke jawab. Bas bolo!"
+            return "Main apps khol sakta hoon, type/click/paste, screenshot, WhatsApp message, jokes, " +
+                "shayari, battery, coin-toss - aur sawaalon ke jawab. Bas bolo!"
         if (n == "bye" || n.contains("goodbye") || n.contains("alvida"))
             return pick("Bye! Phir milenge.", "Chalo, phir milte hain!")
         if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
-            val now = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
-                .format(java.util.Date())
+            val now = java.text.SimpleDateFormat("hh:mm a", Locale.getDefault()).format(java.util.Date())
             return "Abhi $now baje hain."
         }
         if (n.contains("date") || n.contains("tareekh") || n.contains("aajkadin") ||
             n.contains("kaundin") || n.contains("aajkaun") || n.contains("month") ||
             n.contains("saal") || n.contains("year")) {
-            val day = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
-                .format(java.util.Date())
-            val d = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault())
-                .format(java.util.Date())
+            val day = java.text.SimpleDateFormat("EEEE", Locale.getDefault()).format(java.util.Date())
+            val d = java.text.SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(java.util.Date())
             return "Aaj $day, $d hai."
         }
         return null
@@ -358,7 +512,8 @@ class OverlayService : Service() {
         val n = t.replace(" ", "")
         val acc = MitraAccessibilityService.instance
 
-        // 1) Sleep / Wake
+        if (n.contains("gudgudi") || n.contains("tickle")) { tickle(); return }
+
         if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") {
             sleep(); return
         }
@@ -366,7 +521,6 @@ class OverlayService : Service() {
             wakeUp(); return
         }
 
-        // 2) WhatsApp message flow
         val wa = parseWhatsApp(t)
         if (wa != null) {
             if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
@@ -381,22 +535,18 @@ class OverlayService : Service() {
             return
         }
 
-        // 3) Screenshot
         if (n.contains("screenshot") || n.contains("screenshort")) {
             if (acc != null && acc.screenshot()) setMood(R.drawable.char_happy, "Screenshot le liya")
             else setMood(R.drawable.char_sad, "Screenshot ke liye Accessibility ON karo")
             return
         }
 
-        // 4) Apps kholna
         val opened = tryOpen(t, n)
         if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
 
-        // 5) Canned replies
         val c = canned(t, n)
         if (c != null) { setMood(R.drawable.char_happy, c); return }
 
-        // 6) Click / type / paste / navigation
         if (acc == null) {
             if (looksLikeAction(t)) {
                 setMood(R.drawable.char_sad, "Click/type ke liye Settings me $NAME ki Accessibility ON karo")
@@ -420,7 +570,6 @@ class OverlayService : Service() {
             if (n.contains("notification")) { acc.notifications(); setMood(R.drawable.char_happy, "Notifications"); return }
         }
 
-        // 7) AI
         askAI(text)
     }
 
@@ -469,7 +618,6 @@ class OverlayService : Service() {
         for ((key, pkg, name) in known) {
             if (n.contains(key)) return launchPkg(pkg, name)
         }
-        // whatsapp generic (bina message ke) -> sirf kholo
         if (n.contains("whatsapp")) return launchPkg("com.whatsapp", "WhatsApp")
         val m = Regex("(?:open|kholo|khol|launch|start|chalu)\\s+([a-z0-9 ]+)").find(t)
         if (m != null) {
@@ -542,6 +690,7 @@ class OverlayService : Service() {
         super.onDestroy()
         sleeping = false
         stopSleepMonitor()
+        try { tts?.shutdown() } catch (e: Exception) {}
         try { recognizer?.destroy() } catch (e: Exception) {}
         try { wm.removeView(root) } catch (e: Exception) {}
     }
