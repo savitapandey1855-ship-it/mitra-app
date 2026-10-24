@@ -249,7 +249,7 @@ class OverlayService : Service() {
             try { wm.updateViewLayout(root, params) } catch (e: Exception) {}
         }
         anim.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(a: Animator?) { then?.invoke() }
+            override fun onAnimationEnd(animation: Animator) { then?.invoke() }
         })
         anim.start()
     }
