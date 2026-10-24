@@ -69,6 +69,17 @@ class OverlayService : Service() {
     private var gmailName: String? = null
     private var gmailAwait: String? = null
 
+    // App na khule to URL se kholne ke liye
+    private val appUrls = mapOf(
+        "com.whatsapp" to "https://wa.me/",
+        "com.google.android.youtube" to "https://youtube.com",
+        "com.instagram.android" to "https://instagram.com",
+        "com.google.android.gm" to "https://mail.google.com",
+        "com.android.chrome" to "https://www.google.com",
+        "com.spotify.music" to "https://open.spotify.com",
+        "com.google.android.apps.maps" to "https://maps.google.com"
+    )
+
     // tickle detection
     private var lastX = 0f
     private var lastDir = 0
@@ -1043,12 +1054,20 @@ class OverlayService : Service() {
                 return@Thread
             }
             val res = acc.openAppAndCheck(target, name)
+            if (res == target) {
+                main.post { setMood(R.drawable.char_laugh, "Ye lo: $name!") }
+                return@Thread
+            }
+            // Doosra tareeka: URL se kholo
+            main.post { setMood(R.drawable.char_think, "App se nahi khula, URL se koshish kar raha hoon...") }
+            val url = appUrls[target]
+                ?: ("https://www.google.com/search?q=" + android.net.Uri.encode(name))
+            val ok2 = acc.openUrl(url)
             main.post {
                 when {
-                    res == target -> setMood(R.drawable.char_laugh, "Ye lo: $name!")
+                    ok2 -> setMood(R.drawable.char_laugh, "$name link se khol diya!")
                     res == "LAUNCH_FAIL" -> setMood(R.drawable.char_sad, "$name nahi mila. App installed hai? Naam sahi hai?")
-                    res.isBlank() -> setMood(R.drawable.char_sad, "$name nahi khula - Settings > Apps > Bublu > Autostart ON karo")
-                    else -> setMood(R.drawable.char_sad, "$name ki jagah '$res' khula")
+                    else -> setMood(R.drawable.char_sad, "$name nahi khula - Settings > Apps > Bublu > Autostart ON karo")
                 }
             }
         }.start()
