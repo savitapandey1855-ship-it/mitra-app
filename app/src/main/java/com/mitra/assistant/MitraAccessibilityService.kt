@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import java.util.ArrayList
 
 /**
  * Bublu ko doosri apps me click / type / paste / screenshot / app kholne deti hai.
@@ -31,7 +32,7 @@ class MitraAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    // ---------- Type (append) ----------
+    // ---------- Type ----------
     fun typeText(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
@@ -60,16 +61,48 @@ class MitraAccessibilityService : AccessibilityService() {
         return target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
     }
 
+    // ---------- Smart target finding (text + content-description, best match) ----------
+    private fun findClickTarget(query: String): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val q = query.lowercase().trim()
+        if (q.isEmpty()) return null
+        val matches = ArrayList<Pair<AccessibilityNodeInfo, Int>>()
+        collect(root, q, matches)
+        if (matches.isEmpty()) return null
+        matches.sortBy { it.second }
+        return matches.first().first
+    }
+
+    private fun collect(
+        node: AccessibilityNodeInfo,
+        q: String,
+        out: ArrayList<Pair<AccessibilityNodeInfo, Int>>
+    ) {
+        val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
+        val desc = node.contentDescription?.toString()?.lowercase()?.trim() ?: ""
+        var score = -1
+        if (txt == q || desc == q) score = 0
+        else if (txt.startsWith(q) || desc.startsWith(q)) score = 2
+        else if (txt.contains(q) || desc.contains(q)) score = 4
+        if (score >= 0) {
+            if (node.isClickable) score -= 1
+            out.add(Pair(node, score))
+        }
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { collect(it, q, out) }
+        }
+    }
+
     // ---------- Click ----------
     fun clickByText(text: String): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val n = findNode(root) { it.text?.toString()?.contains(text, true) == true } ?: return false
+        val n = findClickTarget(text) ?: return false
         return clickNode(n)
     }
 
     fun clickByDesc(desc: String): Boolean {
         val root = rootInActiveWindow ?: return false
-        val n = findNode(root) { it.contentDescription?.toString()?.contains(desc, true) == true } ?: return false
+        val d = desc.lowercase()
+        val n = findNode(root) { it.contentDescription?.toString()?.lowercase()?.contains(d) == true } ?: return false
         return clickNode(n)
     }
 
@@ -86,8 +119,7 @@ class MitraAccessibilityService : AccessibilityService() {
 
     // ---------- Target location (Bublu wahan ludhak kar jayega) ----------
     fun centerOfText(text: String): IntArray? {
-        val root = rootInActiveWindow ?: return null
-        val n = findNode(root) { it.text?.toString()?.contains(text, true) == true } ?: return null
+        val n = findClickTarget(text) ?: return null
         return centerOf(n)
     }
 
@@ -120,7 +152,7 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ---------- App / URL kholna ----------
+    // ---------- App / URL ----------
     fun openApp(pkg: String): Boolean {
         return try {
             val i = packageManager.getLaunchIntentForPackage(pkg) ?: return false
@@ -136,6 +168,17 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** App kholo aur verify karo ki wo aage aaya (honest reporting). */
+    fun openAppAndCheck(pkg: String): Boolean {
+        if (!openApp(pkg)) return false
+        for (i in 0 until 5) {
+            Thread.sleep(700)
+            val cur = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+            if (cur == pkg) return true
+        }
+        return false
+    }
+
     fun openUrl(url: String): Boolean {
         return try {
             val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
@@ -147,31 +190,36 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ---------- WhatsApp: kholo -> search -> chat -> type -> send -> home ----------
-    fun sendWhatsApp(contact: String, message: String): Boolean {
+    // ---------- WhatsApp: status ke saath ----------
+    fun sendWhatsApp(contact: String, message: String, onStatus: (String) -> Unit): Boolean {
         return try {
-            if (!openApp("com.whatsapp")) return false
+            onStatus("WhatsApp khol raha hoon...")
+            if (!openApp("com.whatsapp")) { onStatus("WhatsApp nahi khula"); return false }
             Thread.sleep(3000)
 
+            onStatus("Search khol raha hoon...")
             if (!clickByDesc("Search") && !clickByText("Search")) {
                 clickByDesc("Search or start new chat")
             }
             Thread.sleep(900)
 
-            if (!setTextFocused(contact)) return false
-            Thread.sleep(1800)
+            onStatus("$contact dhoondh raha hoon...")
+            if (!setTextFocused(contact)) { onStatus("Search box nahi mila"); return false }
+            Thread.sleep(1900)
 
-            if (!clickByText(contact)) return false
-            Thread.sleep(1600)
+            onStatus("Chat khol raha hoon...")
+            if (!clickByText(contact)) { onStatus("$contact nahi mila"); return false }
+            Thread.sleep(1700)
 
-            if (!setTextFocused(message)) return false
-            Thread.sleep(700)
+            onStatus("Message likh raha hoon...")
+            if (!setTextFocused(message)) { onStatus("Message box nahi mila"); return false }
+            Thread.sleep(800)
 
-            if (!clickByDesc("Send")) {
-                clickByText("Send")
-            }
-            Thread.sleep(700)
+            onStatus("Bhej raha hoon...")
+            if (!clickByDesc("Send")) clickByText("Send")
+            Thread.sleep(800)
 
+            onStatus("Ho gaya! Home ja raha hoon...")
             home()
             true
         } catch (e: Exception) {

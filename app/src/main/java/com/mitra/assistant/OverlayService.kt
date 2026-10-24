@@ -586,9 +586,11 @@ class OverlayService : Service() {
             if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
             setMood(R.drawable.char_think, "WhatsApp khol raha hoon...")
             Thread {
-                val ok = acc.sendWhatsApp(wa.first, wa.second)
+                val ok = acc.sendWhatsApp(wa.first, wa.second) { status ->
+                    main.post { setMood(R.drawable.char_think, status) }
+                }
                 main.post {
-                    if (ok) setMood(R.drawable.char_happy, "Done! ${wa.first} ko \"${wa.second}\" bhej diya")
+                    if (ok) setMood(R.drawable.char_laugh, "Done! ${wa.first} ko \"${wa.second}\" bhej diya")
                     else setMood(R.drawable.char_sad, "WhatsApp flow poora nahi hua, phir try karo")
                 }
             }.start()
@@ -619,8 +621,8 @@ class OverlayService : Service() {
             return
         }
 
-        val opened = tryOpen(t, n)
-        if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
+        val app = resolveApp(t, n)
+        if (app != null) { openTarget(app.first, app.second); return }
 
         val c = canned(t, n)
         if (c != null) { setMood(R.drawable.char_happy, c); return }
@@ -708,7 +710,7 @@ class OverlayService : Service() {
         return null
     }
 
-    private fun tryOpen(t: String, n: String): String? {
+    private fun resolveApp(t: String, n: String): Pair<String, String>? {
         val known = listOf(
             Triple("youtube", "com.google.android.youtube", "YouTube"),
             Triple("instagram", "com.instagram.android", "Instagram"),
@@ -719,9 +721,9 @@ class OverlayService : Service() {
             Triple("settings", "com.android.settings", "Settings")
         )
         for ((key, pkg, name) in known) {
-            if (n.contains(key)) return launchPkg(pkg, name)
+            if (n.contains(key)) return Pair(pkg, name)
         }
-        if (n.contains("whatsapp")) return launchPkg("com.whatsapp", "WhatsApp")
+        if (n.contains("whatsapp")) return Pair("com.whatsapp", "WhatsApp")
         val m = Regex("(?:open|kholo|khol|launch|start|chalu)\\s+([a-z0-9 ]+)").find(t)
         if (m != null) {
             val word = m.groupValues[1]
@@ -729,7 +731,8 @@ class OverlayService : Service() {
                 .trim()
             if (word.isNotBlank()) {
                 val found = findInstalled(word)
-                if (found != null) return launchPkg(found.first, found.second)
+                if (found != null) return Pair(found.first, found.second)
+                return Pair("https://www.google.com/search?q=" + android.net.Uri.encode(word), word)
             }
         }
         return null
@@ -749,24 +752,20 @@ class OverlayService : Service() {
         return null
     }
 
-    private fun launchPkg(pkg: String, name: String): String? {
+    private fun openTarget(target: String, name: String) {
         val acc = MitraAccessibilityService.instance
-        if (acc != null && acc.openApp(pkg)) return name
-        val i = packageManager.getLaunchIntentForPackage(pkg)
-        if (i != null) {
-            i.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-            )
-            try { startActivity(i); return name } catch (e: Exception) {}
+        if (acc == null) {
+            setMood(R.drawable.char_sad, "Kholne ke liye Accessibility ON karo (app me 'Click/Type permission')")
+            return
         }
-        val url = "https://www.google.com/search?q=" + android.net.Uri.encode(name)
-        if (acc != null && acc.openUrl(url)) return "$name (web)"
-        val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-        web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try { startActivity(web); return "$name (web)" } catch (e: Exception) {}
-        return null
+        setMood(R.drawable.char_think, "$name khol raha hoon...")
+        Thread {
+            val ok = if (target.startsWith("http")) acc.openUrl(target) else acc.openAppAndCheck(target)
+            main.post {
+                if (ok) setMood(R.drawable.char_laugh, "Ye lo: $name!")
+                else setMood(R.drawable.char_sad, "$name nahi khula - Accessibility ya Autostart ON karo")
+            }
+        }.start()
     }
 
     private fun askAI(prompt: String) {

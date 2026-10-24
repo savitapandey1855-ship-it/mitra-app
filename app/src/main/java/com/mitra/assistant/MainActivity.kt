@@ -1,6 +1,7 @@
 package com.mitra.assistant
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -35,6 +36,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.keyBtn).setOnClickListener { showKeyDialog() }
         findViewById<Button>(R.id.testBtn).setOnClickListener { testAi() }
         findViewById<Button>(R.id.accBtn).setOnClickListener { openAccSettings() }
+        findViewById<Button>(R.id.autoBtn).setOnClickListener { openAutostart() }
         toggleBtn.setOnClickListener {
             if (isRunning()) stopMitra() else tryStart()
         }
@@ -125,6 +127,30 @@ class MainActivity : AppCompatActivity() {
         }
         Toast.makeText(this, "Sab set! Ab ON karo", Toast.LENGTH_SHORT).show()
         startMitra()
+    }
+
+    private fun openAutostart() {
+        val candidates = listOf(
+            ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+            ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"),
+            ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"),
+            ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")
+        )
+        for (c in candidates) {
+            try {
+                val i = Intent().setComponent(c)
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(i)
+                Toast.makeText(this, "Bublu ko 'Autostart' / 'Background' me ON karo", Toast.LENGTH_LONG).show()
+                return
+            } catch (e: Exception) {}
+        }
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+            )
+            Toast.makeText(this, "Bublu ki settings me 'Autostart'/'Background' ON karo", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {}
     }
 
     private fun openAccSettings() {
