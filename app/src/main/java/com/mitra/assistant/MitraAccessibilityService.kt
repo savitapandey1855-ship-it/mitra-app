@@ -336,7 +336,9 @@ class MitraAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow ?: return false
         val box = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) box.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER) else false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                box.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+            else false
         } catch (e: Exception) {
             false
         }
