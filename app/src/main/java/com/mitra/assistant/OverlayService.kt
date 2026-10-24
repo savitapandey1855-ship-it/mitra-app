@@ -908,10 +908,12 @@ class OverlayService : Service() {
         val t = tRaw.lowercase().trim()
         val isMail = t.contains("gmail") || t.contains("email") || Regex("\\bmail\\b").containsMatchIn(t)
         if (!isMail) return null
-        val s = t.replace(Regex("(gmail|email|mail)\\s*(pe|par|me|on|se)?"), " ").trim()
+        var s = t.replace(Regex("(gmail|email|mail)"), " ")
+        s = s.replace(Regex("\\b(pe|par|per|me|on|se|pa|pr)\\b"), " ")
+        s = s.replace(Regex("\\s+"), " ").trim()
         val i = s.indexOf(" ko ")
         if (i < 0) return null
-        val to = s.substring(0, i).replace(Regex("\\b(pe|par|me|on|se|ko)\\b"), " ").trim()
+        val to = s.substring(0, i).replace(Regex("\\b(pe|par|per|me|on|se|ko)\\b"), " ").trim()
         var topic = s.substring(i + 4).trim()
         topic = topic.replace(
             Regex("\\b(bhejo|bhej|likho|likh|send|karo|kar|kardo|do|de|please|plz|mail|email|gmail|message|msg)\\b"), " "
@@ -994,15 +996,19 @@ class OverlayService : Service() {
 
     private fun parseWhatsApp(tRaw: String): Pair<String, String>? {
         var s = tRaw.lowercase().trim()
-        s = s.replace(Regex("(whatsapp|whats app|whatsap|watsapp)\\s*(pe|par|me|on|se)?"), " ")
-        s = s.replace(Regex("(व्हाट्सएप|वाट्सएप|वॉट्सऐप|व्हाट्सऐप)\\s*(पर|पे|में)?"), " ")
-        s = s.replace("को", " ko ").replace(Regex("\\s+"), " ").trim()
+        s = s.replace(Regex("(whatsapp|whats app|whatsap|watsapp)"), " ")
+        s = s.replace(Regex("(व्हाट्सएप|वाट्सएप|वॉट्सऐप|व्हाट्सऐप)"), " ")
+        s = s.replace("को", " ko ")
+        // connector poora shabd hatao (word boundary) - "per" ka 'r' bacha nahi rahega
+        s = s.replace(Regex("\\b(pe|par|per|me|on|se|pa|pr)\\b"), " ")
+        s = s.replace(Regex("(पर|पे|में)"), " ")
+        s = s.replace(Regex("\\s+"), " ").trim()
         val i = s.indexOf(" ko ")
         if (i < 0) return null
         var contact = s.substring(0, i).trim()
         var msg = s.substring(i + 4).trim()
         contact = contact.replace(
-            Regex("\\b(pe|par|me|on|se|ko|message|massage|massege|msg|text)\\b"), " "
+            Regex("\\b(pe|par|per|me|on|se|ko|message|massage|massege|msg|text)\\b"), " "
         ).trim()
         contact = contact.replace(Regex("(को|पर|पे|में)"), " ").trim()
         msg = msg.replace(

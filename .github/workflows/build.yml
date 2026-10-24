@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v19
-          name: Bublu APK v19
-          body: "v19 - straight (vertical) scrolling; WhatsApp finds contact on Home chat list first, then Archived, then Search."
+          tag_name: apk-v20
+          name: Bublu APK v20
+          body: "v20 - fixed contact name parsing ('r Abhay' bug): connector words now removed whole (per/par/pe)."
           files: app/build/outputs/apk/debug/app-debug.apk
