@@ -108,4 +108,29 @@ object Store {
         }
         saveTasks(c, l)
     }
+
+    // ---- Aliases (nickname -> asli naam ya number) ----
+    fun aliases(c: Context): MutableList<Pair<String, String>> {
+        val out = ArrayList<Pair<String, String>>()
+        try {
+            val arr = JSONArray(p(c).getString("aliases", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                out.add(Pair(o.getString("nick"), o.getString("target")))
+            }
+        } catch (e: Exception) {}
+        return out
+    }
+
+    fun saveAliases(c: Context, list: List<Pair<String, String>>) {
+        val arr = JSONArray()
+        for (t in list) arr.put(JSONObject().put("nick", t.first).put("target", t.second))
+        p(c).edit().putString("aliases", arr.toString()).apply()
+    }
+
+    fun addAlias(c: Context, nick: String, target: String) {
+        val l = aliases(c).filter { it.first.lowercase() != nick.lowercase() }.toMutableList()
+        l.add(Pair(nick, target))
+        saveAliases(c, l)
+    }
 }

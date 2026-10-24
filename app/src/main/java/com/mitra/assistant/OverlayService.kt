@@ -781,12 +781,13 @@ class OverlayService : Service() {
         if (isWhatsAppIntent(t)) {
             val wa = parseWhatsApp(t)
             if (wa != null) {
+                val contact = resolveAlias(wa.first)
                 if (wa.second.isBlank()) {
-                    pendingWaContact = wa.first
+                    pendingWaContact = contact
                     setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
                     return
                 }
-                rollAround { doSendWhatsApp(wa.first, wa.second) }
+                rollAround { doSendWhatsApp(contact, wa.second) }
                 return
             }
             setMood(R.drawable.char_think, "Kisko message bhejna hai aur kya? Bolo, jaise 'Rahul ko Hi'")
@@ -873,6 +874,15 @@ class OverlayService : Service() {
             }.start()
             return
         }
+
+        // ---- Alias set: "bhaiya ka naam Ravi rakho" / "bhaiya ko Ravi bulao" / "bhaiya ka number 98765 save karo" ----
+        val aliasTrig = n.contains("bulao") || n.contains("nickname") ||
+            (t.contains(" ka naam ") && (n.contains("rakho") || n.contains("save") || n.contains("set") || n.contains("karo"))) ||
+            (t.contains(" ka number ") && (n.contains("save") || n.contains("rakho") || n.contains("set") || n.contains("karo")))
+        if (aliasTrig && handleAlias(t)) return
+
+        // ---- Call ----
+        if (n.contains("call") || n.contains("dial") || (n.contains("phone") && n.contains("karo"))) { callContact(t); return }
 
         // ---- Calculator ----
         if (looksLikeMath(t, n)) {
@@ -1530,6 +1540,59 @@ class OverlayService : Service() {
                 }.start()
             }
         } catch (e: Exception) {}
+    }
+
+    private fun resolveAlias(name: String): String {
+        val nm = name.trim()
+        if (nm.isBlank()) return nm
+        val words = nm.lowercase().split(" ")
+        val a = Store.aliases(this).firstOrNull {
+            it.first.equals(nm, true) || words.contains(it.first.lowercase())
+        }
+        return a?.second ?: nm
+    }
+
+    private fun handleAlias(t: String): Boolean {
+        var m = Regex("(.+?)\\s+ka\\s+naam\\s+(.+)").find(t)
+        if (m != null) { setAlias(m.groupValues[1], m.groupValues[2]); return true }
+        m = Regex("(.+?)\\s+ko\\s+(.+?)\\s+(?:bulao|bulana|bula)").find(t)
+        if (m != null) { setAlias(m.groupValues[1], m.groupValues[2]); return true }
+        m = Regex("(.+?)\\s+ka\\s+number\\s+(.+)").find(t)
+        if (m != null) { setAlias(m.groupValues[1], m.groupValues[2]); return true }
+        m = Regex("(.+?)\\s+ke\\s+liye\\s+(.+?)\\s+(?:save|set|rakho|add)").find(t)
+        if (m != null) { setAlias(m.groupValues[1], m.groupValues[2]); return true }
+        return false
+    }
+
+    private fun setAlias(nickRaw: String, targetRaw: String) {
+        val nick = nickRaw.replace(Regex("\\b(ka|ki|ke|ko|naam|number|save|rakho|rakh|set|add|karo|kar|please|liye|bulao)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+        val target = targetRaw.replace(Regex("\\b(save|rakho|rakh|set|add|karo|kar|please|bulao|bulana|ka|ki|ke|naam|number)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+        if (nick.isBlank() || target.isBlank()) { setMood(R.drawable.char_sad, "Alias samajh nahi aaya. Jaise 'bhaiya ka naam Ravi rakho'"); return }
+        Store.addAlias(this, nick, target)
+        setMood(R.drawable.char_laugh, "Samajh gaya! '$nick' = '$target'")
+    }
+
+    private fun callContact(t: String) {
+        val name = t.replace(Regex("\\b(call|dial|phone|lagao|lagado|karo|kar|ko|se|baat|please|ki|ka|ke|liye|mila|kro)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+        val target = resolveAlias(name)
+        val num = when {
+            target.matches(Regex("\\+?\\d[\\d ]{5,}")) -> target.replace(" ", "")
+            target.isBlank() -> null
+            else -> Contacts.numberFor(this, target)
+        }
+        if (num != null) {
+            val canCall = checkSelfPermission(android.Manifest.permission.CALL_PHONE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val i = if (canCall) Intent(Intent.ACTION_CALL, android.net.Uri.parse("tel:$num"))
+            else Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$num"))
+            val ok = MitraAccessibilityService.instance?.openIntent(i) ?: false
+            setMood(if (ok) R.drawable.char_happy else R.drawable.char_sad, if (ok) "$target ko call kar raha hoon" else "Call nahi khula")
+        } else if (target.isBlank()) {
+            val i = Intent(Intent.ACTION_DIAL)
+            MitraAccessibilityService.instance?.openIntent(i)
+            setMood(R.drawable.char_happy, "Dialer khol diya")
+        } else {
+            setMood(R.drawable.char_sad, "$target ka number nahi mila. Bolo: '$target ka number 98xxxx save karo'")
+        }
     }
 
     private fun saveNote(text: String) {

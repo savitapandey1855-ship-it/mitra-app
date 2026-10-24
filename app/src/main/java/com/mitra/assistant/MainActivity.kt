@@ -29,12 +29,14 @@ class MainActivity : AppCompatActivity() {
     private val REQ_MIC = 101
     private val REQ_NOTIF = 103
     private val REQ_OVERLAY = 102
+    private val REQ_CONTACTS = 104
     private lateinit var statusTxt: TextView
     private lateinit var toggleBtn: Button
     private lateinit var schedBox: LinearLayout
     private lateinit var eventBox: LinearLayout
     private lateinit var taskBox: LinearLayout
     private lateinit var noteBox: LinearLayout
+    private lateinit var aliasBox: LinearLayout
     private val prefs by lazy { getSharedPreferences("mitra", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         eventBox = findViewById(R.id.eventBox)
         taskBox = findViewById(R.id.taskBox)
         noteBox = findViewById(R.id.noteBox)
+        aliasBox = findViewById(R.id.aliasBox)
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
         toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
     }
@@ -85,6 +88,11 @@ class MainActivity : AppCompatActivity() {
         val notes = Store.notes(this)
         if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'"))
         else for (nt in notes.takeLast(6)) noteBox.addView(row(nt))
+
+        aliasBox.removeAllViews()
+        val aliases = Store.aliases(this)
+        if (aliases.isEmpty()) aliasBox.addView(row("Koi alias nahi - bolo 'bhaiya ka naam Ravi rakho'"))
+        else for (a in aliases) aliasBox.addView(row("${a.first}  =  ${a.second}"))
 
         eventBox.removeAllViews()
         val evs = Store.events(this)
@@ -144,7 +152,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSettings() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
-            "Gemini key", "Test AI", "Jaanch (diagnose)"
+            "Gemini key", "Test AI", "Alias add karo (nickname)", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
             when (w) {
@@ -153,9 +161,37 @@ class MainActivity : AppCompatActivity() {
                 2 -> openAutostart()
                 3 -> showKeyDialog()
                 4 -> testAi()
-                5 -> showDiagnose()
+                5 -> addAliasDialog()
+                6 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun addAliasDialog() {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val pad = (14 * resources.displayMetrics.density).toInt()
+        box.setPadding(pad, pad, pad, pad)
+        val nick = EditText(this)
+        nick.hint = "Nickname (jaise bhaiya)"
+        val target = EditText(this)
+        target.hint = "Asli naam ya number (jaise Ravi / 98765...)"
+        box.addView(nick)
+        box.addView(target)
+        AlertDialog.Builder(this)
+            .setTitle("Alias add karo")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val nk = nick.text.toString().trim()
+                val tg = target.text.toString().trim()
+                if (nk.isNotBlank() && tg.isNotBlank()) {
+                    Store.addAlias(this, nk, tg)
+                    loadLists()
+                    Toast.makeText(this, "Alias save: $nk = $tg", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showPermDialog() {
@@ -182,6 +218,14 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(this, arrayOf("android.permission.POST_NOTIFICATIONS"), REQ_NOTIF)
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE),
+                REQ_CONTACTS
+            )
             return
         }
         Toast.makeText(this, "Sab set! Ab ON karo", Toast.LENGTH_SHORT).show()
