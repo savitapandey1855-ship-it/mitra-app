@@ -1,4 +1,4 @@
-name: Build Mitra APK
+name: Build Bublu APK
 
 on:
   push:
@@ -32,13 +32,13 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mitra-debug-apk
+          name: Bublu-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v4
-          name: Mitra APK v4
-          body: "v4 - click/type/paste (accessibility), fixed app opening, cute 3D character (no emojis), smaller popup."
+          tag_name: apk-v5
+          name: Bublu APK v5
+          body: "v5 - renamed to Bublu, added ready-made greetings (hi, hello, good morning/night, time, date, etc.)."
           files: app/build/outputs/apk/debug/app-debug.apk

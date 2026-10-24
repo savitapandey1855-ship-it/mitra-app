@@ -31,6 +31,7 @@ class OverlayService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.mitra.assistant.STOP"
+        const val NAME = "Bublu"
     }
 
     private lateinit var wm: WindowManager
@@ -62,9 +63,9 @@ class OverlayService : Service() {
     }
 
     private fun startForegroundNotif() {
-        val chId = "mitra_ch"
+        val chId = "bublu_ch"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(chId, "Mitra", NotificationManager.IMPORTANCE_LOW)
+            val ch = NotificationChannel(chId, NAME, NotificationManager.IMPORTANCE_LOW)
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(ch)
         }
@@ -74,7 +75,7 @@ class OverlayService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val notif = NotificationCompat.Builder(this, chId)
-            .setContentTitle("Mitra chal raha hai")
+            .setContentTitle("$NAME chal raha hai")
             .setContentText("Character pe tap karke bolo")
             .setSmallIcon(R.drawable.ic_notif)
             .setOngoing(true)
@@ -109,9 +110,7 @@ class OverlayService : Service() {
         rlp.bottomMargin = dp(6)
         root.addView(reply, rlp)
 
-        face = ImageView(this).apply {
-            setImageResource(R.drawable.char_idle)
-        }
+        face = ImageView(this).apply { setImageResource(R.drawable.char_idle) }
         root.addView(face, LinearLayout.LayoutParams(dp(74), dp(74)))
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -230,27 +229,79 @@ class OverlayService : Service() {
         }
     }
 
+    private fun pick(vararg opts: String): String = opts[(Math.random() * opts.size).toInt()]
+
+    /** Pehle se set cute jawab (greeting, time, date, etc.) */
+    private fun canned(t: String, n: String): String? {
+        if (n == "hi" || n == "hii" || n == "hlo" || n == "hello" || n == "hey" ||
+            n.startsWith("hello") || n.contains("namaste") || n.contains("namaskar"))
+            return pick(
+                "Hii! Main $NAME hoon. Kya karna hai?",
+                "Hello! Bolo na, kya help chahiye?",
+                "Namaste! Main $NAME hoon, tumhara cute assistant."
+            )
+        if (n.contains("goodmorning") || n == "gm")
+            return pick(
+                "Good morning! Aaj ka din shandar ho!",
+                "Subah bakhair! Kya mast subah hai!",
+                "Good morning! Aaj kuch naya seekhte hain!"
+            )
+        if (n.contains("goodnight") || n == "gn")
+            return pick(
+                "Good night! Meetha sapna dekhna.",
+                "Shubh ratri! Aaram se so jao.",
+                "Good night! Kal phir milte hain."
+            )
+        if (n.contains("goodevening")) return pick("Good evening! Kaise ho?", "Shubh sandhya! Kaise ho?")
+        if (n.contains("goodafternoon")) return pick("Good afternoon!", "Namaste! Dopahar bakhair.")
+        if (n.contains("howareyou") || n.contains("kaiseho") || n.contains("kaisihai"))
+            return pick("Main ekdum mast! Tum batao?", "Main theek hoon! Tum kaise ho?")
+        if (n.contains("yourname") || n.contains("tumharanaam") || n.contains("teranaam") ||
+            n.contains("whoareyou") || n.contains("tumkaun"))
+            return "Main $NAME hoon - tumhara cute assistant!"
+        if (n.contains("thank") || n.contains("shukriya") || n.contains("dhanyavad"))
+            return pick("Arre, koi baat nahi!", "Koi baat nahi, khushi hui!")
+        if (n.contains("loveyou") || n.contains("iloveyou"))
+            return "Aww, main bhi tumse pyaar karta hoon!"
+        if (n.contains("whatcanyoudo") || n.contains("help") || n.contains("madad") ||
+            n.contains("kyakarsakte"))
+            return "Main apps khol sakta hoon, type/click/paste kar sakta hoon, aur koi bhi sawaal ka jawab de sakta hoon. Bas bolo!"
+        if (n == "bye" || n.contains("goodbye") || n.contains("alvida"))
+            return pick("Bye! Phir milenge.", "Chalo, phir milte hain!")
+        if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
+            val now = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            return "Abhi $now baje hain."
+        }
+        if (n.contains("date") || n.contains("tareekh") || n.contains("aajkadin") ||
+            n.contains("kaundin") || n.contains("aajkaun") || n.contains("month") ||
+            n.contains("saal") || n.contains("year")) {
+            val day = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            val d = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            return "Aaj $day, $d hai."
+        }
+        return null
+    }
+
     private fun handle(text: String) {
         val t = text.lowercase().trim()
-        val n = t.replace(" ", "")   // "you tube" -> "youtube"
+        val n = t.replace(" ", "")
 
         // 1) Apps kholna
         val opened = tryOpen(t, n)
         if (opened != null) { setMood(R.drawable.char_happy, "Ye lo: $opened"); return }
 
-        // 2) Time
-        if (n.contains("time") || n.contains("samay") || n.contains("kitnebaje")) {
-            val now = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
-                .format(java.util.Date())
-            setMood(R.drawable.char_happy, "Abhi $now")
-            return
-        }
+        // 2) Pehle se set cute jawab
+        val c = canned(t, n)
+        if (c != null) { setMood(R.drawable.char_happy, c); return }
 
         // 3) Click / type / paste / navigation (accessibility)
         val acc = MitraAccessibilityService.instance
         if (acc == null) {
             if (looksLikeAction(t)) {
-                setMood(R.drawable.char_sad, "Click/type ke liye Settings me Mitra ki Accessibility ON karo")
+                setMood(R.drawable.char_sad, "Click/type ke liye Settings me $NAME ki Accessibility ON karo")
                 return
             }
         } else {
@@ -280,7 +331,6 @@ class OverlayService : Service() {
             t.contains("click ") || t.contains("chipka") || t.contains("likho")
     }
 
-    /** keyword ke baad ka text nikaalo */
     private fun after(t: String, keys: List<String>): String? {
         for (k in keys) {
             val i = t.indexOf(k)
@@ -306,7 +356,6 @@ class OverlayService : Service() {
         for ((key, pkg, name) in known) {
             if (n.contains(key)) return launchPkg(pkg, name)
         }
-        // generic: "open <app>" / "<app> kholo"
         val m = Regex("(?:open|kholo|khol|launch|start|chalu)\\s+([a-z0-9 ]+)").find(t)
         if (m != null) {
             val word = m.groupValues[1]
@@ -357,7 +406,7 @@ class OverlayService : Service() {
             return
         }
         setMood(R.drawable.char_think, "Soch raha hoon...")
-        val full = "You are Mitra, a cute helpful assistant for a school student in India. " +
+        val full = "You are $NAME, a cute helpful assistant for a school student in India. " +
             "Reply in 1-2 short simple sentences. If the user writes Hindi/Hinglish, reply the same way. " +
             "Question: $prompt"
         Thread {

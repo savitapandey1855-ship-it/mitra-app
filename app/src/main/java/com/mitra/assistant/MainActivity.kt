@@ -119,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (!isAccEnabled()) {
-            Toast.makeText(this, "Click/type ke liye Mitra ko ON karo", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Click/type ke liye Bublu ko ON karo", Toast.LENGTH_SHORT).show()
             openAccSettings()
             return
         }
@@ -130,7 +130,7 @@ class MainActivity : AppCompatActivity() {
     private fun openAccSettings() {
         try {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            Toast.makeText(this, "List me 'Mitra' dhoondh ke ON karo", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "List me 'Bublu' dhoondh ke ON karo", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {}
     }
 
