@@ -151,4 +151,67 @@ object Store {
         for (x in l) arr.put(x)
         p(c).edit().putString("impgroups", arr.toString()).apply()
     }
+
+    fun deleteGroup(c: Context, g: String) {
+        val l = importantGroups(c).filter { !it.equals(g, true) }.toMutableList()
+        val arr = JSONArray()
+        for (x in l) arr.put(x)
+        p(c).edit().putString("impgroups", arr.toString()).apply()
+    }
+
+    // ---- Edit / delete helpers ----
+    fun updateReminder(c: Context, id: Int, text: String) {
+        val l = reminders(c)
+        for (i in l.indices) if (l[i].first == id) l[i] = Triple(l[i].first, l[i].second, text)
+        saveReminders(c, l)
+    }
+
+    fun deleteReminder(c: Context, id: Int) {
+        saveReminders(c, reminders(c).filter { it.first != id })
+    }
+
+    fun updateNote(c: Context, index: Int, text: String) {
+        val l = notes(c)
+        if (index in l.indices) { l[index] = text; val arr = JSONArray(); for (x in l) arr.put(x); p(c).edit().putString("notes", arr.toString()).apply() }
+    }
+
+    fun deleteNote(c: Context, index: Int) {
+        val l = notes(c)
+        if (index in l.indices) { l.removeAt(index); val arr = JSONArray(); for (x in l) arr.put(x); p(c).edit().putString("notes", arr.toString()).apply() }
+    }
+
+    fun updateTask(c: Context, index: Int, text: String) {
+        val l = tasks(c)
+        if (index in l.indices) { l[index] = Pair(text, l[index].second); saveTasks(c, l) }
+    }
+
+    fun deleteTask(c: Context, index: Int) {
+        val l = tasks(c)
+        if (index in l.indices) { l.removeAt(index); saveTasks(c, l) }
+    }
+
+    fun toggleTask(c: Context, index: Int) {
+        val l = tasks(c)
+        if (index in l.indices) { l[index] = Pair(l[index].first, !l[index].second); saveTasks(c, l) }
+    }
+
+    fun deleteAlias(c: Context, nick: String) {
+        saveAliases(c, aliases(c).filter { !it.first.equals(nick, true) })
+    }
+
+    fun updateAlias(c: Context, nick: String, newTarget: String) {
+        val l = aliases(c)
+        for (i in l.indices) if (l[i].first.equals(nick, true)) l[i] = Pair(l[i].first, newTarget)
+        saveAliases(c, l)
+    }
+
+    fun deleteEvent(c: Context, index: Int) {
+        val l = events(c)
+        if (index in l.indices) { l.removeAt(index); saveEvents(c, l) }
+    }
+
+    fun updateEvent(c: Context, index: Int, name: String, date: String, type: String) {
+        val l = events(c)
+        if (index in l.indices) { l[index] = Triple(name, date, type); saveEvents(c, l) }
+    }
 }

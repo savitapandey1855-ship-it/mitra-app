@@ -21,6 +21,7 @@
             android:padding="20dp">
 
             <ImageView
+                android:id="@+id/avatarImg"
                 android:layout_width="104dp"
                 android:layout_height="104dp"
                 android:src="@drawable/char_idle"
@@ -78,6 +79,17 @@
                 android:text="Settings"
                 android:textAllCaps="false"
                 android:textColor="#E7ECFF"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/modeBtn"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/btn_soft"
+                android:text="Mode: Bublu  (tap for Zora)"
+                android:textAllCaps="false"
+                android:textColor="#8FE9FF"
                 android:textSize="15sp" />
         </LinearLayout>
 

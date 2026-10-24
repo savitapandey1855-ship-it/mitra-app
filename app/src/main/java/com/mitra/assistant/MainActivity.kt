@@ -52,12 +52,15 @@ class MainActivity : AppCompatActivity() {
         aliasBox = findViewById(R.id.aliasBox)
         groupBox = findViewById(R.id.groupBox)
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
+        findViewById<Button>(R.id.modeBtn).setOnClickListener { switchMode() }
         toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
+        updateModeBtn()
     }
 
     override fun onResume() {
         super.onResume()
         updateUi()
+        updateModeBtn()
         loadLists()
     }
 
@@ -76,38 +79,40 @@ class MainActivity : AppCompatActivity() {
     private fun loadLists() {
         schedBox.removeAllViews()
         val rems = Store.reminders(this).sortedBy { it.second }
-        if (rems.isEmpty()) schedBox.addView(row("Koi schedule ya alarm nahi"))
+        if (rems.isEmpty()) schedBox.addView(row("Koi schedule ya alarm nahi", null))
         else for (r in rems) {
             val d = SimpleDateFormat("d MMM, hh:mm a", Locale.getDefault()).format(Date(r.second))
-            schedBox.addView(row("$d  -  ${r.third}"))
+            schedBox.addView(row("$d  -  ${r.third}", "rem:${r.first}"))
         }
         taskBox.removeAllViews()
         val tasks = Store.tasks(this)
-        if (tasks.isEmpty()) taskBox.addView(row("Koi task nahi - bolo 'task add karo ...'"))
-        else for (t in tasks) taskBox.addView(row((if (t.second) "[done]  " else "[ ]  ") + t.first))
-
+        if (tasks.isEmpty()) taskBox.addView(row("Koi task nahi - bolo 'task add karo ...'", null))
+        else for (i in tasks.indices) {
+            val t = tasks[i]
+            taskBox.addView(row((if (t.second) "[done]  " else "[ ]  ") + t.first, "task:$i"))
+        }
         noteBox.removeAllViews()
         val notes = Store.notes(this)
-        if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'"))
-        else for (nt in notes.takeLast(6)) noteBox.addView(row(nt))
-
+        if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'", null))
+        else for (i in notes.indices) noteBox.addView(row(notes[i], "note:$i"))
         groupBox.removeAllViews()
         val grps = Store.importantGroups(this)
-        if (grps.isEmpty()) groupBox.addView(row("Koi group nahi - bolo 'school group ko important set karo'"))
-        else for (g in grps) groupBox.addView(row(g))
-
+        if (grps.isEmpty()) groupBox.addView(row("Koi group nahi - bolo 'school group ko important set karo'", null))
+        else for (g in grps) groupBox.addView(row(g, "grp:$g"))
         aliasBox.removeAllViews()
         val aliases = Store.aliases(this)
-        if (aliases.isEmpty()) aliasBox.addView(row("Koi alias nahi - bolo 'bhaiya ka naam Ravi rakho'"))
-        else for (a in aliases) aliasBox.addView(row("${a.first}  =  ${a.second}"))
-
+        if (aliases.isEmpty()) aliasBox.addView(row("Koi alias nahi - bolo 'bhaiya ka naam Ravi rakho'", null))
+        else for (a in aliases) aliasBox.addView(row("${a.first}  =  ${a.second}", "alias:${a.first}"))
         eventBox.removeAllViews()
         val evs = Store.events(this)
-        if (evs.isEmpty()) eventBox.addView(row("Koi birthday/anniversary set nahi"))
-        else for (e in evs) eventBox.addView(row("${e.first}  -  ${e.third}  -  ${e.second}"))
+        if (evs.isEmpty()) eventBox.addView(row("Koi birthday/anniversary set nahi", null))
+        else for (i in evs.indices) {
+            val e = evs[i]
+            eventBox.addView(row("${e.first}  -  ${e.third}  -  ${e.second}", "evt:$i"))
+        }
     }
 
-    private fun row(s: String): TextView {
+    private fun row(s: String, tag: String?): TextView {
         val t = TextView(this)
         t.text = s
         t.textSize = 14f
@@ -120,7 +125,108 @@ class MainActivity : AppCompatActivity() {
         )
         lp.topMargin = (6 * resources.displayMetrics.density).toInt()
         t.layoutParams = lp
+        if (tag != null) {
+            t.isClickable = true
+            t.setOnClickListener { onRowClick(tag) }
+        }
         return t
+    }
+
+    private fun onRowClick(tag: String) {
+        val parts = tag.split(":", limit = 2)
+        val kind = parts[0]
+        val key = parts.getOrElse(1) { "" }
+        val options = if (kind == "task") arrayOf("Edit", "Mark done/undone", "Delete") else arrayOf("Edit", "Delete")
+        AlertDialog.Builder(this).setTitle("Kya karna hai?").setItems(options) { _, w ->
+            when (kind) {
+                "rem" -> {
+                    val id = key.toIntOrNull()
+                    if (id != null) {
+                        if (w == 0) {
+                            val cur = Store.reminders(this).firstOrNull { it.first == id }?.third ?: ""
+                            promptText("Schedule edit karo", cur) { Store.updateReminder(this, id, it) }
+                        } else { Store.deleteReminder(this, id); loadLists() }
+                    }
+                }
+                "task" -> {
+                    val i = key.toIntOrNull()
+                    if (i != null) {
+                        val cur = Store.tasks(this).getOrNull(i)?.first ?: ""
+                        when (w) {
+                            0 -> promptText("Task edit karo", cur) { Store.updateTask(this, i, it) }
+                            1 -> { Store.toggleTask(this, i); loadLists() }
+                            else -> { Store.deleteTask(this, i); loadLists() }
+                        }
+                    }
+                }
+                "note" -> {
+                    val i = key.toIntOrNull()
+                    if (i != null) {
+                        val cur = Store.notes(this).getOrNull(i) ?: ""
+                        if (w == 0) promptText("Note edit karo", cur) { Store.updateNote(this, i, it) }
+                        else { Store.deleteNote(this, i); loadLists() }
+                    }
+                }
+                "grp" -> { if (w == 1) { Store.deleteGroup(this, key); loadLists() } }
+                "alias" -> {
+                    val cur = Store.aliases(this).firstOrNull { it.first.equals(key, true) }?.second ?: ""
+                    if (w == 0) promptText("Alias target edit karo ($key)", cur) { Store.updateAlias(this, key, it) }
+                    else { Store.deleteAlias(this, key); loadLists() }
+                }
+                "evt" -> {
+                    val i = key.toIntOrNull()
+                    if (i != null) {
+                        val e = Store.events(this).getOrNull(i)
+                        if (w == 0 && e != null) promptEvent(i, e) else { Store.deleteEvent(this, i); loadLists() }
+                    }
+                }
+            }
+        }.show()
+    }
+
+    private fun promptText(title: String, current: String, onSave: (String) -> Unit) {
+        val input = EditText(this)
+        input.setText(current)
+        AlertDialog.Builder(this).setTitle(title).setView(input)
+            .setPositiveButton("Save") { _, _ -> onSave(input.text.toString().trim()); loadLists() }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun promptEvent(index: Int, e: Triple<String, String, String>) {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val name = EditText(this); name.setText(e.first); name.hint = "Naam"
+        val date = EditText(this); date.setText(e.second); date.hint = "dd/MM"
+        val type = EditText(this); type.setText(e.third); type.hint = "Birthday/Anniversary"
+        box.addView(name); box.addView(date); box.addView(type)
+        AlertDialog.Builder(this).setTitle("Edit karo").setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                Store.updateEvent(this, index, name.text.toString().trim(), date.text.toString().trim(), type.text.toString().trim())
+                loadLists()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun updateModeBtn() {
+        val cur = prefs.getString("mode", "bublu") ?: "bublu"
+        findViewById<Button>(R.id.modeBtn).text = if (cur == "zora") "Mode: Zora  (tap for Bublu)" else "Mode: Bublu  (tap for Zora)"
+        findViewById<ImageView>(R.id.avatarImg).setImageResource(if (cur == "zora") R.drawable.zora_idle else R.drawable.char_idle)
+    }
+
+    private fun switchMode() {
+        val cur = prefs.getString("mode", "bublu") ?: "bublu"
+        val next = if (cur == "zora") "bublu" else "zora"
+        prefs.edit().putString("mode", next).apply()
+        updateModeBtn()
+        if (isRunning()) {
+            stopMitra()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                prefs.edit().putBoolean("running", true).apply()
+                val i = Intent(this, OverlayService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+                updateUi()
+            }, 700)
+        }
+        Toast.makeText(this, if (next == "zora") "Zora mode ON" else "Bublu mode ON", Toast.LENGTH_SHORT).show()
     }
 
     private fun tryStart() {

@@ -32,6 +32,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -55,6 +56,9 @@ class OverlayService : Service() {
     private lateinit var reply: TextView
     private lateinit var thinkBubble: ImageView
     private var thinkAnim: ObjectAnimator? = null
+    private lateinit var ring: ImageView
+    private var ringAnim: ObjectAnimator? = null
+    private var mode = "bublu"
     private var moodSeq = 0
     private var revertRunnable: Runnable? = null
     private var busySince = 0L
@@ -110,6 +114,7 @@ class OverlayService : Service() {
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         live = this
         buildOverlay()
+        applyMode()
         initRecognizer()
         Thread { buildAppIndex() }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
@@ -184,7 +189,16 @@ class OverlayService : Service() {
         root.addView(reply, rlp)
 
         face = ImageView(this).apply { setImageResource(R.drawable.char_idle) }
-        root.addView(face, LinearLayout.LayoutParams(dp(74), dp(74)))
+        ring = ImageView(this).apply {
+            setImageResource(R.drawable.zora_ring)
+            visibility = View.GONE
+        }
+        val holder = FrameLayout(this)
+        val hp = FrameLayout.LayoutParams(dp(74), dp(74))
+        hp.gravity = Gravity.CENTER
+        holder.addView(ring, hp)
+        holder.addView(face, hp)
+        root.addView(holder, LinearLayout.LayoutParams(dp(74), dp(74)))
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -265,10 +279,44 @@ class OverlayService : Service() {
             }.start()
     }
 
+    private fun moodRes(resId: Int): Int {
+        if (mode != "zora") return resId
+        return when (resId) {
+            R.drawable.char_idle -> R.drawable.zora_idle
+            R.drawable.char_listen -> R.drawable.zora_listen
+            R.drawable.char_think -> R.drawable.zora_think
+            R.drawable.char_happy -> R.drawable.zora_happy
+            R.drawable.char_sad -> R.drawable.zora_sad
+            R.drawable.char_sleep -> R.drawable.zora_sleep
+            R.drawable.char_wake -> R.drawable.zora_wake
+            R.drawable.char_laugh -> R.drawable.zora_laugh
+            else -> resId
+        }
+    }
+
+    private fun applyMode() {
+        mode = getSharedPreferences("mitra", MODE_PRIVATE).getString("mode", "bublu") ?: "bublu"
+        if (mode == "zora") {
+            ring.visibility = View.VISIBLE
+            if (ringAnim == null) {
+                ringAnim = ObjectAnimator.ofFloat(ring, "rotation", 0f, 360f).apply {
+                    duration = 6000
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = android.view.animation.LinearInterpolator()
+                    start()
+                }
+            }
+        } else {
+            ring.visibility = View.GONE
+            ringAnim?.cancel()
+            ringAnim = null
+        }
+    }
+
     private fun setMood(resId: Int, say: String? = null) {
         moodSeq++
         val mySeq = moodSeq
-        face.setImageResource(resId)
+        face.setImageResource(moodRes(resId))
         pop()
         if (resId == R.drawable.char_think) {
             thinkBubble.visibility = View.VISIBLE

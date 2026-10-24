@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v30
-          name: Bublu APK v30
-          body: "v30 - important WhatsApp groups: set a group as important and Bublu reads its incoming messages (via notification access)."
+          tag_name: apk-v31
+          name: Bublu APK v31
+          body: "v31 - edit everything in-app (schedule, tasks, notes, aliases, groups, birthdays) + new Zora mode (Jarvis-style with rotating HUD ring)."
           files: app/build/outputs/apk/debug/app-debug.apk
