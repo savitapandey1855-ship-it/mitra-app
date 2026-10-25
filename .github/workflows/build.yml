@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v47
-          name: Bublu APK v47
-          body: "v47 - real moving eyes: custom CharacterView with pupils that look around and blink."
+          tag_name: apk-v48
+          name: Bublu APK v48
+          body: "v48 - sleep shows only 'Zzz.....', photo/camera command (opens camera + shutter), and 'photo bhejo' to a WhatsApp contact."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -598,6 +598,81 @@ class MitraAccessibilityService : AccessibilityService() {
         }
     }
 
+    // =========================================================
+    //  Camera / Photo
+    // =========================================================
+    fun takePhoto(onStatus: (String) -> Unit): Boolean {
+        return try {
+            val pkg = findInstalled("camera") ?: findInstalled("gcam")
+            if (pkg == null) { onStatus("Camera app nahi mila"); return false }
+            openAppAndCheck(pkg.first, pkg.second)
+            Thread.sleep(3000)
+            onStatus("Photo khinch raha hoon...")
+            cameraShutter()
+            Thread.sleep(2200)
+            true
+        } catch (e: Exception) { false }
+    }
+
+    fun cameraShutter(): Boolean {
+        try {
+            val root = rootInActiveWindow
+            if (root != null) {
+                val n = findNode(root) {
+                    val d = it.contentDescription?.toString()?.lowercase() ?: ""
+                    val tx = it.text?.toString()?.lowercase() ?: ""
+                    d.contains("shutter") || d.contains("take photo") || d.contains("capture") ||
+                        tx.contains("shutter") || tx.contains("capture")
+                }
+                if (n != null && clickNodeOrTap(n)) return true
+            }
+        } catch (e: Exception) {}
+        val dm = resources.displayMetrics
+        tap((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.86f).toInt())
+        return true
+    }
+
+    /** WhatsApp me contact kholkar gallery se sabse nayi photo bhejta hai (best-effort). */
+    fun sendLastPhotoTo(contact: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("WhatsApp khol raha hoon...")
+            if (!openApp("com.whatsapp")) { onStatus("WhatsApp nahi khula"); return false }
+            Thread.sleep(3200)
+            if (isInChat()) { back(); Thread.sleep(1000) }
+            goToChats()
+            Thread.sleep(800)
+            var opened = findVisibleWithRetry(contact, 2)
+            if (!opened) opened = findInChatList(contact, 3)
+            if (!opened) opened = searchAndOpen(contact)
+            if (!opened) { onStatus("$contact nahi mila"); return false }
+            Thread.sleep(1500)
+            onStatus("Attach kar raha hoon...")
+            if (!clickByDesc("Attach") && !clickByDesc("Attachment") && !clickByText("Attach")) { clickByDesc("More options") }
+            Thread.sleep(1300)
+            if (!clickByText("Gallery") && !clickByDesc("Gallery")) { clickByText("Photos") }
+            Thread.sleep(1900)
+            val root = rootInActiveWindow
+            if (root != null) {
+                val imgs = ArrayList<AccessibilityNodeInfo>()
+                collectPhotos(root, imgs)
+                if (imgs.isNotEmpty()) clickNodeOrTap(imgs.first())
+            }
+            Thread.sleep(1500)
+            if (!clickByDesc("Send")) clickByText("Send")
+            Thread.sleep(1600)
+            home()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    private fun collectPhotos(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
+        try {
+            val d = node.contentDescription?.toString()?.lowercase() ?: ""
+            if (node.isClickable && (d.contains("photo") || d.contains("image") || d.contains("picture"))) out.add(node)
+            for (i in 0 until node.childCount) node.getChild(i)?.let { collectPhotos(it, out) }
+        } catch (e: Exception) {}
+    }
+
     /** Bina scroll kiye, jo saamne dikh raha hai wahi dhoondho (thoda intezaar ke saath). */
     private fun findVisibleWithRetry(contact: String, tries: Int): Boolean {
         for (i in 0 until tries) {

@@ -854,7 +854,7 @@ class OverlayService : Service() {
         if (sleeping) return
         sleeping = true
         try { recognizer?.cancel() } catch (e: Exception) {}
-        setMood(R.drawable.char_sleep, "Zzz... sone ja raha hoon")
+        setMood(R.drawable.char_sleep, "Zzz.....", 60000)
         face.animate().alpha(0.55f).scaleX(0.82f).scaleY(0.82f).setDuration(1800).start()
         startSleepMonitor()
     }
@@ -1071,6 +1071,27 @@ class OverlayService : Service() {
 
         // Aap kya kar rahe ho?
         if (n.contains("kya kar raha") || n.contains("kya kar rahi") || n.contains("kya hua") || n.contains("kya dekh") || n.contains("main kya kar")) { whatAmIDoing(); return }
+
+        // Photo / camera (screenshot nahi!)
+        if (!n.contains("screenshot") && !n.contains("screenshort") &&
+            (n.contains("photo") || n.contains("selfie") || n.contains("camera") || n.contains("tasveer") || n.contains("kheech") || n.contains("khich"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Iske liye Accessibility ON karo"); return }
+            val contact = parsePhotoContact(t)
+            setMood(R.drawable.char_think, "Camera khol raha hoon...")
+            Thread {
+                val ok = a.takePhoto { s -> main.post { setMood(R.drawable.char_think, s) } }
+                if (ok && contact != null) {
+                    main.post { setMood(R.drawable.char_think, "$contact ko bhej raha hoon...") }
+                    Thread.sleep(1500)
+                    val sent = a.sendLastPhotoTo(contact) { s -> main.post { setMood(R.drawable.char_think, s) } }
+                    main.post { if (sent) setMood(R.drawable.char_laugh, "$contact ko photo bhej di!") else setMood(R.drawable.char_sad, "Photo bhej nahi paya") }
+                } else {
+                    main.post { if (ok) setMood(R.drawable.char_laugh, "Photo khinch li! Check karo") else setMood(R.drawable.char_sad, "Camera nahi khula") }
+                }
+            }.start()
+            return
+        }
 
         // Alarm AM/PM pending
         if (pendingAlarmH >= 0) {
@@ -2025,6 +2046,15 @@ class OverlayService : Service() {
 
     private fun showGroupMessage(title: String, text: String) {
         main.post { setMood(R.drawable.char_laugh, "$title: $text") }
+    }
+
+    private fun parsePhotoContact(t: String): String? {
+        if (!(t.contains(" bhej") || t.contains("send"))) return null
+        val m = Regex("(.+?)\\s+ko\\s+(?:bhej|bhejo|send|whatsapp)").find(t) ?: return null
+        var c = m.groupValues[1]
+        c = c.replace(Regex("\\b(meri|mera|mere|photo|selfie|tasveer|kheech|kheecho|kheench|khich|camera|se|le|lo|ek|aur|please|whatsapp|wa|pe|par|bhi)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+        if (c.isBlank()) return null
+        return resolveAlias(c)
     }
 
     private fun saveNote(text: String) {
