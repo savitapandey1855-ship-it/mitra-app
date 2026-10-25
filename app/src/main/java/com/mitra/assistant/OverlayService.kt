@@ -141,6 +141,7 @@ class OverlayService : Service() {
         try { face.startEyes() } catch (e: Exception) {}
         initRecognizer()
         Thread { buildAppIndex() }.start()
+        Thread { RemoteConfig.fetchAndStore(this) }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
         scheduleTrick()
         scheduleWatch()

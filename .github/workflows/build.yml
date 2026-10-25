@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v54
-          name: Bublu APK v54
-          body: "v54 - WhatsApp messages now start with a capital letter; mic no longer turns on by accident while sending (longer press needed, mic off during send)."
+          tag_name: apk-v55
+          name: Bublu APK v55
+          body: "v55 - Firebase connected: app silently loads AI + voice keys from your Firebase Realtime Database on launch."
           files: app/build/outputs/apk/debug/app-debug.apk

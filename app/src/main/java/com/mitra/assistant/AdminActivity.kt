@@ -22,7 +22,7 @@ class AdminActivity : AppCompatActivity() {
 
         g.setText(prefs.getString("gemini_key", ""))
         s.setText(prefs.getString("sarvam_key", ""))
-        u.setText(prefs.getString("config_url", ""))
+        u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 
         findViewById<Button>(R.id.saveAdmin).setOnClickListener {
