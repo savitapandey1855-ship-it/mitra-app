@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v56
-          name: Bublu APK v56
-          body: "v56 - admin panel now publishes keys to Firebase, so every device loads them automatically on first open."
+          tag_name: apk-v57
+          name: Bublu APK v57
+          body: "v57 - secure publishing: write locked to Firebase Auth (email/password) or a database secret; everyone can still read the keys."
           files: app/build/outputs/apk/debug/app-debug.apk

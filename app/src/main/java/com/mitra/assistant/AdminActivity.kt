@@ -19,6 +19,13 @@ class AdminActivity : AppCompatActivity() {
         val s = findViewById<EditText>(R.id.sarvamKey)
         val u = findViewById<EditText>(R.id.configUrl)
         val c = findViewById<EditText>(R.id.adminCode)
+        val fe = findViewById<EditText>(R.id.fbEmail)
+        val fp = findViewById<EditText>(R.id.fbPass)
+        val ds = findViewById<EditText>(R.id.dbSecret)
+
+        fe.setText(prefs.getString("fb_email", ""))
+        fp.setText(prefs.getString("fb_pass", ""))
+        ds.setText(prefs.getString("db_secret", ""))
 
         g.setText(prefs.getString("gemini_key", ""))
         s.setText(prefs.getString("sarvam_key", ""))
@@ -32,16 +39,19 @@ class AdminActivity : AppCompatActivity() {
                 .putString("gemini_key", gk)
                 .putString("sarvam_key", sk)
                 .putString("config_url", u.text.toString().trim())
+                .putString("fb_email", fe.text.toString().trim())
+                .putString("fb_pass", fp.text.toString())
+                .putString("db_secret", ds.text.toString().trim())
                 .putString("admin_code", c.text.toString().trim().ifBlank { "BUBLU2026" })
                 .apply()
-            Toast.makeText(this, "Saved on this phone. Publishing to all devices...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Saved. Publishing to all devices...", Toast.LENGTH_SHORT).show()
             Thread {
-                val ok = RemoteConfig.uploadKeys(this, gk, sk)
+                val (ok, msg) = RemoteConfig.uploadKeys(this, gk, sk)
                 runOnUiThread {
                     Toast.makeText(
                         this,
                         if (ok) "Published! Every device will load these keys on first open."
-                        else "Saved locally. Upload failed - check the database write rules.",
+                        else "Saved locally. Publish failed: $msg",
                         Toast.LENGTH_LONG
                     ).show()
                 }

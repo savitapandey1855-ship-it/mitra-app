@@ -42,9 +42,26 @@ object RemoteConfig {
         return false
     }
 
-    /** Admin panel se keys Firebase me publish karo - sab devices pe chali jaayengi. */
-    fun uploadKeys(context: Context, gemini: String, sarvam: String): Boolean {
-        val url = configUrl(context)
+    /** Admin panel se keys Firebase me publish karo (sirf admin, login/secret ke saath). */
+    fun uploadKeys(context: Context, gemini: String, sarvam: String): Pair<Boolean, String> {
+        val prefs = context.getSharedPreferences("mitra", Context.MODE_PRIVATE)
+        var url = configUrl(context)
+
+        val secret = prefs.getString("db_secret", "")?.trim() ?: ""
+        val email = prefs.getString("fb_email", "")?.trim() ?: ""
+        val pass = prefs.getString("fb_pass", "") ?: ""
+
+        val token: String = when {
+            secret.isNotBlank() -> secret
+            email.isNotBlank() && pass.isNotBlank() ->
+                FirebaseAuth.signIn(email, pass) ?: return Pair(false, "Firebase login failed")
+            else -> ""
+        }
+        if (token.isNotBlank()) {
+            val sep = if (url.contains("?")) "&" else "?"
+            url = url + sep + "auth=" + java.net.URLEncoder.encode(token, "UTF-8")
+        }
+
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
             conn.requestMethod = "PUT"
@@ -57,8 +74,10 @@ object RemoteConfig {
                 put("sarvam", sarvam)
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
-            conn.responseCode in 200..299
-        } catch (e: Exception) { false }
+            val code = conn.responseCode
+            if (code in 200..299) Pair(true, "ok")
+            else Pair(false, "HTTP $code (rules/secret check karo)")
+        } catch (e: Exception) { Pair(false, e.message ?: "network error") }
     }
 
     private fun fetchOne(url: String): JSONObject? {
