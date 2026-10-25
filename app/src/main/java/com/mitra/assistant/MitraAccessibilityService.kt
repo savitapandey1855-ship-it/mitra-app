@@ -44,11 +44,6 @@ class MitraAccessibilityService : AccessibilityService() {
         return setNodeText(target, newText)
     }
 
-    private fun collectEditables(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
-        if (node.isEditable) { out.add(node); return }
-        for (i in 0 until node.childCount) node.getChild(i)?.let { collectEditables(it, out) }
-    }
-
     /** Notes app me likhne ke liye: sahi (bada) input box dhoondho, likho, phir verify karo. */
     fun writeNote(text: String): Boolean {
         return try {
