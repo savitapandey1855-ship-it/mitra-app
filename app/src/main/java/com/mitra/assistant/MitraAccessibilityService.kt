@@ -558,7 +558,7 @@ class MitraAccessibilityService : AccessibilityService() {
 
             onStatus("Message likh raha hoon...")
             val box = findChatInput()
-            if (box == null || !setNodeText(box, message)) {
+            if (box == null || !setNodeText(box, capitalize(message))) {
                 onStatus("Message box nahi mila")
                 return false
             }
@@ -684,6 +684,11 @@ class MitraAccessibilityService : AccessibilityService() {
             for (i in 0 until node.childCount) node.getChild(i)?.let { collectPhotos(it, out) }
         } catch (e: Exception) {}
     }
+
+    /** Pehla letter capital karo. */
+    private fun capitalize(s: String): String =
+        if (s.isBlank()) s
+        else s.replaceFirstChar { if (it.isLowerCase()) it.titlecaseChar() else it }
 
     /** Naam ke kai variants (poora, pehla shabd, aakhri shabd, shuruaat). */
     private fun contactVariants(name: String): List<String> {

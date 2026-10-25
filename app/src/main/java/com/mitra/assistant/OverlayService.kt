@@ -299,7 +299,7 @@ class OverlayService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!moved) {
-                        if (System.currentTimeMillis() - downTime > 650) onLongPress() else onTap()
+                        if (System.currentTimeMillis() - downTime > 1200) onLongPress() else onTap()
                     }
                     true
                 }
@@ -800,6 +800,7 @@ class OverlayService : Service() {
     }
 
     private fun onLongPress() {
+        if (busy) return
         alwaysListen = !alwaysListen
         if (alwaysListen) {
             setMood(R.drawable.char_listen, "Mic ON - bolte raho, sun raha hoon")
@@ -1490,12 +1491,19 @@ class OverlayService : Service() {
     private fun doSendWhatsApp(contact: String, message: String) {
         val acc = MitraAccessibilityService.instance
         if (acc == null) { setMood(R.drawable.char_sad, "WhatsApp ke liye Accessibility ON karo"); return }
+        // Send ke dauran mic band + touch block (galti se mic hold na ho)
+        listening = false
+        try { recognizer?.cancel() } catch (e: Exception) {}
+        hideWave()
+        busy = true
+        main.postDelayed({ busy = false }, 45000)
         setMood(R.drawable.char_think, "WhatsApp khol raha hoon...")
         Thread {
             val ok = acc.sendWhatsApp(contact, message) { status ->
                 main.post { setMood(R.drawable.char_think, status) }
             }
             main.post {
+                busy = false
                 if (ok) setMood(R.drawable.char_laugh, "Done! $contact ko \"$message\" bhej diya")
                 else setMood(R.drawable.char_sad, "Send confirm nahi hua - WhatsApp me ek baar check kar lo")
             }
