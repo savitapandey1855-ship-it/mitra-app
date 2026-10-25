@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v38
-          name: Bublu APK v38
-          body: "v38 - greeting date stays 8s so it can be read fully; festival message comes after, as a separate line."
+          tag_name: apk-v39
+          name: Bublu APK v39
+          body: "v39 - faster: quick silence stop (650ms), lite AI model with caching, snappier thinking."
           files: app/build/outputs/apk/debug/app-debug.apk

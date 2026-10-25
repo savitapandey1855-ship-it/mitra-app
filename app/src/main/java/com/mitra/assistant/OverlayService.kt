@@ -317,7 +317,7 @@ class OverlayService : Service() {
         }.start()
     }
 
-    private fun recordWav(maxMs: Int = 8000): ByteArray? {
+    private fun recordWav(maxMs: Int = 7000): ByteArray? {
         val sr = 16000
         val minBuf = android.media.AudioRecord.getMinBufferSize(
             sr, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT
@@ -344,7 +344,7 @@ class OverlayService : Service() {
                 if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
                 if (peak > 0) main.post { try { wave.setLevel((peak / 7000f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
                 for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
-                if (heard && System.currentTimeMillis() - lastVoice > 1200) break
+                if (heard && System.currentTimeMillis() - lastVoice > 650) break
             }
             rec.stop()
         } catch (e: Exception) {} finally { try { rec.release() } catch (e: Exception) {} }

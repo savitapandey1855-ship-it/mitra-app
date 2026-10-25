@@ -11,28 +11,35 @@ import java.net.URL
  */
 object Gemini {
 
-    // Naye models pehle, purane baad me (purane band ho chuke hain).
+    // Fast (lite) pehle, phir normal flash. Purane/naam-wale hata diye (fail hone pe time waste hota tha).
     private val MODELS = listOf(
+        "gemini-flash-lite-latest",
         "gemini-flash-latest",
-        "gemini-3.8-flash",
-        "gemini-3.5-flash",
-        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash-lite",
         "gemini-2.5-flash"
     )
 
+    @Volatile private var working: String? = null
+
+    private fun badKey(e: String): Boolean =
+        e.contains("api key not valid") || e.contains("api_key_invalid") ||
+            e.contains("permission_denied") || e.contains("leaked") || e.contains("unauthenticated")
+
     /** Returns Pair(ok, text). On failure, text is a short readable error. */
     fun ask(key: String, prompt: String): Pair<Boolean, String> {
+        // Pehle jo model pichhli baar chala tha, wahi try karo (fast)
+        working?.let { m ->
+            val r = call(key, m, prompt)
+            if (r.first) return r
+            if (badKey(r.second.lowercase())) return r
+            working = null
+        }
         var last = "koi model kaam nahi kiya"
         for (m in MODELS) {
             val r = call(key, m, prompt)
-            if (r.first) return r
+            if (r.first) { working = m; return r }
             last = r.second
-            val e = r.second.lowercase()
-            // Agar key hi galat hai to doosre model try karne ka fayda nahi.
-            if (e.contains("api key not valid") || e.contains("api_key_invalid") ||
-                e.contains("permission_denied") || e.contains("leaked") ||
-                e.contains("unauthenticated")
-            ) return r
+            if (badKey(r.second.lowercase())) return r
         }
         return Pair(false, last)
     }
@@ -47,8 +54,8 @@ object Gemini {
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("x-goog-api-key", key)
             conn.doOutput = true
-            conn.connectTimeout = 15000
-            conn.readTimeout = 25000
+            conn.connectTimeout = 10000
+            conn.readTimeout = 18000
             val body = JSONObject().apply {
                 put(
                     "contents",
