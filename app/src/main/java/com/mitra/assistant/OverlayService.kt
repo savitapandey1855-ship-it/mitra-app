@@ -62,6 +62,24 @@ class OverlayService : Service() {
     private var player: android.media.MediaPlayer? = null
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
+    private var lastBatteryAlert = 0L
+    private val batteryReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
+            try {
+                val level = i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) ?: 100
+                if (level < 0 || scale <= 0) return
+                val pct = level * 100 / scale
+                if (pct in 0..5) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastBatteryAlert > 90000) {
+                        lastBatteryAlert = now
+                        setMood(R.drawable.char_sad, "Battery sirf $pct% bachi hai - charger laga do!", 6000)
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+    }
     private var moodSeq = 0
     private var revertRunnable: Runnable? = null
     private var busySince = 0L
@@ -121,6 +139,7 @@ class OverlayService : Service() {
         initRecognizer()
         Thread { buildAppIndex() }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
+        try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
         } catch (e: Exception) {}
@@ -317,7 +336,7 @@ class OverlayService : Service() {
         }.start()
     }
 
-    private fun recordWav(maxMs: Int = 7000): ByteArray? {
+    private fun recordWav(maxMs: Int = 12000): ByteArray? {
         val sr = 16000
         val minBuf = android.media.AudioRecord.getMinBufferSize(
             sr, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT
@@ -344,7 +363,7 @@ class OverlayService : Service() {
                 if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
                 if (peak > 0) main.post { try { wave.setLevel((peak / 7000f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
                 for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
-                if (heard && System.currentTimeMillis() - lastVoice > 650) break
+                if (heard && System.currentTimeMillis() - lastVoice > 1500) break
             }
             rec.stop()
         } catch (e: Exception) {} finally { try { rec.release() } catch (e: Exception) {} }
@@ -1936,6 +1955,7 @@ class OverlayService : Service() {
         super.onDestroy()
         live = null
         alwaysListen = false
+        try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
         sleeping = false
         stopSleepMonitor()
         try { tts?.shutdown() } catch (e: Exception) {}
