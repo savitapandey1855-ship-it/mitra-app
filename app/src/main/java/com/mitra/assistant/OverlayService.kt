@@ -52,7 +52,7 @@ class OverlayService : Service() {
 
     private lateinit var wm: WindowManager
     private lateinit var root: LinearLayout
-    private lateinit var face: ImageView
+    private lateinit var face: CharacterView
     private lateinit var reply: TextView
     private lateinit var thinkBubble: ImageView
     private var thinkAnim: ObjectAnimator? = null
@@ -138,6 +138,7 @@ class OverlayService : Service() {
         live = this
         buildOverlay()
         applyMode()
+        try { face.startEyes() } catch (e: Exception) {}
         initRecognizer()
         Thread { buildAppIndex() }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
@@ -220,7 +221,7 @@ class OverlayService : Service() {
         wave.visibility = View.GONE
         root.addView(wave, wlp)
 
-        face = ImageView(this).apply { setImageResource(R.drawable.char_idle) }
+        face = CharacterView(this).apply { setMoodId(R.drawable.char_idle) }
         ring = ImageView(this).apply {
             setImageResource(R.drawable.zora_ring)
             visibility = View.GONE
@@ -457,6 +458,7 @@ class OverlayService : Service() {
 
     private fun applyMode() {
         mode = getSharedPreferences("mitra", MODE_PRIVATE).getString("mode", "bublu") ?: "bublu"
+        if (::face.isInitialized) face.setZora(mode == "zora")
         if (mode == "zora") {
             ring.visibility = View.VISIBLE
             if (ringAnim == null) {
@@ -477,7 +479,8 @@ class OverlayService : Service() {
     private fun setMood(resId: Int, say: String? = null, holdMs: Int = 3000) {
         moodSeq++
         val mySeq = moodSeq
-        face.setImageResource(moodRes(resId))
+        face.setMoodId(resId)
+        face.setZora(mode == "zora")
         pop()
         if (resId == R.drawable.char_think) {
             thinkBubble.visibility = View.VISIBLE
@@ -512,7 +515,7 @@ class OverlayService : Service() {
         ) {
             val r = Runnable {
                 if (moodSeq == mySeq) {
-                    face.setImageResource(R.drawable.char_idle)
+                    face.setMoodId(R.drawable.char_idle)
                     reply.visibility = View.GONE
                 }
             }
@@ -2135,6 +2138,7 @@ class OverlayService : Service() {
         try { tts?.shutdown() } catch (e: Exception) {}
         try { recognizer?.destroy() } catch (e: Exception) {}
         try { player?.release() } catch (e: Exception) {}
+        try { face.stopEyes() } catch (e: Exception) {}
         try { wm.removeView(root) } catch (e: Exception) {}
         try { wm.removeView(fx) } catch (e: Exception) {}
     }
