@@ -607,8 +607,29 @@ class MitraAccessibilityService : AccessibilityService() {
     }
 
     // =========================================================
-    //  Camera / Photo
+    //  Camera / Photo / Gallery
     // =========================================================
+    fun openGallery(): Boolean {
+        try {
+            val pkgs = listOf(
+                "com.google.android.apps.photos", "com.miui.gallery", "com.sec.android.gallery3d",
+                "com.android.gallery3d", "com.oppo.gallery3d", "com.vivo.gallery",
+                "com.coloros.gallery3d", "com.oneplus.gallery", "com.transsion.gallery"
+            )
+            for (p in pkgs) {
+                try {
+                    if (packageManager.getLaunchIntentForPackage(p) != null) {
+                        openAppAndCheck(p, "Gallery")
+                        return true
+                    }
+                } catch (e: Exception) {}
+            }
+            val i = Intent(Intent.ACTION_VIEW).apply { type = "image/*"; addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            startActivity(i)
+            return true
+        } catch (e: Exception) { return false }
+    }
+
     fun takePhoto(onStatus: (String) -> Unit): Boolean {
         return try {
             val camPkg = listOf(

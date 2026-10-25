@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v49
-          name: Bublu APK v49
-          body: "v49 - status count fix: no longer counts your own 'My status' (checks description too)."
+          tag_name: apk-v50
+          name: Bublu APK v50
+          body: "v50 - gallery command, any occasion with a date (engagement/exam/wedding...), and 'open X and do Y' handled together."
           files: app/build/outputs/apk/debug/app-debug.apk

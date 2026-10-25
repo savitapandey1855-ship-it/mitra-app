@@ -1072,6 +1072,46 @@ class OverlayService : Service() {
         // Aap kya kar rahe ho?
         if (n.contains("kya kar raha") || n.contains("kya kar rahi") || n.contains("kya hua") || n.contains("kya dekh") || n.contains("main kya kar")) { whatAmIDoing(); return }
 
+        // "X app kholo aur Y karo" -> pehle X kholo, phir Y karo
+        val mAnd = Regex("(.+?)\\s+(?:app\\s+)?(?:kholo|khol|open|chalu karo|chala do|chalao)\\s+aur\\s+(.+)").find(t)
+        if (mAnd != null) {
+            var first = mAnd.groupValues[1].trim().replace(Regex("\\b(app|application|please|mera|meri)\\b"), " ").trim()
+            val second = mAnd.groupValues[2].trim()
+            val app = resolveApp("open $first", first)
+            if (app != null) {
+                setMood(R.drawable.char_think, "${app.second} khol raha hoon...")
+                Thread {
+                    MitraAccessibilityService.instance?.openApp(app.first)
+                    Thread.sleep(3200)
+                    val pkg = app.first
+                    val secondCmd = when {
+                        pkg.contains("whatsapp") -> "whatsapp $second"
+                        pkg.contains("gmail") -> "gmail $second"
+                        else -> second
+                    }
+                    main.post { handle(secondCmd) }
+                }.start()
+                return
+            }
+        }
+
+        // Gallery / images dekho
+        val wantsView = n.contains("gallery") || n.contains("images") || n.contains("album") ||
+            ((n.contains("photo") || n.contains("photos") || n.contains("tasveer")) &&
+                (n.contains("dekho") || n.contains("dikha") || n.contains("khole") || n.contains("kholo")))
+        val wantsShoot = n.contains("kheech") || n.contains("khich") || n.contains("selfie") ||
+            n.contains("lena") || n.contains("le lo") || n.contains("capture") || n.contains("camera")
+        if (wantsView && !wantsShoot) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Iske liye Accessibility ON karo"); return }
+            setMood(R.drawable.char_think, "Gallery khol raha hoon...")
+            Thread {
+                val ok = a.openGallery()
+                main.post { if (ok) setMood(R.drawable.char_laugh, "Gallery khol di!") else setMood(R.drawable.char_sad, "Gallery nahi khuli") }
+            }.start()
+            return
+        }
+
         // Photo / camera (screenshot nahi!)
         if (!n.contains("screenshot") && !n.contains("screenshort") &&
             (n.contains("photo") || n.contains("selfie") || n.contains("camera") || n.contains("tasveer") || n.contains("kheech") || n.contains("khich"))) {
@@ -1239,6 +1279,9 @@ class OverlayService : Service() {
 
         // ---- Alarm ----
         if (n.contains("alarm")) { handleAlarm(t); return }
+
+        // Occasion with a date (didi ki 11 November ko engagement hai)
+        if (hasMonthDate(t) && (n.contains("yaad") || n.contains("hai") || hasEventWord(n))) { handleEvent(t); return }
 
         // ---- Reminder / yaad dilana / schedule ----
         if (n.contains("yaad") || n.contains("remind") || n.contains("schedule")) { handleReminder(t); return }
@@ -1621,7 +1664,11 @@ class OverlayService : Service() {
             Triple("chrome", "com.android.chrome", "Chrome"),
             Triple("spotify", "com.spotify.music", "Spotify"),
             Triple("maps", "com.google.android.apps.maps", "Maps"),
-            Triple("settings", "com.android.settings", "Settings")
+            Triple("settings", "com.android.settings", "Settings"),
+            Triple("gallery", "com.android.gallery3d", "Gallery"),
+            Triple("photos", "com.google.android.apps.photos", "Photos"),
+            Triple("telegram", "org.telegram.messenger", "Telegram"),
+            Triple("facebook", "com.facebook.katana", "Facebook")
         )
         for ((key, pkg, name) in known) {
             if (n.contains(key)) return Pair(pkg, name)
@@ -1893,18 +1940,43 @@ class OverlayService : Service() {
         "jul" -> 7; "aug" -> 8; "sep" -> 9; "oct" -> 10; "nov" -> 11; "dec" -> 12; else -> 1
     }
 
+    private fun hasMonthDate(t: String): Boolean =
+        Regex("(\\d{1,2})\\s*(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)").containsMatchIn(t)
+
+    private fun hasEventWord(n: String): Boolean =
+        n.contains("birthday") || n.contains("janamdin") || n.contains("anniversary") || n.contains("saalgirah") ||
+            n.contains("engagement") || n.contains("wedding") || n.contains("shaadi") || n.contains("shadi") ||
+            n.contains("exam") || n.contains("function") || n.contains("party") || n.contains("meeting") ||
+            n.contains("interview") || n.contains("trip") || n.contains("program")
+
+    private fun eventTypeOf(n: String): String = when {
+        n.contains("engagement") -> "Engagement"
+        n.contains("anniversary") || n.contains("saalgirah") -> "Anniversary"
+        n.contains("birthday") || n.contains("janamdin") -> "Birthday"
+        n.contains("wedding") || n.contains("shaadi") || n.contains("shadi") -> "Wedding"
+        n.contains("exam") -> "Exam"
+        n.contains("interview") -> "Interview"
+        n.contains("function") || n.contains("program") -> "Function"
+        n.contains("party") -> "Party"
+        n.contains("meeting") -> "Meeting"
+        n.contains("trip") -> "Trip"
+        else -> "Event"
+    }
+
     private fun handleEvent(t: String) {
-        val type = if (t.contains("anniversary") || t.contains("saalgirah")) "Anniversary" else "Birthday"
+        val n = t.lowercase()
+        val type = eventTypeOf(n)
         var name = ""
-        Regex("([a-z]+)\\s+(?:ka|ki)\\b").find(t)?.let { name = it.groupValues[1] }
-        val dm = Regex("(\\d{1,2})\\s*(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)").find(t)
-        if (dm == null) { setMood(R.drawable.char_think, "Kis date? Jaise 'Abhay ka birthday 5 January'"); return }
+        Regex("([a-z]+)\\s+(?:ki|ka)\\b").find(n)?.let { name = it.groupValues[1] }
+        if (name in listOf("meri", "mera", "mere", "ko", "hai", "ka", "ki", "ke", "kya")) name = ""
+        val dm = Regex("(\\d{1,2})\\s*(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)").find(n)
+        if (dm == null) { setMood(R.drawable.char_think, "Kis date? Jaise 'didi ki 11 November ko engagement hai'"); return }
         val day = dm.groupValues[1].toIntOrNull() ?: return
         val monName = dm.groupValues[2]
         val mon = monthNum(monName)
         if (name.isBlank()) name = "Koi"
         Store.addEvent(this, name.replaceFirstChar { it.uppercase() }, "%02d/%02d".format(day, mon), type)
-        setMood(R.drawable.char_laugh, "$name ka $type $day $monName set kar diya!")
+        setMood(R.drawable.char_laugh, "$name ka $type $day $monName set! Us din yaad dila dunga.")
     }
 
     private fun parseAskInApp(t: String): Triple<String, String, String>? {
