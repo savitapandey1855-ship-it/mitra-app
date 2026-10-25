@@ -1629,7 +1629,13 @@ class OverlayService : Service() {
         var contact = s.substring(0, i).trim()
         var msg = s.substring(i + 4).trim()
         contact = contact.replace(
-            Regex("\\b(pe|par|per|me|on|se|ko|message|massage|massege|msg|text)\\b"), " "
+            Regex(
+                "\\b(pe|par|per|me|on|se|ko|message|massage|massege|msg|text|" +
+                    "dost|dosti|friend|bhai|bhaiya|bhaiyya|behen|behan|didi|sis|sister|bro|brother|" +
+                    "mom|mummy|mumma|maa|mother|papa|dad|daddy|father|uncle|aunty|aunty|" +
+                    "sir|madam|maam|teacher|boss|colleague|gf|bf|wife|husband|beta|yaar|ji|" +
+                    "mr|mrs|miss|please|plz|zara|thoda|ek|the|named|naam)\\b"
+            ), " "
         ).trim()
         contact = contact.replace(Regex("(को|पर|पे|में)"), " ").trim()
         msg = msg.replace(

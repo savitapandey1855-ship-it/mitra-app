@@ -544,31 +544,8 @@ class MitraAccessibilityService : AccessibilityService() {
             goToChats()
             Thread.sleep(900)
 
-            var opened = false
-
-            // 1) Home chat list: pehle jo SAMNE DIKH raha hai (bina scroll), phir thoda scroll
-            onStatus("Chat list me $contact dhoondh raha hoon...")
-            opened = findVisibleWithRetry(contact, 2)
-            if (!opened) opened = findInChatList(contact, 4)
-
-            // 2) Archived: pehle SAMNE DIKHNE wala (bina scroll), phir scroll, phir back
-            if (!opened) {
-                onStatus("Archived me dhoondh raha hoon...")
-                scrollTop()
-                Thread.sleep(700)
-                if (clickArchived()) {
-                    Thread.sleep(2000)
-                    opened = findVisibleWithRetry(contact, 3)          // bina scroll dekho
-                    if (!opened) opened = findInChatList(contact, 3)   // phir scroll
-                    if (!opened) { back(); Thread.sleep(1000) }        // phir back
-                }
-            }
-
-            // 3) Search se dhoondho
-            if (!opened) {
-                onStatus("Search se dhoondh raha hoon...")
-                opened = searchAndOpen(contact)
-            }
+            onStatus("Looking for $contact...")
+            val opened = findContactAny(contactVariants(contact), onStatus)
 
             if (!opened) {
                 onStatus("Are! $contact mila hi nahi")
@@ -706,6 +683,50 @@ class MitraAccessibilityService : AccessibilityService() {
             if (node.isClickable && (d.contains("photo") || d.contains("image") || d.contains("picture"))) out.add(node)
             for (i in 0 until node.childCount) node.getChild(i)?.let { collectPhotos(it, out) }
         } catch (e: Exception) {}
+    }
+
+    /** Naam ke kai variants (poora, pehla shabd, aakhri shabd, shuruaat). */
+    private fun contactVariants(name: String): List<String> {
+        val out = ArrayList<String>()
+        val n = name.trim()
+        if (n.isBlank()) return out
+        out.add(n)
+        val words = n.split(" ").filter { it.isNotBlank() }
+        if (words.size > 1) {
+            if (!out.contains(words.first())) out.add(words.first())
+            if (!out.contains(words.last())) out.add(words.last())
+        }
+        if (n.length > 5) {
+            val p = n.substring(0, 5)
+            if (!out.contains(p)) out.add(p)
+        }
+        return out
+    }
+
+    /** Home list -> Archived -> Search, har naam variant ke saath. */
+    private fun findContactAny(variants: List<String>, onStatus: (String) -> Unit): Boolean {
+        if (variants.isEmpty()) return false
+
+        // 1) Home chat list (jo dikh raha hai, phir scroll)
+        for (v in variants) if (findVisibleWithRetry(v, 1)) return true
+        for (v in variants) if (findInChatList(v, 2)) return true
+
+        // 2) Archived
+        onStatus("Checking Archived...")
+        scrollTop()
+        Thread.sleep(600)
+        if (clickArchived()) {
+            Thread.sleep(1800)
+            for (v in variants) if (findVisibleWithRetry(v, 2)) return true
+            for (v in variants) if (findInChatList(v, 2)) return true
+            back()
+            Thread.sleep(900)
+        }
+
+        // 3) Search
+        onStatus("Searching...")
+        for (v in variants) if (searchAndOpen(v)) return true
+        return false
     }
 
     /** Bina scroll kiye, jo saamne dikh raha hai wahi dhoondho (thoda intezaar ke saath). */
