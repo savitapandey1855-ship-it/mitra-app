@@ -426,7 +426,7 @@ class OverlayService : Service() {
         }
     }
 
-    private fun setMood(resId: Int, say: String? = null) {
+    private fun setMood(resId: Int, say: String? = null, holdMs: Int = 3000) {
         moodSeq++
         val mySeq = moodSeq
         face.setImageResource(moodRes(resId))
@@ -468,7 +468,7 @@ class OverlayService : Service() {
                 }
             }
             revertRunnable = r
-            main.postDelayed(r, 3000)
+            main.postDelayed(r, holdMs.toLong())
         }
     }
 
@@ -1757,13 +1757,17 @@ class OverlayService : Service() {
             val bdays = Store.events(this).filter { it.second == today }
             var extra = ""
             if (bdays.isNotEmpty()) extra = " Aaj " + bdays.joinToString(", ") { "${it.first} ka ${it.third}" } + " hai!"
-            setMood(R.drawable.char_happy, "$greet Aaj $day, $date hai.$extra")
+            setMood(R.drawable.char_happy, "$greet Aaj $day, $date hai.$extra", 8000)
             val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
             if (key.isNotBlank()) {
+                val shownAt = System.currentTimeMillis()
                 Thread {
                     val (ok, txt) = Gemini.ask(key, "Is $date a festival in India? Reply in max 6 words, or reply exactly 'No'.")
                     if (ok && !txt.trim().lowercase().startsWith("no")) {
-                        main.post { setMood(R.drawable.char_happy, "Aaj $txt hai! $greet") }
+                        // date ko poora padhne do, phir tyohar bolo
+                        val wait = 5500 - (System.currentTimeMillis() - shownAt)
+                        if (wait > 0) Thread.sleep(wait)
+                        main.post { setMood(R.drawable.char_happy, "Aur aaj $txt hai!", 6000) }
                     }
                 }.start()
             }

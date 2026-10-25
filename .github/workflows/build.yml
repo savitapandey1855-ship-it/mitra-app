@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v37
-          name: Bublu APK v37
-          body: "v37 - date/festival announced only once a day; repeated ON/OFF just greets (Good morning/afternoon/evening/night)."
+          tag_name: apk-v38
+          name: Bublu APK v38
+          body: "v38 - greeting date stays 8s so it can be read fully; festival message comes after, as a separate line."
           files: app/build/outputs/apk/debug/app-debug.apk
