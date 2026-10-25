@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v48
-          name: Bublu APK v48
-          body: "v48 - sleep shows only 'Zzz.....', photo/camera command (opens camera + shutter), and 'photo bhejo' to a WhatsApp contact."
+          tag_name: apk-v49
+          name: Bublu APK v49
+          body: "v49 - status count fix: no longer counts your own 'My status' (checks description too)."
           files: app/build/outputs/apk/debug/app-debug.apk

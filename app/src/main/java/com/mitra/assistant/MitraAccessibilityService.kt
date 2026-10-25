@@ -504,18 +504,26 @@ class MitraAccessibilityService : AccessibilityService() {
         out: ArrayList<AccessibilityNodeInfo>,
         seen: HashSet<String>
     ) {
-        val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
-        if (node.isClickable && txt.isNotEmpty() &&
-            !txt.contains("my status") && !txt.contains("add status") &&
-            !txt.contains("tap to") && !txt.contains("text status")
-        ) {
-            val r = Rect(); node.getBoundsInScreen(r)
-            val key = "${r.left},${r.top},${r.right},${r.bottom}"
-            if (!seen.contains(key)) {
-                seen.add(key)
-                out.add(node)
+        try {
+            val txt = node.text?.toString()?.lowercase()?.trim() ?: ""
+            val desc = node.contentDescription?.toString()?.lowercase()?.trim() ?: ""
+            val all = "$txt $desc"
+            // Apna status / add status / hints hata do (text AUR description dono me dekho)
+            val isMine = all.contains("my status") || all.contains("add status") ||
+                all.contains("tap to") || all.contains("text status") ||
+                all.contains("status update") || all.contains("my status update") ||
+                all.contains("add to my status") || all.contains("my status, tap")
+            if (node.isClickable && all.isNotBlank() && !isMine) {
+                val r = Rect(); node.getBoundsInScreen(r)
+                if (r.width() > 0 && r.height() > 0) {
+                    val key = "${r.left},${r.top},${r.right},${r.bottom}"
+                    if (!seen.contains(key)) {
+                        seen.add(key)
+                        out.add(node)
+                    }
+                }
             }
-        }
+        } catch (e: Exception) {}
         for (i in 0 until node.childCount) {
             node.getChild(i)?.let { collectStatusRows(it, out, seen) }
         }
