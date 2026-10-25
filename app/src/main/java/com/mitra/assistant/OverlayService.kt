@@ -63,6 +63,7 @@ class OverlayService : Service() {
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
     private var lastBatteryAlert = 0L
+    @Volatile private var hidden = false
     private val batteryReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
             try {
@@ -140,6 +141,7 @@ class OverlayService : Service() {
         Thread { buildAppIndex() }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
         scheduleTrick()
+        scheduleWatch()
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
@@ -579,7 +581,7 @@ class OverlayService : Service() {
         main.postDelayed({
             try { playRandomTrick() } catch (e: Exception) {}
             scheduleTrick()
-        }, (9000 + (Math.random() * 9000).toLong()))
+        }, (6000 + (Math.random() * 8000).toLong()))
     }
 
     private fun playRandomTrick() {
@@ -589,7 +591,8 @@ class OverlayService : Service() {
             { wobbleTrick() }, { floatUp() }, { pulse() }, { tilt(-16f) }, { tilt(16f) },
             { jumpTrick() }, { flipY() }, { squash() }, { slideX() }, { zoom() },
             { rock() }, { doubleBounce() }, { spinBounce() }, { shiver() }, { bow() },
-            { danceQuick() }, { wiggle() }, { orbit() }, { heartbeat() }, { nod() }
+            { danceQuick() }, { wiggle() }, { orbit() }, { heartbeat() }, { nod() },
+            { lookLeft() }, { lookRight() }, { lookUp() }, { lookDown() }
         )
         tricks.random()()
         // kabhi-kabhi cute reaction bhi
@@ -631,6 +634,10 @@ class OverlayService : Service() {
     private fun orbit() { ObjectAnimator.ofFloat(face, "translationX", 0f, 14f, 0f, -14f, 0f).setDuration(1400).start(); ObjectAnimator.ofFloat(face, "translationY", -14f, 0f, 14f, 0f, -14f).setDuration(1400).start() }
     private fun heartbeat() { ObjectAnimator.ofFloat(face, "scaleX", 1f, 1.18f, 1f, 1.12f, 1f).setDuration(800).start(); ObjectAnimator.ofFloat(face, "scaleY", 1f, 1.18f, 1f, 1.12f, 1f).setDuration(800).start() }
     private fun nod() { face.animate().rotationX(-25f).setDuration(160).withEndAction { face.animate().rotationX(0f).setDuration(200).start() }.start() }
+    private fun lookLeft() { face.animate().translationX(-6f).setDuration(180).withEndAction { face.animate().translationX(0f).setDuration(220).start() }.start() }
+    private fun lookRight() { face.animate().translationX(6f).setDuration(180).withEndAction { face.animate().translationX(0f).setDuration(220).start() }.start() }
+    private fun lookUp() { face.animate().translationY(-5f).setDuration(180).withEndAction { face.animate().translationY(0f).setDuration(220).start() }.start() }
+    private fun lookDown() { face.animate().translationY(5f).setDuration(180).withEndAction { face.animate().translationY(0f).setDuration(220).start() }.start() }
 
     // ---------- Fun animations ----------
     private fun tickle() {
@@ -731,10 +738,60 @@ class OverlayService : Service() {
     }
 
     private fun onTap() {
+        if (hidden) { showBubble(); return }
         if (sleeping) { wakeUp(); return }
         if (listening || busy) return
         if (alwaysListen) { setMood(R.drawable.char_listen, "Mic ON hai - bas bolo!"); return }
         beginListen()
+    }
+
+    private fun hideBubble() {
+        hidden = true
+        main.post { try { root.animate().alpha(0f).setDuration(300).start() } catch (e: Exception) {} }
+    }
+
+    private fun showBubble() {
+        hidden = false
+        main.post { try { root.alpha = 0f; root.animate().alpha(1f).setDuration(300).start() } catch (e: Exception) {} }
+        setMood(R.drawable.char_laugh, "Aa gayi! Bolo kya karna hai")
+    }
+
+    private fun whatAmIDoing() {
+        val label = MitraAccessibilityService.instance?.currentLabel
+        if (label.isNullOrBlank()) { setMood(R.drawable.char_happy, "Pata nahi, par aap mast kaam kar rahe ho!"); return }
+        val line = pick(
+            "Aap $label use kar rahe ho! Aur main aapki harkate dekh kar hasi aa gayi!",
+            "Aap $label me busy ho. Kya kar rahe ho, batao?",
+            "Aap $label pe ho - mujhe bhi lagta hai maza aa raha hai!",
+            "$label dekh rahe ho? Achha lag raha hai aapko?"
+        )
+        setMood(R.drawable.char_laugh, line, 3500)
+    }
+
+    private fun scheduleWatch() {
+        main.postDelayed({
+            try { watchReact() } catch (e: Exception) {}
+            scheduleWatch()
+        }, (30000 + (Math.random() * 45000).toLong()))
+    }
+
+    private fun watchReact() {
+        if (sleeping || listening || busy || hidden || alwaysListen) return
+        val a = MitraAccessibilityService.instance ?: return
+        val pkg = a.currentPkg ?: return
+        if (pkg.contains("launcher") || pkg.contains("systemui") || pkg.contains("com.mitra.assistant")) return
+        if (Math.random() < 0.45) return
+        val label = a.currentLabel ?: "app"
+        val line = when {
+            pkg.contains("youtube") -> pick("YouTube dekh rahe ho? Mazedaar hai?", "Kaunsi video dekh rahe ho?", "Shorts pe atke ho? Hehe")
+            pkg.contains("instagram") -> pick("Instagram scroll kar rahe ho? Reels mast hain na?", "Kitni der se scroll kar rahe ho? Padhai bhi karni hai!")
+            pkg.contains("whatsapp") -> pick("WhatsApp pe baat kar rahe ho?", "Kisi se baat ho rahi hai? Main bhi hoon na!")
+            pkg.contains("chrome") || pkg.contains("browser") -> pick("Kya dhoondh rahe ho?", "Internet pe kya dekh rahe ho?")
+            pkg.contains("camera") -> pick("Photo khinch rahe ho? Mujhe bhi dikhao!", "Selfie? Hehe")
+            pkg.contains("music") || pkg.contains("spotify") || pkg.contains("gaana") -> pick("Gaana sun rahe ho? Kaunsa?", "Music mast lag raha hai!")
+            else -> pick("$label use kar rahe ho? Kaisa lag raha hai?", "Kya kar rahe ho? $label me busy ho?")
+        }
+        setMood(R.drawable.char_happy, line, 3200)
     }
 
     private fun onLongPress() {
@@ -997,6 +1054,13 @@ class OverlayService : Service() {
         }
         if (n.contains("sojao") || n.contains("sleep") || n.contains("sona") || n == "soja") { sleep(); return }
         if (n.contains("uthjao") || n.contains("jago") || n.contains("jaago") || n.contains("wakeup")) { wakeUp(); return }
+
+        // Hide / Show
+        if (n.contains("hide") || n.contains("chhup") || n.contains("chhip") || n.contains("gayab") || n.contains("gum ho")) { hideBubble(); return }
+        if (hidden && (n.contains("hello") || n.contains("aa jao") || n.contains("aaja") || n.contains("dikho") || n.contains("wapas") || n.contains("wapis") || n.contains("vapas"))) { showBubble(); return }
+
+        // Aap kya kar rahe ho?
+        if (n.contains("kya kar raha") || n.contains("kya kar rahi") || n.contains("kya hua") || n.contains("kya dekh") || n.contains("main kya kar")) { whatAmIDoing(); return }
 
         // Alarm AM/PM pending
         if (pendingAlarmH >= 0) {

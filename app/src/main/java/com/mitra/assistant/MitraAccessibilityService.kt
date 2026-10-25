@@ -27,7 +27,22 @@ class MitraAccessibilityService : AccessibilityService() {
         instance = this
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    @Volatile var currentPkg: String? = null
+    @Volatile var currentLabel: String? = null
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        try {
+            if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                val p = event.packageName?.toString() ?: return
+                if (p == packageName) return
+                if (p == currentPkg) return
+                currentPkg = p
+                currentLabel = try {
+                    packageManager.getApplicationLabel(packageManager.getApplicationInfo(p, 0)).toString()
+                } catch (e: Exception) { p }
+            }
+        } catch (e: Exception) {}
+    }
     override fun onInterrupt() {}
 
     override fun onDestroy() {
