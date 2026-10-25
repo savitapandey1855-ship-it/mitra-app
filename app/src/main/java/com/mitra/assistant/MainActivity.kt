@@ -53,6 +53,12 @@ class MainActivity : AppCompatActivity() {
         groupBox = findViewById(R.id.groupBox)
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
         findViewById<Button>(R.id.modeBtn).setOnClickListener { switchMode() }
+        findViewById<Button>(R.id.addSched).setOnClickListener { addSchedDialog() }
+        findViewById<Button>(R.id.addTask).setOnClickListener { addTaskDialog() }
+        findViewById<Button>(R.id.addNote).setOnClickListener { addNoteDialog() }
+        findViewById<Button>(R.id.addGroup).setOnClickListener { addGroupDialog() }
+        findViewById<Button>(R.id.addAlias).setOnClickListener { addAliasDialog() }
+        findViewById<Button>(R.id.addEvent).setOnClickListener { addEventDialog() }
         toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
         updateModeBtn()
     }
@@ -334,6 +340,72 @@ class MainActivity : AppCompatActivity() {
     private fun openNotifAccess() {
         try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {}
         Toast.makeText(this, "List me 'Bublu' ko ON karo", Toast.LENGTH_LONG).show()
+    }
+
+    private fun addTaskDialog() {
+        val input = EditText(this)
+        input.hint = "Naya task"
+        AlertDialog.Builder(this).setTitle("Task add karo").setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val t = input.text.toString().trim()
+                if (t.isNotBlank()) { Store.addTask(this, t); loadLists() }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun addNoteDialog() {
+        val input = EditText(this)
+        input.hint = "Naya note"
+        AlertDialog.Builder(this).setTitle("Note add karo").setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val t = input.text.toString().trim()
+                if (t.isNotBlank()) { Store.addNote(this, t); loadLists() }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun addSchedDialog() {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val pad = (14 * resources.displayMetrics.density).toInt()
+        box.setPadding(pad, pad, pad, pad)
+        val text = EditText(this); text.hint = "Kya yaad dilana hai"
+        val hh = EditText(this); hh.hint = "Ghanta (1-12)"; hh.inputType = InputType.TYPE_CLASS_NUMBER
+        val mm = EditText(this); mm.hint = "Minute (0-59)"; mm.inputType = InputType.TYPE_CLASS_NUMBER
+        val ampm = android.widget.Spinner(this)
+        ampm.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("AM", "PM"))
+        box.addView(text); box.addView(hh); box.addView(mm); box.addView(ampm)
+        AlertDialog.Builder(this).setTitle("Schedule / Alarm add karo").setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val t = text.text.toString().trim()
+                val h = hh.text.toString().toIntOrNull() ?: -1
+                val m = mm.text.toString().toIntOrNull() ?: 0
+                val pm = ampm.selectedItemPosition == 1
+                if (t.isNotBlank() && h in 1..12) {
+                    val h24 = if (pm) (h % 12) + 12 else (h % 12)
+                    Scheduler.schedule(this, t, h24, m.coerceIn(0, 59), 0)
+                    loadLists()
+                    Toast.makeText(this, "Set: $t", Toast.LENGTH_SHORT).show()
+                } else Toast.makeText(this, "Text aur ghanta (1-12) daalo", Toast.LENGTH_LONG).show()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun addEventDialog() {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val pad = (14 * resources.displayMetrics.density).toInt()
+        box.setPadding(pad, pad, pad, pad)
+        val name = EditText(this); name.hint = "Naam"
+        val date = EditText(this); date.hint = "Date (dd/MM, jaise 05/01)"
+        val type = android.widget.Spinner(this)
+        type.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("Birthday", "Anniversary"))
+        box.addView(name); box.addView(date); box.addView(type)
+        AlertDialog.Builder(this).setTitle("Birthday / Anniversary add karo").setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val n = name.text.toString().trim()
+                val d = date.text.toString().trim()
+                val ty = if (type.selectedItemPosition == 1) "Anniversary" else "Birthday"
+                if (n.isNotBlank() && d.isNotBlank()) { Store.addEvent(this, n, d, ty); loadLists() }
+                else Toast.makeText(this, "Naam aur date daalo", Toast.LENGTH_LONG).show()
+            }.setNegativeButton("Cancel", null).show()
     }
 
     private fun addGroupDialog() {

@@ -34,8 +34,7 @@
                 android:text="Bublu"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
-                android:textSize="32sp"
-                android:letterSpacing="0.02" />
+                android:textSize="32sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -93,6 +92,7 @@
                 android:textSize="15sp" />
         </LinearLayout>
 
+        <!-- Schedule -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -101,13 +101,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Aaj ka schedule"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Aaj ka schedule"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addSched"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/schedBox"
@@ -117,6 +135,7 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
+        <!-- Tasks -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -125,13 +144,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Tasks"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tasks"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addTask"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/taskBox"
@@ -141,6 +178,7 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
+        <!-- Notes -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -149,13 +187,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Notes"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Notes"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addNote"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/noteBox"
@@ -165,6 +221,7 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
+        <!-- Important groups -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -173,13 +230,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Important WhatsApp groups"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Important WhatsApp groups"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addGroup"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/groupBox"
@@ -189,6 +264,7 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
+        <!-- Aliases -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -197,13 +273,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Aliases (nickname)"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Aliases (nickname)"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addAlias"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/aliasBox"
@@ -213,6 +307,7 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
+        <!-- Birthdays -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -221,13 +316,31 @@
             android:background="@drawable/card_ui"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Birthdays &amp; Anniversaries"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:textSize="16sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Birthdays &amp; Anniversaries"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/addEvent"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/btn_grad2"
+                    android:text="+"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/eventBox"

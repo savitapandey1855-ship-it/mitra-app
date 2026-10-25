@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v41
-          name: Bublu APK v41
-          body: "v41 - festival announcement only when AI is 100% sure (strict YES/NO), plus a festival ON/OFF toggle in Settings."
+          tag_name: apk-v42
+          name: Bublu APK v42
+          body: "v42 - + button on every card (Schedule, Tasks, Notes, Groups, Aliases, Birthdays) to add items right from the app."
           files: app/build/outputs/apk/debug/app-debug.apk
