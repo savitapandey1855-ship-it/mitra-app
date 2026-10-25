@@ -64,6 +64,7 @@ class OverlayService : Service() {
     @Volatile private var alwaysListen = false
     private var lastBatteryAlert = 0L
     @Volatile private var hidden = false
+    private lateinit var fx: FxView
     private val batteryReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
             try {
@@ -306,7 +307,30 @@ class OverlayService : Service() {
         }
 
         wm.addView(root, params)
+
+        // Rangeen effects ke liye alag full-screen layer
+        try {
+            fx = FxView(this)
+            val flp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                android.graphics.PixelFormat.TRANSLUCENT
+            )
+            flp.gravity = Gravity.TOP or Gravity.START
+            wm.addView(fx, flp)
+        } catch (e: Exception) {}
     }
+
+    private fun bubbleCenter(): Pair<Float, Float> =
+        Pair((params.x + dp(37)).toFloat(), (params.y + dp(37)).toFloat())
+    private fun fxBurst() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.burst(c.first, c.second, 26) }
+    private fun fxSparkles() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.sparkles(c.first, c.second, 20) }
+    private fun fxRipple() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.ripple(c.first, c.second, 0xFF40C4FF.toInt()) }
+    private fun fxHearts() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.hearts(c.first, c.second, 9) }
+    private fun fxConfetti() { if (!::fx.isInitialized) return; val d = resources.displayMetrics; fx.confetti(d.widthPixels, d.heightPixels, 40) }
+    private fun fxFirework() { if (!::fx.isInitialized) return; val d = resources.displayMetrics; fx.firework(d.widthPixels, d.heightPixels) }
 
     private fun pop() {
         face.animate().scaleX(1.22f).scaleY(1.22f).setDuration(120)
@@ -480,6 +504,7 @@ class OverlayService : Service() {
                 resId == R.drawable.char_sad || resId == R.drawable.char_wake)) {
             speak(say)
         }
+        if (resId == R.drawable.char_laugh) { try { fxBurst() } catch (e: Exception) {} }
         // Kaam ke baad thodi der me wapas normal
         revertRunnable?.let { main.removeCallbacks(it) }
         if (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
@@ -595,18 +620,9 @@ class OverlayService : Service() {
             { lookLeft() }, { lookRight() }, { lookUp() }, { lookDown() }
         )
         tricks.random()()
-        // kabhi-kabhi cute reaction bhi
-        if (Math.random() < 0.28) {
-            val lines = listOf(
-                Triple(R.drawable.char_happy, "Hmm... kuch kaam hai?", 2500),
-                Triple(R.drawable.char_idle, "Main yahin hoon!", 2200),
-                Triple(R.drawable.char_laugh, "Hehe!", 1800),
-                Triple(R.drawable.char_think, "Kya kar rahe ho?", 2400),
-                Triple(R.drawable.char_happy, "Bore ho rahi hoon... bolo na kuch", 2800),
-                Triple(R.drawable.char_laugh, "Aaj maza aa raha hai!", 2200),
-                Triple(R.drawable.char_happy, "Mujhe bulao jab zaroorat ho", 2500)
-            ).random()
-            setMood(lines.first, lines.second, lines.third)
+        // Sirf rangeen effects - kuch bolta nahi
+        if (Math.random() < 0.85) {
+            listOf<() -> Unit>({ fxBurst() }, { fxSparkles() }, { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxFirework() }).random()()
         }
     }
 
@@ -780,18 +796,9 @@ class OverlayService : Service() {
         val a = MitraAccessibilityService.instance ?: return
         val pkg = a.currentPkg ?: return
         if (pkg.contains("launcher") || pkg.contains("systemui") || pkg.contains("com.mitra.assistant")) return
-        if (Math.random() < 0.45) return
-        val label = a.currentLabel ?: "app"
-        val line = when {
-            pkg.contains("youtube") -> pick("YouTube dekh rahe ho? Mazedaar hai?", "Kaunsi video dekh rahe ho?", "Shorts pe atke ho? Hehe")
-            pkg.contains("instagram") -> pick("Instagram scroll kar rahe ho? Reels mast hain na?", "Kitni der se scroll kar rahe ho? Padhai bhi karni hai!")
-            pkg.contains("whatsapp") -> pick("WhatsApp pe baat kar rahe ho?", "Kisi se baat ho rahi hai? Main bhi hoon na!")
-            pkg.contains("chrome") || pkg.contains("browser") -> pick("Kya dhoondh rahe ho?", "Internet pe kya dekh rahe ho?")
-            pkg.contains("camera") -> pick("Photo khinch rahe ho? Mujhe bhi dikhao!", "Selfie? Hehe")
-            pkg.contains("music") || pkg.contains("spotify") || pkg.contains("gaana") -> pick("Gaana sun rahe ho? Kaunsa?", "Music mast lag raha hai!")
-            else -> pick("$label use kar rahe ho? Kaisa lag raha hai?", "Kya kar rahe ho? $label me busy ho?")
-        }
-        setMood(R.drawable.char_happy, line, 3200)
+        if (Math.random() < 0.6) return
+        // Chupchaap - sirf ek chhota rangeen effect, kuch bolta nahi
+        fxSparkles()
     }
 
     private fun onLongPress() {
@@ -2129,5 +2136,6 @@ class OverlayService : Service() {
         try { recognizer?.destroy() } catch (e: Exception) {}
         try { player?.release() } catch (e: Exception) {}
         try { wm.removeView(root) } catch (e: Exception) {}
+        try { wm.removeView(fx) } catch (e: Exception) {}
     }
 }

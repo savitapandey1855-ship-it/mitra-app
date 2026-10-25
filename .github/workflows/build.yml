@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v45
-          name: Bublu APK v45
-          body: "v45 - moving eyes (look around), watches which app you use and reacts, answers 'kya hua'; hide ('hide ho jao') and show ('hello')."
+          tag_name: apk-v46
+          name: Bublu APK v46
+          body: "v46 - removed the chatty lines; added colourful screen effects (burst, confetti, ripple, sparkles, hearts, fireworks)."
           files: app/build/outputs/apk/debug/app-debug.apk
