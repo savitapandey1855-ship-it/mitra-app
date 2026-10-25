@@ -50,8 +50,12 @@ object Sarvam {
         }
     }
 
-    /** Text -> speech (Bulbul). WAV bytes return karta hai. */
-    fun tts(key: String, text: String, lang: String = "en-IN", speaker: String = "priya", model: String = "bulbul:v3"): Pair<Boolean, ByteArray?> {
+    /** Text -> speech (Bulbul v3). WAV bytes return karta hai. */
+    fun tts(key: String, text: String, speaker: String = "priya"): Pair<Boolean, ByteArray?> {
+        return ttsCall(key, text, "en-IN", speaker, "bulbul:v3")
+    }
+
+    private fun ttsCall(key: String, text: String, lang: String, speaker: String, model: String): Pair<Boolean, ByteArray?> {
         return try {
             val conn = URL("https://api.sarvam.ai/text-to-speech").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -65,6 +69,8 @@ object Sarvam {
                 put("language_code", lang)
                 put("speaker", speaker)
                 put("model", model)
+                put("pace", 0.95)
+                put("speech_sample_rate", 24000)
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
             val code = conn.responseCode

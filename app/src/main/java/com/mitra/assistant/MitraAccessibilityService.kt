@@ -190,31 +190,46 @@ class MitraAccessibilityService : AccessibilityService() {
         tap((dm.widthPixels * 0.15f).toInt(), (dm.heightPixels * 0.5f).toInt())
     }
 
-    fun swipe(x1: Int, y1: Int, x2: Int, y2: Int) {
+    fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, ms: Long = 260) {
         try {
             val path = Path()
             path.moveTo(x1.toFloat(), y1.toFloat())
             path.lineTo(x2.toFloat(), y2.toFloat())
-            val stroke = GestureDescription.StrokeDescription(path, 0, 300)
+            val stroke = GestureDescription.StrokeDescription(path, 0, ms)
             val g = GestureDescription.Builder().addStroke(stroke).build()
             dispatchGesture(g, null, null)
         } catch (e: Exception) {}
     }
 
+    /** Poora page swipe (chhota nahi) - normal scroll ke liye. */
     fun swipeUp() {
         val dm = resources.displayMetrics
-        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.75f).toInt(),
-            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.30f).toInt())
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.82f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.18f).toInt(), 220)
     }
 
     fun swipeDown() {
         val dm = resources.displayMetrics
-        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.30f).toInt(),
-            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.75f).toInt())
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.22f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.82f).toInt(), 220)
     }
 
-    fun scrollDown() { if (!scrollAction(true)) swipeUp() }
-    fun scrollUp() { if (!scrollAction(false)) swipeDown() }
+    /** Reels / Shorts: ek poora reel aage (bada aur tez swipe). */
+    fun reelNext() {
+        val dm = resources.displayMetrics
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.86f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.12f).toInt(), 160)
+    }
+
+    fun reelPrev() {
+        val dm = resources.displayMetrics
+        swipe((dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.16f).toInt(),
+            (dm.widthPixels * 0.5f).toInt(), (dm.heightPixels * 0.86f).toInt(), 160)
+    }
+
+    // Scroll: page ho ya reel, poora swipe hi karo (chhota scroll kaam nahi karta)
+    fun scrollDown() { swipeUp() }
+    fun scrollUp() { swipeDown() }
 
     private fun scrollAction(forward: Boolean): Boolean {
         val root = rootInActiveWindow ?: return false

@@ -371,7 +371,8 @@ class OverlayService : Service() {
         val clean = text.replace("\"", " ").take(400)
         if (clean.isBlank()) return
         Thread {
-            val (ok, bytes) = Sarvam.tts(key, clean)
+            val spk = sp.getString("tts_speaker", "priya") ?: "priya"
+            val (ok, bytes) = Sarvam.tts(key, clean, spk)
             if (!ok || bytes == null) return@Thread
             try {
                 val f = java.io.File(cacheDir, "bublu_tts.wav")
@@ -949,8 +950,8 @@ class OverlayService : Service() {
                 }
                 n.contains("scrolldown") || n.contains("neeche") || n.contains("nichli") -> { nudgeScroll { acc.scrollDown() }; setMood(R.drawable.char_happy, "Neeche") }
                 n.contains("scrollup") || n.contains("upar") -> { nudgeScroll { acc.scrollUp() }; setMood(R.drawable.char_happy, "Upar") }
-                n.contains("prev") || n.contains("pichl") -> { nudgeScroll { acc.swipeDown() }; setMood(R.drawable.char_happy, "Pichla") }
-                else -> { nudgeScroll { acc.swipeUp() }; setMood(R.drawable.char_happy, "Agla") }
+                n.contains("prev") || n.contains("pichl") -> { nudgeScroll { acc.reelPrev() }; setMood(R.drawable.char_happy, "Pichla") }
+                else -> { nudgeScroll { acc.reelNext() }; setMood(R.drawable.char_happy, "Agla") }
             }
             return
         }

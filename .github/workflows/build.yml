@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v34
-          name: Bublu APK v34
-          body: "v34 - tap shows a live voice-wave animation; long-press toggles always-on mic (continuous listening), long-press again to turn off."
+          tag_name: apk-v35
+          name: Bublu APK v35
+          body: "v35 - full swipe for reels/shorts scrolling (no more tiny scroll) + better Sarvam voice (voice picker in Settings)."
           files: app/build/outputs/apk/debug/app-debug.apk

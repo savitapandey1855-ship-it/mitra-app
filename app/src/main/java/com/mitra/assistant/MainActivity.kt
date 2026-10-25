@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
             "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)",
-            "Awaaz (TTS) ON/OFF", "Test AI",
+            "Awaaz (TTS) ON/OFF", "Voice chuno (awaaz)", "Test AI",
             "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
@@ -278,11 +278,21 @@ class MainActivity : AppCompatActivity() {
                 4 -> showKeyDialog()
                 5 -> showSarvamKeyDialog()
                 6 -> toggleTts()
-                7 -> testAi()
-                8 -> addAliasDialog()
-                9 -> addGroupDialog()
-                10 -> showDiagnose()
+                7 -> pickVoice()
+                8 -> testAi()
+                9 -> addAliasDialog()
+                10 -> addGroupDialog()
+                11 -> showDiagnose()
             }
+        }.show()
+    }
+
+    private fun pickVoice() {
+        val names = arrayOf("priya (female)", "shubh (male)", "ritu (female)", "aditya (male)", "kavya (female)", "rahul (male)")
+        val ids = arrayOf("priya", "shubh", "ritu", "aditya", "kavya", "rahul")
+        AlertDialog.Builder(this).setTitle("Awaaz chuno").setItems(names) { _, w ->
+            prefs.edit().putString("tts_speaker", ids[w]).apply()
+            Toast.makeText(this, "Voice set: ${ids[w]}", Toast.LENGTH_SHORT).show()
         }.show()
     }
 
