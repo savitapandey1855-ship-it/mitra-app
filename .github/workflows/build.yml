@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v36
-          name: Bublu APK v36
-          body: "v36 - WhatsApp: always go to the Chats tab first (was landing on Status/Calls); never tap the bottom tab bar."
+          tag_name: apk-v37
+          name: Bublu APK v37
+          body: "v37 - date/festival announced only once a day; repeated ON/OFF just greets (Good morning/afternoon/evening/night)."
           files: app/build/outputs/apk/debug/app-debug.apk

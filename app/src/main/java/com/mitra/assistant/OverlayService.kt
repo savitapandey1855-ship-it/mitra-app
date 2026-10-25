@@ -1743,6 +1743,14 @@ class OverlayService : Service() {
                 h < 21 -> "Good evening!"
                 else -> "Good night!"
             }
+            val sp = getSharedPreferences("mitra", MODE_PRIVATE)
+            val todayKey = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+            if (sp.getString("last_greet_date", "") == todayKey) {
+                // Aaj pehle bata chuka hoon - sirf greeting, dobara date/tyohar nahi
+                setMood(R.drawable.char_happy, greet)
+                return
+            }
+            sp.edit().putString("last_greet_date", todayKey).apply()
             val day = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault()).format(java.util.Date())
             val date = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
             val today = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault()).format(java.util.Date())
