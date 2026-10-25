@@ -7,9 +7,11 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
-import android.view.Gravity
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -27,18 +29,22 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private val REQ_MIC = 101
-    private val REQ_NOTIF = 103
     private val REQ_OVERLAY = 102
+    private val REQ_NOTIF = 103
     private val REQ_CONTACTS = 104
+
     private lateinit var statusTxt: TextView
     private lateinit var toggleBtn: Button
     private lateinit var schedBox: LinearLayout
-    private lateinit var eventBox: LinearLayout
     private lateinit var taskBox: LinearLayout
     private lateinit var noteBox: LinearLayout
-    private lateinit var aliasBox: LinearLayout
     private lateinit var groupBox: LinearLayout
+    private lateinit var aliasBox: LinearLayout
+    private lateinit var eventBox: LinearLayout
+
     private val prefs by lazy { getSharedPreferences("mitra", MODE_PRIVATE) }
+    private val handler = Handler(Looper.getMainLooper())
+    private var adminHold: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,27 +52,35 @@ class MainActivity : AppCompatActivity() {
         statusTxt = findViewById(R.id.statusTxt)
         toggleBtn = findViewById(R.id.toggleBtn)
         schedBox = findViewById(R.id.schedBox)
-        eventBox = findViewById(R.id.eventBox)
         taskBox = findViewById(R.id.taskBox)
         noteBox = findViewById(R.id.noteBox)
-        aliasBox = findViewById(R.id.aliasBox)
         groupBox = findViewById(R.id.groupBox)
+        aliasBox = findViewById(R.id.aliasBox)
+        eventBox = findViewById(R.id.eventBox)
+
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
-        findViewById<Button>(R.id.modeBtn).setOnClickListener { switchMode() }
+        findViewById<Button>(R.id.designBtn).setOnClickListener { pickDesign() }
         findViewById<Button>(R.id.addSched).setOnClickListener { addSchedDialog() }
         findViewById<Button>(R.id.addTask).setOnClickListener { addTaskDialog() }
         findViewById<Button>(R.id.addNote).setOnClickListener { addNoteDialog() }
         findViewById<Button>(R.id.addGroup).setOnClickListener { addGroupDialog() }
         findViewById<Button>(R.id.addAlias).setOnClickListener { addAliasDialog() }
         findViewById<Button>(R.id.addEvent).setOnClickListener { addEventDialog() }
-        toggleBtn.setOnClickListener { if (isRunning()) stopMitra() else tryStart() }
-        updateModeBtn()
+        toggleBtn.setOnClickListener { if (isRunning()) stopBublu() else tryStart() }
+
+        setupAdminHold()
+        updateUi()
+        updateDesign()
+        loadLists()
+
+        // First launch: silently load keys from Firebase (if configured)
+        Thread { RemoteConfig.fetchAndStore(this) }.start()
     }
 
     override fun onResume() {
         super.onResume()
         updateUi()
-        updateModeBtn()
+        updateDesign()
         loadLists()
     }
 
@@ -74,44 +88,110 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUi() {
         if (isRunning()) {
-            statusTxt.text = "Chal raha hai (bubble pe tap karke bolo)"
-            toggleBtn.text = "OFF karo"
+            statusTxt.text = "Running - tap the bubble and speak"
+            toggleBtn.text = "Turn OFF"
         } else {
-            statusTxt.text = "Band hai"
-            toggleBtn.text = "ON karo"
+            statusTxt.text = "Stopped"
+            toggleBtn.text = "Turn ON"
         }
     }
 
+    private fun designName(d: Int) = when (d) {
+        1 -> "Cyan"
+        2 -> "Purple"
+        3 -> "Green"
+        else -> "Blue"
+    }
+
+    private fun updateDesign() {
+        val d = prefs.getInt("design", 0)
+        findViewById<ImageView>(R.id.avatarImg).setImageResource(if (d == 1) R.drawable.zora_idle else R.drawable.char_idle)
+        findViewById<Button>(R.id.designBtn).text = "Design: " + designName(d)
+    }
+
+    private fun pickDesign() {
+        val names = arrayOf("Blue (classic)", "Cyan (tech ring)", "Purple", "Green")
+        AlertDialog.Builder(this).setTitle("Choose Bublu's design")
+            .setItems(names) { _, w ->
+                prefs.edit().putInt("design", w).apply()
+                updateDesign()
+                if (isRunning()) restartService()
+                Toast.makeText(this, "Design: " + names[w], Toast.LENGTH_SHORT).show()
+            }.show()
+    }
+
+    // ---------- Admin gate: hold the face for 30 seconds ----------
+    private fun setupAdminHold() {
+        val avatar = findViewById<ImageView>(R.id.avatarImg)
+        avatar.setOnTouchListener { _, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    Toast.makeText(this, "Hold 30 seconds for admin access...", Toast.LENGTH_SHORT).show()
+                    adminHold?.let { handler.removeCallbacks(it) }
+                    val r = Runnable { showAdminCodeDialog() }
+                    adminHold = r
+                    handler.postDelayed(r, 30000)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    adminHold?.let { handler.removeCallbacks(it) }
+            }
+            false
+        }
+    }
+
+    private fun showAdminCodeDialog() {
+        val input = EditText(this)
+        input.hint = "Admin code"
+        AlertDialog.Builder(this).setTitle("Admin access")
+            .setMessage("Enter the admin code to manage API keys.")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val expected = prefs.getString("admin_code", "BUBLU2026") ?: "BUBLU2026"
+                if (input.text.toString().trim() == expected) {
+                    startActivity(Intent(this, AdminActivity::class.java))
+                } else {
+                    Toast.makeText(this, "Wrong code", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    // ---------- Lists ----------
     private fun loadLists() {
         schedBox.removeAllViews()
         val rems = Store.reminders(this).sortedBy { it.second }
-        if (rems.isEmpty()) schedBox.addView(row("Koi schedule ya alarm nahi", null))
+        if (rems.isEmpty()) schedBox.addView(row("No schedules yet - tap + to add", null))
         else for (r in rems) {
             val d = SimpleDateFormat("d MMM, hh:mm a", Locale.getDefault()).format(Date(r.second))
             schedBox.addView(row("$d  -  ${r.third}", "rem:${r.first}"))
         }
+
         taskBox.removeAllViews()
         val tasks = Store.tasks(this)
-        if (tasks.isEmpty()) taskBox.addView(row("Koi task nahi - bolo 'task add karo ...'", null))
+        if (tasks.isEmpty()) taskBox.addView(row("No tasks yet - tap + to add", null))
         else for (i in tasks.indices) {
             val t = tasks[i]
             taskBox.addView(row((if (t.second) "[done]  " else "[ ]  ") + t.first, "task:$i"))
         }
+
         noteBox.removeAllViews()
         val notes = Store.notes(this)
-        if (notes.isEmpty()) noteBox.addView(row("Koi note nahi - bolo 'note banao ...'", null))
+        if (notes.isEmpty()) noteBox.addView(row("No notes yet - tap + to add", null))
         else for (i in notes.indices) noteBox.addView(row(notes[i], "note:$i"))
+
         groupBox.removeAllViews()
         val grps = Store.importantGroups(this)
-        if (grps.isEmpty()) groupBox.addView(row("Koi group nahi - bolo 'school group ko important set karo'", null))
+        if (grps.isEmpty()) groupBox.addView(row("No groups yet - tap + to add", null))
         else for (g in grps) groupBox.addView(row(g, "grp:$g"))
+
         aliasBox.removeAllViews()
         val aliases = Store.aliases(this)
-        if (aliases.isEmpty()) aliasBox.addView(row("Koi alias nahi - bolo 'bhaiya ka naam Ravi rakho'", null))
+        if (aliases.isEmpty()) aliasBox.addView(row("No nicknames yet - tap + to add", null))
         else for (a in aliases) aliasBox.addView(row("${a.first}  =  ${a.second}", "alias:${a.first}"))
+
         eventBox.removeAllViews()
         val evs = Store.events(this)
-        if (evs.isEmpty()) eventBox.addView(row("Koi birthday/anniversary set nahi", null))
+        if (evs.isEmpty()) eventBox.addView(row("Nothing yet - tap + to add", null))
         else for (i in evs.indices) {
             val e = evs[i]
             eventBox.addView(row("${e.first}  -  ${e.third}  -  ${e.second}", "evt:$i"))
@@ -122,9 +202,9 @@ class MainActivity : AppCompatActivity() {
         val t = TextView(this)
         t.text = s
         t.textSize = 14f
-        t.setTextColor(0xFF22305A.toInt())
-        t.setBackgroundResource(R.drawable.card_row)
-        val p = (10 * resources.displayMetrics.density).toInt()
+        t.setTextColor(0xFFE7ECFF.toInt())
+        t.setBackgroundResource(R.drawable.row_dark)
+        val p = (12 * resources.displayMetrics.density).toInt()
         t.setPadding(p, p, p, p)
         val lp = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
@@ -142,15 +222,15 @@ class MainActivity : AppCompatActivity() {
         val parts = tag.split(":", limit = 2)
         val kind = parts[0]
         val key = parts.getOrElse(1) { "" }
-        val options = if (kind == "task") arrayOf("Edit", "Mark done/undone", "Delete") else arrayOf("Edit", "Delete")
-        AlertDialog.Builder(this).setTitle("Kya karna hai?").setItems(options) { _, w ->
+        val options = if (kind == "task") arrayOf("Edit", "Mark done / undone", "Delete") else arrayOf("Edit", "Delete")
+        AlertDialog.Builder(this).setTitle("What do you want to do?").setItems(options) { _, w ->
             when (kind) {
                 "rem" -> {
                     val id = key.toIntOrNull()
                     if (id != null) {
                         if (w == 0) {
                             val cur = Store.reminders(this).firstOrNull { it.first == id }?.third ?: ""
-                            promptText("Schedule edit karo", cur) { Store.updateReminder(this, id, it) }
+                            promptText("Edit schedule", cur) { Store.updateReminder(this, id, it) }
                         } else { Store.deleteReminder(this, id); loadLists() }
                     }
                 }
@@ -159,7 +239,7 @@ class MainActivity : AppCompatActivity() {
                     if (i != null) {
                         val cur = Store.tasks(this).getOrNull(i)?.first ?: ""
                         when (w) {
-                            0 -> promptText("Task edit karo", cur) { Store.updateTask(this, i, it) }
+                            0 -> promptText("Edit task", cur) { Store.updateTask(this, i, it) }
                             1 -> { Store.toggleTask(this, i); loadLists() }
                             else -> { Store.deleteTask(this, i); loadLists() }
                         }
@@ -169,14 +249,14 @@ class MainActivity : AppCompatActivity() {
                     val i = key.toIntOrNull()
                     if (i != null) {
                         val cur = Store.notes(this).getOrNull(i) ?: ""
-                        if (w == 0) promptText("Note edit karo", cur) { Store.updateNote(this, i, it) }
+                        if (w == 0) promptText("Edit note", cur) { Store.updateNote(this, i, it) }
                         else { Store.deleteNote(this, i); loadLists() }
                     }
                 }
                 "grp" -> { if (w == 1) { Store.deleteGroup(this, key); loadLists() } }
                 "alias" -> {
                     val cur = Store.aliases(this).firstOrNull { it.first.equals(key, true) }?.second ?: ""
-                    if (w == 0) promptText("Alias target edit karo ($key)", cur) { Store.updateAlias(this, key, it) }
+                    if (w == 0) promptText("Edit nickname target ($key)", cur) { Store.updateAlias(this, key, it) }
                     else { Store.deleteAlias(this, key); loadLists() }
                 }
                 "evt" -> {
@@ -201,151 +281,23 @@ class MainActivity : AppCompatActivity() {
     private fun promptEvent(index: Int, e: Triple<String, String, String>) {
         val box = LinearLayout(this)
         box.orientation = LinearLayout.VERTICAL
-        val name = EditText(this); name.setText(e.first); name.hint = "Naam"
-        val date = EditText(this); date.setText(e.second); date.hint = "dd/MM"
-        val type = EditText(this); type.setText(e.third); type.hint = "Birthday/Anniversary"
+        val pad = (14 * resources.displayMetrics.density).toInt()
+        box.setPadding(pad, pad, pad, pad)
+        val name = EditText(this); name.setText(e.first); name.hint = "Name"
+        val date = EditText(this); date.setText(e.second); date.hint = "Date (dd/MM)"
+        val type = EditText(this); type.setText(e.third); type.hint = "Birthday / Engagement / Exam"
         box.addView(name); box.addView(date); box.addView(type)
-        AlertDialog.Builder(this).setTitle("Edit karo").setView(box)
+        AlertDialog.Builder(this).setTitle("Edit").setView(box)
             .setPositiveButton("Save") { _, _ ->
                 Store.updateEvent(this, index, name.text.toString().trim(), date.text.toString().trim(), type.text.toString().trim())
                 loadLists()
             }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun updateModeBtn() {
-        val cur = prefs.getString("mode", "bublu") ?: "bublu"
-        findViewById<Button>(R.id.modeBtn).text = if (cur == "zora") "Mode: Zora  (tap for Bublu)" else "Mode: Bublu  (tap for Zora)"
-        findViewById<ImageView>(R.id.avatarImg).setImageResource(if (cur == "zora") R.drawable.zora_idle else R.drawable.char_idle)
-    }
-
-    private fun switchMode() {
-        val cur = prefs.getString("mode", "bublu") ?: "bublu"
-        val next = if (cur == "zora") "bublu" else "zora"
-        prefs.edit().putString("mode", next).apply()
-        updateModeBtn()
-        if (isRunning()) {
-            stopMitra()
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                prefs.edit().putBoolean("running", true).apply()
-                val i = Intent(this, OverlayService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
-                updateUi()
-            }, 700)
-        }
-        Toast.makeText(this, if (next == "zora") "Zora mode ON" else "Bublu mode ON", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun tryStart() {
-        if (!Settings.canDrawOverlays(this)) { showPermDialog(); return }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            showPermDialog(); return
-        }
-        if (!isAccEnabled()) {
-            Toast.makeText(this, "Click/type ke liye Accessibility ON karo", Toast.LENGTH_SHORT).show()
-            openAccSettings()
-            return
-        }
-        startMitra()
-    }
-
-    private fun startMitra() {
-        prefs.edit().putBoolean("running", true).apply()
-        val i = Intent(this, OverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
-        updateUi()
-        finish()
-    }
-
-    private fun stopMitra() {
-        prefs.edit().putBoolean("running", false).apply()
-        val i = Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_STOP)
-        try { startService(i) } catch (e: Exception) {}
-        updateUi()
-    }
-
-    private fun isAccEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-        return enabled.contains(packageName) && enabled.contains("MitraAccessibilityService")
-    }
-
-    private fun showSettings() {
-        val items = arrayOf(
-            "Permissions do", "Click/Type permission", "Autostart ON karo",
-            "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)",
-            "Awaaz (TTS) ON/OFF", "Voice chuno (awaaz)", "Tyohar batao ON/OFF", "Test AI",
-            "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
-        )
-        AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
-            when (w) {
-                0 -> showPermDialog()
-                1 -> openAccSettings()
-                2 -> openAutostart()
-                3 -> openNotifAccess()
-                4 -> showKeyDialog()
-                5 -> showSarvamKeyDialog()
-                6 -> toggleTts()
-                7 -> pickVoice()
-                8 -> toggleFestival()
-                9 -> testAi()
-                10 -> addAliasDialog()
-                11 -> addGroupDialog()
-                12 -> showDiagnose()
-            }
-        }.show()
-    }
-
-    private fun toggleFestival() {
-        val on = !(prefs.getBoolean("festival_on", true))
-        prefs.edit().putBoolean("festival_on", on).apply()
-        Toast.makeText(this, if (on) "Tyohar bataayega (sirf pakka pata ho to)" else "Tyohar batana band", Toast.LENGTH_LONG).show()
-    }
-
-    private fun pickVoice() {
-        val names = arrayOf("priya (female)", "shubh (male)", "ritu (female)", "aditya (male)", "kavya (female)", "rahul (male)")
-        val ids = arrayOf("priya", "shubh", "ritu", "aditya", "kavya", "rahul")
-        AlertDialog.Builder(this).setTitle("Awaaz chuno").setItems(names) { _, w ->
-            prefs.edit().putString("tts_speaker", ids[w]).apply()
-            Toast.makeText(this, "Voice set: ${ids[w]}", Toast.LENGTH_SHORT).show()
-        }.show()
-    }
-
-    private fun toggleTts() {
-        val on = !(prefs.getBoolean("tts_on", false))
-        prefs.edit().putBoolean("tts_on", on).apply()
-        val keyOk = (prefs.getString("sarvam_key", "") ?: "").isNotBlank()
-        Toast.makeText(
-            this,
-            if (on) (if (keyOk) "Awaaz ON - Bublu bolega (Sarvam Bulbul)" else "Awaaz ON - par pehle Sarvam key daalo") else "Awaaz OFF",
-            Toast.LENGTH_LONG
-        ).show()
-    }
-
-    private fun showSarvamKeyDialog() {
-        val input = EditText(this)
-        input.inputType = InputType.TYPE_CLASS_TEXT
-        input.hint = "Sarvam api-subscription-key"
-        input.setText(prefs.getString("sarvam_key", ""))
-        AlertDialog.Builder(this)
-            .setTitle("Sarvam key (Saaras v4 voice)")
-            .setMessage("Key milegi: dashboard.sarvam.ai\nAgar key daali hai to Bublu aapki awaaz Sarvam se samjhega (Hinglish me behtar).\nKey sirf aapke phone me rehti hai.")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                prefs.edit().putString("sarvam_key", input.text.toString().trim()).apply()
-                Toast.makeText(this, "Sarvam key save ho gayi", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun openNotifAccess() {
-        try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {}
-        Toast.makeText(this, "List me 'Bublu' ko ON karo", Toast.LENGTH_LONG).show()
-    }
-
+    // ---------- Add dialogs ----------
     private fun addTaskDialog() {
-        val input = EditText(this)
-        input.hint = "Naya task"
-        AlertDialog.Builder(this).setTitle("Task add karo").setView(input)
+        val input = EditText(this); input.hint = "New task"
+        AlertDialog.Builder(this).setTitle("Add task").setView(input)
             .setPositiveButton("Save") { _, _ ->
                 val t = input.text.toString().trim()
                 if (t.isNotBlank()) { Store.addTask(this, t); loadLists() }
@@ -353,9 +305,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addNoteDialog() {
-        val input = EditText(this)
-        input.hint = "Naya note"
-        AlertDialog.Builder(this).setTitle("Note add karo").setView(input)
+        val input = EditText(this); input.hint = "New note"
+        AlertDialog.Builder(this).setTitle("Add note").setView(input)
             .setPositiveButton("Save") { _, _ ->
                 val t = input.text.toString().trim()
                 if (t.isNotBlank()) { Store.addNote(this, t); loadLists() }
@@ -367,13 +318,13 @@ class MainActivity : AppCompatActivity() {
         box.orientation = LinearLayout.VERTICAL
         val pad = (14 * resources.displayMetrics.density).toInt()
         box.setPadding(pad, pad, pad, pad)
-        val text = EditText(this); text.hint = "Kya yaad dilana hai"
-        val hh = EditText(this); hh.hint = "Ghanta (1-12)"; hh.inputType = InputType.TYPE_CLASS_NUMBER
+        val text = EditText(this); text.hint = "What should I remind you about?"
+        val hh = EditText(this); hh.hint = "Hour (1-12)"; hh.inputType = InputType.TYPE_CLASS_NUMBER
         val mm = EditText(this); mm.hint = "Minute (0-59)"; mm.inputType = InputType.TYPE_CLASS_NUMBER
         val ampm = android.widget.Spinner(this)
         ampm.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("AM", "PM"))
         box.addView(text); box.addView(hh); box.addView(mm); box.addView(ampm)
-        AlertDialog.Builder(this).setTitle("Schedule / Alarm add karo").setView(box)
+        AlertDialog.Builder(this).setTitle("Add schedule / alarm").setView(box)
             .setPositiveButton("Save") { _, _ ->
                 val t = text.text.toString().trim()
                 val h = hh.text.toString().toIntOrNull() ?: -1
@@ -383,8 +334,8 @@ class MainActivity : AppCompatActivity() {
                     val h24 = if (pm) (h % 12) + 12 else (h % 12)
                     Scheduler.schedule(this, t, h24, m.coerceIn(0, 59), 0)
                     loadLists()
-                    Toast.makeText(this, "Set: $t", Toast.LENGTH_SHORT).show()
-                } else Toast.makeText(this, "Text aur ghanta (1-12) daalo", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+                } else Toast.makeText(this, "Enter text and hour (1-12)", Toast.LENGTH_LONG).show()
             }.setNegativeButton("Cancel", null).show()
     }
 
@@ -393,37 +344,31 @@ class MainActivity : AppCompatActivity() {
         box.orientation = LinearLayout.VERTICAL
         val pad = (14 * resources.displayMetrics.density).toInt()
         box.setPadding(pad, pad, pad, pad)
-        val name = EditText(this); name.hint = "Naam"
-        val date = EditText(this); date.hint = "Date (dd/MM, jaise 05/01)"
+        val name = EditText(this); name.hint = "Name (e.g. Didi)"
+        val date = EditText(this); date.hint = "Date (dd/MM, e.g. 11/11)"
         val type = android.widget.Spinner(this)
-        type.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("Birthday", "Anniversary"))
+        type.adapter = android.widget.ArrayAdapter(
+            this, android.R.layout.simple_spinner_dropdown_item,
+            arrayOf("Birthday", "Anniversary", "Engagement", "Exam", "Other")
+        )
         box.addView(name); box.addView(date); box.addView(type)
-        AlertDialog.Builder(this).setTitle("Birthday / Anniversary add karo").setView(box)
+        AlertDialog.Builder(this).setTitle("Add birthday / occasion").setView(box)
             .setPositiveButton("Save") { _, _ ->
                 val n = name.text.toString().trim()
                 val d = date.text.toString().trim()
-                val ty = if (type.selectedItemPosition == 1) "Anniversary" else "Birthday"
+                val ty = type.selectedItem.toString()
                 if (n.isNotBlank() && d.isNotBlank()) { Store.addEvent(this, n, d, ty); loadLists() }
-                else Toast.makeText(this, "Naam aur date daalo", Toast.LENGTH_LONG).show()
+                else Toast.makeText(this, "Enter name and date", Toast.LENGTH_LONG).show()
             }.setNegativeButton("Cancel", null).show()
     }
 
     private fun addGroupDialog() {
-        val input = EditText(this)
-        input.hint = "Group ka naam (jaise School Group)"
-        AlertDialog.Builder(this)
-            .setTitle("Important group add karo")
-            .setView(input)
+        val input = EditText(this); input.hint = "Group name (e.g. School Group)"
+        AlertDialog.Builder(this).setTitle("Add important group").setView(input)
             .setPositiveButton("Save") { _, _ ->
                 val g = input.text.toString().trim()
-                if (g.isNotBlank()) {
-                    Store.addImportantGroup(this, g)
-                    loadLists()
-                    Toast.makeText(this, "Save: $g", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+                if (g.isNotBlank()) { Store.addImportantGroup(this, g); loadLists() }
+            }.setNegativeButton("Cancel", null).show()
     }
 
     private fun addAliasDialog() {
@@ -431,34 +376,128 @@ class MainActivity : AppCompatActivity() {
         box.orientation = LinearLayout.VERTICAL
         val pad = (14 * resources.displayMetrics.density).toInt()
         box.setPadding(pad, pad, pad, pad)
-        val nick = EditText(this)
-        nick.hint = "Nickname (jaise bhaiya)"
-        val target = EditText(this)
-        target.hint = "Asli naam ya number (jaise Ravi / 98765...)"
-        box.addView(nick)
-        box.addView(target)
-        AlertDialog.Builder(this)
-            .setTitle("Alias add karo")
-            .setView(box)
+        val nick = EditText(this); nick.hint = "Nickname (e.g. bhaiya)"
+        val target = EditText(this); target.hint = "Real name or number (e.g. Ravi / 98765...)"
+        box.addView(nick); box.addView(target)
+        AlertDialog.Builder(this).setTitle("Add nickname").setView(box)
             .setPositiveButton("Save") { _, _ ->
                 val nk = nick.text.toString().trim()
                 val tg = target.text.toString().trim()
                 if (nk.isNotBlank() && tg.isNotBlank()) {
                     Store.addAlias(this, nk, tg)
                     loadLists()
-                    Toast.makeText(this, "Alias save: $nk = $tg", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Saved: $nk = $tg", Toast.LENGTH_SHORT).show()
                 }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    // ---------- Start / stop ----------
+    private fun tryStart() {
+        if (!Settings.canDrawOverlays(this)) { showPermDialog(); return }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            showPermDialog(); return
+        }
+        if (!isAccEnabled()) {
+            Toast.makeText(this, "Turn ON Bublu in Accessibility first", Toast.LENGTH_LONG).show()
+            openAccSettings()
+            return
+        }
+        startBublu()
+    }
+
+    private fun startBublu() {
+        prefs.edit().putBoolean("running", true).apply()
+        val i = Intent(this, OverlayService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        updateUi()
+        finish()
+    }
+
+    private fun stopBublu() {
+        prefs.edit().putBoolean("running", false).apply()
+        val i = Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_STOP)
+        try { startService(i) } catch (e: Exception) {}
+        updateUi()
+    }
+
+    private fun restartService() {
+        stopBublu()
+        handler.postDelayed({
+            prefs.edit().putBoolean("running", true).apply()
+            val i = Intent(this, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+            updateUi()
+        }, 700)
+    }
+
+    private fun isAccEnabled(): Boolean {
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+        return enabled.contains(packageName) && enabled.contains("MitraAccessibilityService")
+    }
+
+    // ---------- Settings ----------
+    private fun showSettings() {
+        val fest = if (prefs.getBoolean("festival_on", true)) "ON" else "OFF"
+        val items = arrayOf(
+            "Permissions & setup",
+            "Accessibility (tap & type)",
+            "Notification access (important groups)",
+            "Autostart (background)",
+            "Voice",
+            "Test AI",
+            "Add nickname",
+            "Add important group",
+            "Festival announcements: $fest",
+            "Diagnose"
+        )
+        AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
+            when (w) {
+                0 -> showPermDialog()
+                1 -> openAccSettings()
+                2 -> openNotifAccess()
+                3 -> openAutostart()
+                4 -> pickVoice()
+                5 -> testAi()
+                6 -> addAliasDialog()
+                7 -> addGroupDialog()
+                8 -> toggleFestival()
+                9 -> showDiagnose()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }.show()
+    }
+
+    private fun toggleFestival() {
+        val on = !prefs.getBoolean("festival_on", true)
+        prefs.edit().putBoolean("festival_on", on).apply()
+        Toast.makeText(this, if (on) "Festival announcements ON" else "Festival announcements OFF", Toast.LENGTH_LONG).show()
+    }
+
+    private fun pickVoice() {
+        val names = arrayOf("Priya (female)", "Shubh (male)", "Ritu (female)", "Aditya (male)", "Kavya (female)", "Rahul (male)")
+        val ids = arrayOf("priya", "shubh", "ritu", "aditya", "kavya", "rahul")
+        AlertDialog.Builder(this).setTitle("Choose Bublu's voice").setItems(names) { _, w ->
+            prefs.edit().putString("tts_speaker", ids[w]).apply()
+            Toast.makeText(this, "Voice: ${names[w]}", Toast.LENGTH_SHORT).show()
+        }.show()
+    }
+
+    private fun testAi() {
+        val key = prefs.getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) { Toast.makeText(this, "AI key not set (admin only)", Toast.LENGTH_LONG).show(); return }
+        Toast.makeText(this, "Checking...", Toast.LENGTH_SHORT).show()
+        Thread {
+            val (ok, text) = Gemini.ask(key, "Reply with exactly: OK")
+            runOnUiThread {
+                if (ok) Toast.makeText(this, "AI is working\n$text", Toast.LENGTH_LONG).show()
+                else Toast.makeText(this, "AI error\n$text", Toast.LENGTH_LONG).show()
+            }
+        }.start()
     }
 
     private fun showPermDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_perm, null)
         val dlg = AlertDialog.Builder(this).setView(view).create()
-        view.findViewById<Button>(R.id.allowAll).setOnClickListener {
-            dlg.dismiss(); grantNext()
-        }
+        view.findViewById<Button>(R.id.allowAll).setOnClickListener { dlg.dismiss(); grantNext() }
         dlg.show()
     }
 
@@ -487,8 +526,8 @@ class MainActivity : AppCompatActivity() {
             )
             return
         }
-        Toast.makeText(this, "Sab set! Ab ON karo", Toast.LENGTH_SHORT).show()
-        startMitra()
+        Toast.makeText(this, "All set! Now turn ON.", Toast.LENGTH_SHORT).show()
+        startBublu()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -503,7 +542,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun openAccSettings() {
         try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (e: Exception) {}
-        Toast.makeText(this, "List me 'Bublu' dhoondh ke ON karo", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Find 'Bublu' in the list and turn it ON", Toast.LENGTH_LONG).show()
+    }
+
+    private fun openNotifAccess() {
+        try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) } catch (e: Exception) {}
+        Toast.makeText(this, "Find 'Bublu' and turn it ON", Toast.LENGTH_LONG).show()
     }
 
     private fun openAutostart() {
@@ -518,44 +562,14 @@ class MainActivity : AppCompatActivity() {
                 val i = Intent().setComponent(c)
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(i)
-                Toast.makeText(this, "Bublu ko 'Autostart' / 'Background' me ON karo", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Turn ON Autostart / Background for Bublu", Toast.LENGTH_LONG).show()
                 return
             } catch (e: Exception) {}
         }
         try {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-            Toast.makeText(this, "Bublu ki settings me 'Autostart'/'Background' ON karo", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Turn ON Autostart / Background for Bublu", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {}
-    }
-
-    private fun showKeyDialog() {
-        val input = EditText(this)
-        input.inputType = InputType.TYPE_CLASS_TEXT
-        input.hint = "Gemini API key"
-        input.setText(prefs.getString("gemini_key", ""))
-        AlertDialog.Builder(this)
-            .setTitle("Gemini API key")
-            .setMessage("Free key: aistudio.google.com/app/apikey\nKey sirf aapke phone me rehti hai.")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                prefs.edit().putString("gemini_key", input.text.toString().trim()).apply()
-                Toast.makeText(this, "Save ho gayi", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun testAi() {
-        val key = prefs.getString("gemini_key", "")?.trim() ?: ""
-        if (key.isBlank()) { Toast.makeText(this, "Pehle Gemini key daalo", Toast.LENGTH_SHORT).show(); return }
-        Toast.makeText(this, "Check kar raha hoon...", Toast.LENGTH_SHORT).show()
-        Thread {
-            val (ok, text) = Gemini.ask(key, "Reply with exactly: OK")
-            runOnUiThread {
-                if (ok) Toast.makeText(this, "AI chal raha hai\n$text", Toast.LENGTH_LONG).show()
-                else Toast.makeText(this, "AI error\n$text", Toast.LENGTH_LONG).show()
-            }
-        }.start()
     }
 
     private fun showDiagnose() {
@@ -563,16 +577,18 @@ class MainActivity : AppCompatActivity() {
         val overlayOn = Settings.canDrawOverlays(this)
         val micOn = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val keyOn = (prefs.getString("gemini_key", "") ?: "").isNotBlank()
-        val msg = "1. Accessibility: " + (if (accOn) "ON (theek)" else "OFF (gadbad!) - Settings > Accessibility > Bublu > ON karo") +
-            "\n2. Overlay: " + (if (overlayOn) "ON (theek)" else "OFF (gadbad!)") +
-            "\n3. Microphone: " + (if (micOn) "ON (theek)" else "OFF (gadbad!)") +
-            "\n4. Gemini key: " + (if (keyOn) "daali hui (theek)" else "nahi daali") +
-            "\n\nAccessibility OFF ho to apps kholna, click, type kuch nahi chalega."
+        val sarvamOn = (prefs.getString("sarvam_key", "") ?: "").isNotBlank()
+        val msg = "1. Accessibility: " + (if (accOn) "ON (good)" else "OFF (needed for apps, tap, type)") +
+            "\n2. Display over apps: " + (if (overlayOn) "ON (good)" else "OFF (needed)") +
+            "\n3. Microphone: " + (if (micOn) "ON (good)" else "OFF (needed)") +
+            "\n4. AI key: " + (if (keyOn) "present (good)" else "missing") +
+            "\n5. Voice key: " + (if (sarvamOn) "present (good)" else "missing") +
+            "\n\nIf Accessibility is OFF, Bublu cannot open apps or tap buttons."
         AlertDialog.Builder(this)
-            .setTitle("Bublu ki jaanch")
+            .setTitle("Bublu health check")
             .setMessage(msg)
             .setPositiveButton("OK", null)
-            .setNeutralButton("Accessibility kholo") { _, _ -> openAccSettings() }
+            .setNeutralButton("Accessibility") { _, _ -> openAccSettings() }
             .show()
     }
 }

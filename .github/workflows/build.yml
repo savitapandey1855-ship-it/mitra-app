@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v50
-          name: Bublu APK v50
-          body: "v50 - gallery command, any occasion with a date (engagement/exam/wedding...), and 'open X and do Y' handled together."
+          tag_name: apk-v51
+          name: Bublu APK v51
+          body: "v51 - premium English UI, 4 designs, admin-only API keys (hold face 30s), Firebase key loading, voice picker for everyone."
           files: app/build/outputs/apk/debug/app-debug.apk

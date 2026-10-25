@@ -58,7 +58,7 @@ class OverlayService : Service() {
     private var thinkAnim: ObjectAnimator? = null
     private lateinit var ring: ImageView
     private var ringAnim: ObjectAnimator? = null
-    private var mode = "bublu"
+    private var design = 0
     private var player: android.media.MediaPlayer? = null
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
@@ -457,9 +457,9 @@ class OverlayService : Service() {
     }
 
     private fun applyMode() {
-        mode = getSharedPreferences("mitra", MODE_PRIVATE).getString("mode", "bublu") ?: "bublu"
-        if (::face.isInitialized) face.setZora(mode == "zora")
-        if (mode == "zora") {
+        design = getSharedPreferences("mitra", MODE_PRIVATE).getInt("design", 0)
+        if (::face.isInitialized) face.setDesign(design)
+        if (design == 1) {
             ring.visibility = View.VISIBLE
             if (ringAnim == null) {
                 ringAnim = ObjectAnimator.ofFloat(ring, "rotation", 0f, 360f).apply {
@@ -480,7 +480,7 @@ class OverlayService : Service() {
         moodSeq++
         val mySeq = moodSeq
         face.setMoodId(resId)
-        face.setZora(mode == "zora")
+        face.setDesign(design)
         pop()
         if (resId == R.drawable.char_think) {
             thinkBubble.visibility = View.VISIBLE

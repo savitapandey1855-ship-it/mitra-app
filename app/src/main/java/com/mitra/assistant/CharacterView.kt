@@ -15,7 +15,13 @@ import android.view.View
 class CharacterView(context: Context) : View(context) {
 
     private var mood = 0        // 0 idle, 1 listen, 2 think, 3 happy, 4 sad, 5 sleep, 6 wake, 7 laugh
-    private var zora = false
+    private var design = 0
+    private val palettes = arrayOf(
+        intArrayOf(0xFFBFF3FF.toInt(), 0xFF5B8BFF.toInt(), 0xFF6A3BE0.toInt()),
+        intArrayOf(0xFFDDFBFF.toInt(), 0xFF28C6FF.toInt(), 0xFF0B49C8.toInt()),
+        intArrayOf(0xFFFFE3F7.toInt(), 0xFFC56BFF.toInt(), 0xFF6A1FB0.toInt()),
+        intArrayOf(0xFFE4FFE9.toInt(), 0xFF3ED98A.toInt(), 0xFF0B7A45.toInt())
+    )
     private var lookX = 0f      // -1..1
     private var lookY = 0f
     private var blink = 0f      // 0 open .. 1 closed
@@ -33,7 +39,6 @@ class CharacterView(context: Context) : View(context) {
     }
 
     private var grad: RadialGradient? = null
-    private var zGrad: RadialGradient? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -61,7 +66,7 @@ class CharacterView(context: Context) : View(context) {
         invalidate()
     }
 
-    fun setZora(z: Boolean) { zora = z; invalidate() }
+    fun setDesign(d: Int) { design = d.coerceIn(0, palettes.size - 1); grad = null; invalidate() }
 
     private fun animateLook(tx: Float, ty: Float) {
         val sx = lookX
@@ -93,17 +98,11 @@ class CharacterView(context: Context) : View(context) {
 
         canvas.drawOval(30f, 104f, 90f, 118f, shadowPaint)
 
+        val pal = palettes[design.coerceIn(0, palettes.size - 1)]
         if (grad == null) grad = RadialGradient(
-            42f, 38f, 78f,
-            intArrayOf(0xFFBFF3FF.toInt(), 0xFF5B8BFF.toInt(), 0xFF6A3BE0.toInt()),
-            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            42f, 38f, 78f, pal, floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
         )
-        if (zGrad == null) zGrad = RadialGradient(
-            52f, 50f, 70f,
-            intArrayOf(0xFFDDFBFF.toInt(), 0xFF28C6FF.toInt(), 0xFF0B49C8.toInt()),
-            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
-        )
-        bodyPaint.shader = if (zora) zGrad else grad
+        bodyPaint.shader = grad
         canvas.drawCircle(60f, 58f, 46f, bodyPaint)
         bodyPaint.shader = null
 

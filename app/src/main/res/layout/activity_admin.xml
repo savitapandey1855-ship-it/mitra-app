@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_premium"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Admin Access"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="26sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Only the owner should set these. Keys are stored on this device only."
+            android:textColor="#A9B6F0"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:orientation="vertical"
+            android:background="@drawable/card_glass"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gemini API key (AI answers)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/geminiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="AIza..."
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Sarvam API key (Voice in + Voice out)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/sarvamKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="sk_..."
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Firebase config URL (JSON with gemini + sarvam)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/configUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="https://.../config.json"
+                android:inputType="textUri"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Admin code (for this gate)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/adminCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="BUBLU2026"
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/saveAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/btn_3d"
+            android:text="Save keys"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/fetchNow"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_glass"
+            android:text="Fetch keys from Firebase now"
+            android:textAllCaps="false"
+            android:textColor="#8FE9FF"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/closeAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/btn_glass"
+            android:text="Close"
+            android:textAllCaps="false"
+            android:textColor="#E9E3FF"
+            android:textSize="15sp" />
+    </LinearLayout>
+</ScrollView>

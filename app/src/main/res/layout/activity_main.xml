@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient"
+    android:background="@drawable/bg_premium"
     android:fillViewport="true"
     android:scrollbars="none">
 
@@ -10,20 +10,20 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="18dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:background="@drawable/card_ui"
+            android:background="@drawable/card_glass"
             android:padding="20dp">
 
             <ImageView
                 android:id="@+id/avatarImg"
-                android:layout_width="104dp"
-                android:layout_height="104dp"
+                android:layout_width="112dp"
+                android:layout_height="112dp"
                 android:src="@drawable/char_idle"
                 android:contentDescription="Bublu" />
 
@@ -34,13 +34,14 @@
                 android:text="Bublu"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
-                android:textSize="32sp" />
+                android:textSize="34sp"
+                android:letterSpacing="0.03" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Aapka smart assistant"
-                android:textColor="#B9C6FF"
+                android:text="Your smart AI assistant"
+                android:textColor="#C6B8FF"
                 android:textSize="13sp" />
 
             <TextView
@@ -48,57 +49,73 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/btn_grad2"
+                android:background="@drawable/btn_glass"
                 android:paddingLeft="16dp"
                 android:paddingRight="16dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:text="Band hai"
-                android:textColor="#E7ECFF"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:text="Stopped"
+                android:textColor="#E9E3FF"
                 android:textSize="13sp" />
 
             <Button
                 android:id="@+id/toggleBtn"
                 android:layout_width="match_parent"
-                android:layout_height="58dp"
+                android:layout_height="60dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/btn_bg"
-                android:text="ON karo"
+                android:background="@drawable/btn_3d"
+                android:text="Turn ON"
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
-                android:textSize="18sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/setBtn"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/btn_soft"
-                android:text="Settings"
-                android:textAllCaps="false"
-                android:textColor="#E7ECFF"
-                android:textSize="15sp" />
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/modeBtn"
+                <Button
+                    android:id="@+id/setBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/btn_glass"
+                    android:text="Settings"
+                    android:textAllCaps="false"
+                    android:textColor="#E9E3FF"
+                    android:textSize="15sp" />
+
+                <Button
+                    android:id="@+id/designBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/btn_glass"
+                    android:text="Design"
+                    android:textAllCaps="false"
+                    android:textColor="#8FE9FF"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/btn_soft"
-                android:text="Mode: Bublu  (tap for Zora)"
-                android:textAllCaps="false"
-                android:textColor="#8FE9FF"
-                android:textSize="15sp" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="Hold the Bublu face for 30 seconds for admin access"
+                android:textColor="#7C8BC7"
+                android:textSize="11sp" />
         </LinearLayout>
 
-        <!-- Schedule -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -111,16 +128,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Aaj ka schedule"
+                    android:text="Today's Schedule"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
                 <Button
                     android:id="@+id/addSched"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"
@@ -135,13 +152,12 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <!-- Tasks -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -161,9 +177,9 @@
 
                 <Button
                     android:id="@+id/addTask"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"
@@ -178,13 +194,12 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <!-- Notes -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -204,9 +219,9 @@
 
                 <Button
                     android:id="@+id/addNote"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"
@@ -221,13 +236,12 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <!-- Important groups -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -240,16 +254,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Important WhatsApp groups"
+                    android:text="Important WhatsApp Groups"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
                 <Button
                     android:id="@+id/addGroup"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"
@@ -264,13 +278,12 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <!-- Aliases -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -283,16 +296,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Aliases (nickname)"
+                    android:text="Nicknames (Aliases)"
                     android:textColor="#FFFFFF"
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
                 <Button
                     android:id="@+id/addAlias"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"
@@ -307,13 +320,13 @@
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
-        <!-- Birthdays -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/card_ui"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/card_glass"
             android:padding="16dp">
 
             <LinearLayout
@@ -333,9 +346,9 @@
 
                 <Button
                     android:id="@+id/addEvent"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/btn_grad2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/btn_3d"
                     android:text="+"
                     android:textColor="#FFFFFF"
                     android:textSize="20sp"

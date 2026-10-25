@@ -32,6 +32,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AdminActivity"
+            android:exported="false"
+            android:label="Admin" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"
