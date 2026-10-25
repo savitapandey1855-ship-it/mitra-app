@@ -26,13 +26,26 @@ class AdminActivity : AppCompatActivity() {
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 
         findViewById<Button>(R.id.saveAdmin).setOnClickListener {
+            val gk = g.text.toString().trim()
+            val sk = s.text.toString().trim()
             prefs.edit()
-                .putString("gemini_key", g.text.toString().trim())
-                .putString("sarvam_key", s.text.toString().trim())
+                .putString("gemini_key", gk)
+                .putString("sarvam_key", sk)
                 .putString("config_url", u.text.toString().trim())
                 .putString("admin_code", c.text.toString().trim().ifBlank { "BUBLU2026" })
                 .apply()
-            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Saved on this phone. Publishing to all devices...", Toast.LENGTH_SHORT).show()
+            Thread {
+                val ok = RemoteConfig.uploadKeys(this, gk, sk)
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        if (ok) "Published! Every device will load these keys on first open."
+                        else "Saved locally. Upload failed - check the database write rules.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }.start()
         }
 
         findViewById<Button>(R.id.fetchNow).setOnClickListener {

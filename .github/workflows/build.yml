@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v55
-          name: Bublu APK v55
-          body: "v55 - Firebase connected: app silently loads AI + voice keys from your Firebase Realtime Database on launch."
+          tag_name: apk-v56
+          name: Bublu APK v56
+          body: "v56 - admin panel now publishes keys to Firebase, so every device loads them automatically on first open."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -42,6 +42,25 @@ object RemoteConfig {
         return false
     }
 
+    /** Admin panel se keys Firebase me publish karo - sab devices pe chali jaayengi. */
+    fun uploadKeys(context: Context, gemini: String, sarvam: String): Boolean {
+        val url = configUrl(context)
+        return try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.requestMethod = "PUT"
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            val body = JSONObject().apply {
+                put("gemini", gemini)
+                put("sarvam", sarvam)
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            conn.responseCode in 200..299
+        } catch (e: Exception) { false }
+    }
+
     private fun fetchOne(url: String): JSONObject? {
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
