@@ -586,8 +586,8 @@ class OverlayService : Service() {
         if (sleeping || listening || busy || alwaysListen) return
         val tricks = listOf<() -> Unit>(
             { blink() }, { bounce() }, { spinFace() }, { shake() }, { popFace() },
-            { wobble() }, { floatUp() }, { pulse() }, { tilt(-16f) }, { tilt(16f) },
-            { jump() }, { flipY() }, { squash() }, { slideX() }, { zoom() },
+            { wobbleTrick() }, { floatUp() }, { pulse() }, { tilt(-16f) }, { tilt(16f) },
+            { jumpTrick() }, { flipY() }, { squash() }, { slideX() }, { zoom() },
             { rock() }, { doubleBounce() }, { spinBounce() }, { shiver() }, { bow() },
             { danceQuick() }, { wiggle() }, { orbit() }, { heartbeat() }, { nod() }
         )
@@ -612,11 +612,11 @@ class OverlayService : Service() {
     private fun spinFace() { face.animate().rotation(face.rotation + 360f).setDuration(700).withEndAction { face.rotation = 0f }.start() }
     private fun shake() { ObjectAnimator.ofFloat(face, "translationX", 0f, 14f, -14f, 10f, -10f, 0f).setDuration(500).start() }
     private fun popFace() { face.animate().scaleX(1.25f).scaleY(1.25f).setDuration(140).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }.start() }
-    private fun wobble() { face.animate().rotation(-16f).setDuration(160).withEndAction { face.animate().rotation(16f).setDuration(160).withEndAction { face.animate().rotation(0f).setDuration(160).start() }.start() }.start() }
+    private fun wobbleTrick() { face.animate().rotation(-16f).setDuration(160).withEndAction { face.animate().rotation(16f).setDuration(160).withEndAction { face.animate().rotation(0f).setDuration(160).start() }.start() }.start() }
     private fun floatUp() { face.animate().translationY(-12f).setDuration(600).withEndAction { face.animate().translationY(0f).setDuration(600).start() }.start() }
     private fun pulse() { face.animate().scaleX(1.12f).scaleY(1.12f).setDuration(300).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(300).start() }.start() }
     private fun tilt(d: Float) { face.animate().rotation(d).setDuration(300).withEndAction { face.animate().rotation(0f).setDuration(300).start() }.start() }
-    private fun jump() { face.animate().translationY(-30f).setDuration(200).withEndAction { face.animate().translationY(0f).setDuration(320).setInterpolator(OvershootInterpolator()).start() }.start() }
+    private fun jumpTrick() { face.animate().translationY(-30f).setDuration(200).withEndAction { face.animate().translationY(0f).setDuration(320).setInterpolator(OvershootInterpolator()).start() }.start() }
     private fun flipY() { face.animate().rotationY(360f).setDuration(800).withEndAction { face.rotationY = 0f }.start() }
     private fun squash() { face.animate().scaleX(1.25f).scaleY(0.8f).setDuration(150).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(OvershootInterpolator()).start() }.start() }
     private fun slideX() { face.animate().translationX(18f).setDuration(300).withEndAction { face.animate().translationX(-18f).setDuration(300).withEndAction { face.animate().translationX(0f).setDuration(300).start() }.start() }.start() }
