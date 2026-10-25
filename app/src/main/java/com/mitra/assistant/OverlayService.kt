@@ -975,6 +975,12 @@ class OverlayService : Service() {
             return
         }
 
+        // Notes app me likho (Google Keep / OEM Notes)
+        if (n.contains("notes app") || n.contains("note app") || n.contains("notesapp") || n.contains("keep me") || n.contains("keep pe") || n.contains("notes kholo")) {
+            var t2 = after(t, listOf("notes app me ", "note app me ", "keep me ", "keep pe ", "notes app ", "note app ", "notes me ", "note me "))?.trim() ?: ""
+            t2 = t2.replace(Regex("\\b(likho|likh|likhna|bhejo|bhej|add|karo|kar|do|de|please|me|app|notes|note|kholo)\\b"), " ").replace(Regex("\\s+"), " ").trim()
+            if (t2.isNotBlank()) { rollAround { createNote(t2) }; return }
+        }
         // Notes (app ke andar save hote hain)
         if (n.contains("notesdikhao") || n.contains("notespadho") || n.contains("notesbatao") || n.contains("notesunao") || n.contains("notesunado")) {
             readNotes(); return
@@ -1354,18 +1360,28 @@ class OverlayService : Service() {
     private fun createNote(text: String) {
         val a = MitraAccessibilityService.instance
         if (a == null) { setMood(R.drawable.char_sad, "Notes ke liye Accessibility ON karo"); return }
-        val pkg = findInstalled("keep") ?: findInstalled("note")
+        val pkg = findInstalled("keep") ?: findInstalled("note") ?: findInstalled("notebook") ?: findInstalled("memo")
         if (pkg == null) { setMood(R.drawable.char_sad, "Koi Notes app nahi mila"); return }
         setMood(R.drawable.char_think, "Notes khol raha hoon...")
         Thread {
             a.openAppAndCheck(pkg.first, pkg.second)
-            Thread.sleep(2500)
+            Thread.sleep(3000)
+            // Naya note kholo
             if (!a.clickByDesc("New note") && !a.clickByText("New note")) {
-                a.clickByDesc("Take a note")
+                if (!a.clickByDesc("Take a note") && !a.clickByText("Take a note")) {
+                    if (!a.clickByDesc("Create new note") && !a.clickByText("Create new note")) {
+                        a.clickByDesc("Add note")
+                    }
+                }
             }
-            Thread.sleep(1500)
-            val ok = a.setTextFocused(text)
-            main.post { if (ok) setMood(R.drawable.char_laugh, "Note bana diya!") else setMood(R.drawable.char_sad, "Note me likh nahi paya") }
+            Thread.sleep(1800)
+            // Likho - 2 baar try
+            var ok = a.writeNote(text)
+            if (!ok) { Thread.sleep(700); ok = a.writeNote(text) }
+            main.post {
+                if (ok) setMood(R.drawable.char_laugh, "Note likh diya: $text")
+                else setMood(R.drawable.char_sad, "Notes app me likh nahi paya - ek baar manually dekh lo")
+            }
         }.start()
     }
 

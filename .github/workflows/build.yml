@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v42
-          name: Bublu APK v42
-          body: "v42 - + button on every card (Schedule, Tasks, Notes, Groups, Aliases, Birthdays) to add items right from the app."
+          tag_name: apk-v43
+          name: Bublu APK v43
+          body: "v43 - Notes app writing fixed (finds the right box, verifies, retries twice); 'notes app' phrases handled locally."
           files: app/build/outputs/apk/debug/app-debug.apk

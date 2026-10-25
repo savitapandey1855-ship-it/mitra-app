@@ -44,11 +44,45 @@ class MitraAccessibilityService : AccessibilityService() {
         return setNodeText(target, newText)
     }
 
+    private fun collectEditables(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
+        if (node.isEditable) { out.add(node); return }
+        for (i in 0 until node.childCount) node.getChild(i)?.let { collectEditables(it, out) }
+    }
+
+    /** Notes app me likhne ke liye: sahi (bada) input box dhoondho, likho, phir verify karo. */
+    fun writeNote(text: String): Boolean {
+        return try {
+            val root = rootInActiveWindow ?: return false
+            val dm = resources.displayMetrics
+            var target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            if (target == null || !target.isEditable) {
+                val all = ArrayList<AccessibilityNodeInfo>()
+                collectEditables(root, all)
+                target = all.filter {
+                    val r = Rect(); it.getBoundsInScreen(r)
+                    r.top > (dm.heightPixels * 0.12f).toInt() && r.width() > (dm.widthPixels * 0.35f).toInt()
+                }.maxByOrNull { val r = Rect(); it.getBoundsInScreen(r); r.width().toLong() * r.height() }
+            }
+            if (target == null) return false
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            }
+            val ok = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            Thread.sleep(450)
+            val all2 = ArrayList<AccessibilityNodeInfo>()
+            rootInActiveWindow?.let { collectEditables(it, all2) }
+            val got = all2.any { it.text?.toString()?.contains(text.take(5)) == true }
+            ok || got
+        } catch (e: Exception) { false }
+    }
+
     fun setTextFocused(text: String): Boolean {
         val root = rootInActiveWindow ?: return false
         val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
         return setNodeText(target, text)
     }
+
+    fun setNodeTextPub(node: AccessibilityNodeInfo, text: String): Boolean = setNodeText(node, text)
 
     private fun setNodeText(node: AccessibilityNodeInfo, text: String): Boolean {
         val args = Bundle().apply {
