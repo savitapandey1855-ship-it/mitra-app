@@ -330,8 +330,16 @@ class OverlayService : Service() {
     private fun fxSparkles() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.sparkles(c.first, c.second, 20) }
     private fun fxRipple() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.ripple(c.first, c.second, 0xFF40C4FF.toInt()) }
     private fun fxHearts() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.hearts(c.first, c.second, 9) }
-    private fun fxConfetti() { if (!::fx.isInitialized) return; val d = resources.displayMetrics; fx.confetti(d.widthPixels, d.heightPixels, 40) }
-    private fun fxFirework() { if (!::fx.isInitialized) return; val d = resources.displayMetrics; fx.firework(d.widthPixels, d.heightPixels) }
+    private fun fxConfetti() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.confettiAround(c.first, c.second, 34) }
+    private fun fxFirework() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.fireworkAt(c.first, c.second) }
+    private fun fxButterflies() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.butterflies(c.first, c.second, 3)
+        setMood(R.drawable.char_happy, null, 2200)
+        if (Math.random() < 0.5) lookLeft() else lookRight()
+        main.postDelayed({ try { if (Math.random() < 0.5) lookLeft() else lookRight() } catch (e: Exception) {} }, 800)
+    }
 
     private fun pop() {
         face.animate().scaleX(1.22f).scaleY(1.22f).setDuration(120)
@@ -612,7 +620,7 @@ class OverlayService : Service() {
         tricks.random()()
         // Sirf rangeen effects - kuch bolta nahi
         if (Math.random() < 0.85) {
-            listOf<() -> Unit>({ fxBurst() }, { fxSparkles() }, { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxFirework() }).random()()
+            listOf<() -> Unit>({ fxBurst() }, { fxSparkles() }, { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxFirework() }, { fxButterflies() }).random()()
         }
     }
 
@@ -1210,13 +1218,21 @@ class OverlayService : Service() {
                 val contact = resolveAlias(wa.first)
                 if (wa.second.isBlank()) {
                     pendingWaContact = contact
-                    setMood(R.drawable.char_think, "${wa.first} ko kya message bhejun? Bolo.")
+                    setMood(R.drawable.char_think, "What should I send to ${wa.first}?")
+                    return
+                }
+                if (looksLikeRequest(wa.second)) {
+                    setMood(R.drawable.char_think, "Writing the message...")
+                    Thread {
+                        val composed = composeMessage(contact, wa.second)
+                        main.post { rollAround { doSendWhatsApp(contact, composed) } }
+                    }.start()
                     return
                 }
                 rollAround { doSendWhatsApp(contact, wa.second) }
                 return
             }
-            setMood(R.drawable.char_think, "Kisko message bhejna hai aur kya? Bolo, jaise 'Rahul ko Hi'")
+            setMood(R.drawable.char_think, "Who should I message, and what? Say: 'Rahul ko Hi'")
             return
         }
 
@@ -1624,6 +1640,34 @@ class OverlayService : Service() {
         if (contact.isBlank()) return null
         if (msg == "kuch" || msg == "kuchh" || msg == "कुछ") msg = ""
         return Pair(contact, msg)
+    }
+
+    private fun looksLikeRequest(msg: String): Boolean {
+        val m = msg.lowercase()
+        val keys = listOf(
+            "application", "aavedan", "chutti", "chhutti", "leave", "bimar", "beemar", "sick", "fever",
+            "doctor", "school", "teacher", "class", "nahi aa", "nahi aau", "half day", "holiday",
+            "principal", "exam", "function", "permission"
+        )
+        return keys.any { m.contains(it) } || msg.length > 45
+    }
+
+    /** Gemini se poora sahi message likhwata hai (naam/class ke saath). */
+    private fun composeMessage(contact: String, raw: String): String {
+        val sp = getSharedPreferences("mitra", MODE_PRIVATE)
+        val key = sp.getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) return raw
+        val name = sp.getString("my_name", "")?.trim() ?: ""
+        val cls = sp.getString("my_class", "")?.trim() ?: ""
+        val who = if (name.isBlank()) "" else "The sender's name is $name" + (if (cls.isBlank()) "" else " (Class $cls)") + ". "
+        val prompt = "Write ONE short, polite WhatsApp message in simple Hinglish (Roman letters). " +
+            who + "Recipient name: $contact. " +
+            "What the sender wants to convey: \"$raw\". " +
+            "Write it as a complete, natural message the recipient will fully understand " +
+            "(for example a proper leave application if they are asking for leave). " +
+            "2 to 4 short lines. No quotes, no explanation, no subject line, no emojis."
+        val (ok, txt) = Gemini.ask(key, prompt)
+        return if (ok && txt.isNotBlank()) txt.trim() else raw
     }
 
     private fun looksLikeAction(t: String): Boolean {

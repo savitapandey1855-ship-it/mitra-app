@@ -444,6 +444,7 @@ class MainActivity : AppCompatActivity() {
             "Notification access (important groups)",
             "Autostart (background)",
             "Voice",
+            "My details (name & class)",
             "Test AI",
             "Add nickname",
             "Add important group",
@@ -457,13 +458,39 @@ class MainActivity : AppCompatActivity() {
                 2 -> openNotifAccess()
                 3 -> openAutostart()
                 4 -> pickVoice()
-                5 -> testAi()
-                6 -> addAliasDialog()
-                7 -> addGroupDialog()
-                8 -> toggleFestival()
-                9 -> showDiagnose()
+                5 -> myDetailsDialog()
+                6 -> testAi()
+                7 -> addAliasDialog()
+                8 -> addGroupDialog()
+                9 -> toggleFestival()
+                10 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun myDetailsDialog() {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val pad = (14 * resources.displayMetrics.density).toInt()
+        box.setPadding(pad, pad, pad, pad)
+        val name = EditText(this)
+        name.hint = "Your name"
+        name.setText(prefs.getString("my_name", ""))
+        val cls = EditText(this)
+        cls.hint = "Your class (e.g. 10-B)"
+        cls.setText(prefs.getString("my_class", ""))
+        box.addView(name); box.addView(cls)
+        AlertDialog.Builder(this).setTitle("My details")
+            .setMessage("Used when Bublu writes applications or messages for you.")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                prefs.edit()
+                    .putString("my_name", name.text.toString().trim())
+                    .putString("my_class", cls.text.toString().trim())
+                    .apply()
+                Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null).show()
     }
 
     private fun toggleFestival() {

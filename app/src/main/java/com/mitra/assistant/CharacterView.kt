@@ -108,11 +108,11 @@ class CharacterView(context: Context) : View(context) {
 
         canvas.drawOval(24f, 23f, 56f, 45f, hiPaint)
 
-        val lx = lookX * 3.2f
-        val ly = lookY * 2.6f
-        val eyeRy = 7f * (1f - blink * 0.92f)
-        drawEye(canvas, 45f + lx, 56f + ly, 7f, eyeRy)
-        drawEye(canvas, 75f + lx, 56f + ly, 7f, eyeRy)
+        val lx = lookX * 4.6f
+        val ly = lookY * 3.4f
+        val eyeRy = 9f * (1f - blink * 0.93f)
+        drawEye(canvas, 45f + lx, 56f + ly, 8.5f, eyeRy)
+        drawEye(canvas, 75f + lx, 56f + ly, 8.5f, eyeRy)
 
         val path = Path()
         when (mood) {
@@ -128,6 +128,9 @@ class CharacterView(context: Context) : View(context) {
     private fun drawEye(canvas: Canvas, cx: Float, cy: Float, rx: Float, ry: Float) {
         val rr = ry.coerceAtLeast(0.9f)
         canvas.drawOval(cx - rx, cy - rr, cx + rx, cy + rr, darkPaint)
-        if (rr > 3f) canvas.drawCircle(cx - 2f, cy - 3f, 2.5f, whitePaint)
+        if (rr > 3.5f) {
+            canvas.drawCircle(cx - 2.6f, cy - 3.4f, 3.2f, whitePaint)
+            canvas.drawCircle(cx + 2.2f, cy + 2.4f, 1.5f, whitePaint)
+        }
     }
 }

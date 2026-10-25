@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v51
-          name: Bublu APK v51
-          body: "v51 - premium English UI, 4 designs, admin-only API keys (hold face 30s), Firebase key loading, voice picker for everyone."
+          tag_name: apk-v52
+          name: Bublu APK v52
+          body: "v52 - cuter bigger eyes, butterflies near Bublu, effects around the bubble only, and smart WhatsApp messages (writes full applications with your name/class)."
           files: app/build/outputs/apk/debug/app-debug.apk
