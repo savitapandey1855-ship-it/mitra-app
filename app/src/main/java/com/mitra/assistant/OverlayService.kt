@@ -139,6 +139,7 @@ class OverlayService : Service() {
         initRecognizer()
         Thread { buildAppIndex() }.start()
         main.postDelayed({ proactiveGreet() }, 5000)
+        scheduleTrick()
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
@@ -271,10 +272,12 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (e.rawX - startTouchX).toInt()
                     val dy = (e.rawY - startTouchY).toInt()
-                    if (abs(dx) > 12 || abs(dy) > 12) moved = true
-                    params.x = startX + dx
-                    params.y = startY + dy
-                    wm.updateViewLayout(root, params)
+                    if (abs(dx) > 14 || abs(dy) > 14) moved = true
+                    if (moved) {
+                        params.x = startX + dx
+                        params.y = startY + dy
+                        wm.updateViewLayout(root, params)
+                    }
                     val now = System.currentTimeMillis()
                     if (now - flipWindowStart > 1600) { flipWindowStart = now; flips = 0 }
                     val d = e.rawX - lastX
@@ -513,6 +516,24 @@ class OverlayService : Service() {
         anim.start()
     }
 
+    /** Wapas apni jagah - bina clamp, taaki position na badle. */
+    private fun glideToRaw(px: Int, py: Int, then: (() -> Unit)? = null) {
+        val sx = params.x.toFloat()
+        val sy = params.y.toFloat()
+        val anim = ValueAnimator.ofFloat(0f, 1f)
+        anim.duration = 500
+        anim.addUpdateListener { a ->
+            val f = a.animatedValue as Float
+            params.x = (sx + (px - sx) * f).toInt()
+            params.y = (sy + (py - sy) * f).toInt()
+            try { wm.updateViewLayout(root, params) } catch (e: Exception) {}
+        }
+        anim.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) { then?.invoke() }
+        })
+        anim.start()
+    }
+
     /** Ludhak kar target tak jao, kaam karo, phir wapas apni jagah. */
     private fun glideAndDo(centerX: Int, centerY: Int, say: String, action: () -> Boolean) {
         val hx = params.x
@@ -525,7 +546,7 @@ class OverlayService : Service() {
         glideTo(centerX, centerY) {
             face.rotation = 0f
             val ok = action()
-            glideTo(hx + dp(37), hy + dp(37)) {
+            glideToRaw(hx, hy) {
                 busy = false
                 if (ok) setMood(R.drawable.char_laugh, say) else setMood(R.drawable.char_sad, "Wahan kaam nahi hua")
             }
@@ -541,7 +562,7 @@ class OverlayService : Service() {
         glideTo(dm.widthPixels / 2, dm.heightPixels / 3) {
             face.rotation = 0f
             action()
-            glideTo(hx + dp(37), hy + dp(37))
+            glideToRaw(hx, hy)
         }
     }
 
@@ -552,6 +573,64 @@ class OverlayService : Service() {
             face.animate().translationY(0f).setDuration(140).start()
         }.start()
     }
+
+    // ---------- Idle animations (khaali time me) ----------
+    private fun scheduleTrick() {
+        main.postDelayed({
+            try { playRandomTrick() } catch (e: Exception) {}
+            scheduleTrick()
+        }, (9000 + (Math.random() * 9000).toLong()))
+    }
+
+    private fun playRandomTrick() {
+        if (sleeping || listening || busy || alwaysListen) return
+        val tricks = listOf<() -> Unit>(
+            { blink() }, { bounce() }, { spinFace() }, { shake() }, { popFace() },
+            { wobble() }, { floatUp() }, { pulse() }, { tilt(-16f) }, { tilt(16f) },
+            { jump() }, { flipY() }, { squash() }, { slideX() }, { zoom() },
+            { rock() }, { doubleBounce() }, { spinBounce() }, { shiver() }, { bow() },
+            { danceQuick() }, { wiggle() }, { orbit() }, { heartbeat() }, { nod() }
+        )
+        tricks.random()()
+        // kabhi-kabhi cute reaction bhi
+        if (Math.random() < 0.28) {
+            val lines = listOf(
+                Triple(R.drawable.char_happy, "Hmm... kuch kaam hai?", 2500),
+                Triple(R.drawable.char_idle, "Main yahin hoon!", 2200),
+                Triple(R.drawable.char_laugh, "Hehe!", 1800),
+                Triple(R.drawable.char_think, "Kya kar rahe ho?", 2400),
+                Triple(R.drawable.char_happy, "Bore ho rahi hoon... bolo na kuch", 2800),
+                Triple(R.drawable.char_laugh, "Aaj maza aa raha hai!", 2200),
+                Triple(R.drawable.char_happy, "Mujhe bulao jab zaroorat ho", 2500)
+            ).random()
+            setMood(lines.first, lines.second, lines.third)
+        }
+    }
+
+    private fun blink() { face.animate().scaleY(0.12f).setDuration(90).withEndAction { face.animate().scaleY(1f).setDuration(90).start() }.start() }
+    private fun bounce() { face.animate().translationY(-22f).setDuration(180).withEndAction { face.animate().translationY(0f).setDuration(220).setInterpolator(OvershootInterpolator()).start() }.start() }
+    private fun spinFace() { face.animate().rotation(face.rotation + 360f).setDuration(700).withEndAction { face.rotation = 0f }.start() }
+    private fun shake() { ObjectAnimator.ofFloat(face, "translationX", 0f, 14f, -14f, 10f, -10f, 0f).setDuration(500).start() }
+    private fun popFace() { face.animate().scaleX(1.25f).scaleY(1.25f).setDuration(140).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }.start() }
+    private fun wobble() { face.animate().rotation(-16f).setDuration(160).withEndAction { face.animate().rotation(16f).setDuration(160).withEndAction { face.animate().rotation(0f).setDuration(160).start() }.start() }.start() }
+    private fun floatUp() { face.animate().translationY(-12f).setDuration(600).withEndAction { face.animate().translationY(0f).setDuration(600).start() }.start() }
+    private fun pulse() { face.animate().scaleX(1.12f).scaleY(1.12f).setDuration(300).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(300).start() }.start() }
+    private fun tilt(d: Float) { face.animate().rotation(d).setDuration(300).withEndAction { face.animate().rotation(0f).setDuration(300).start() }.start() }
+    private fun jump() { face.animate().translationY(-30f).setDuration(200).withEndAction { face.animate().translationY(0f).setDuration(320).setInterpolator(OvershootInterpolator()).start() }.start() }
+    private fun flipY() { face.animate().rotationY(360f).setDuration(800).withEndAction { face.rotationY = 0f }.start() }
+    private fun squash() { face.animate().scaleX(1.25f).scaleY(0.8f).setDuration(150).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(OvershootInterpolator()).start() }.start() }
+    private fun slideX() { face.animate().translationX(18f).setDuration(300).withEndAction { face.animate().translationX(-18f).setDuration(300).withEndAction { face.animate().translationX(0f).setDuration(300).start() }.start() }.start() }
+    private fun zoom() { face.animate().scaleX(0.7f).scaleY(0.7f).setDuration(200).withEndAction { face.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(OvershootInterpolator()).start() }.start() }
+    private fun rock() { face.animate().rotation(22f).setDuration(180).withEndAction { face.animate().rotation(-22f).setDuration(180).withEndAction { face.animate().rotation(0f).setDuration(180).start() }.start() }.start() }
+    private fun doubleBounce() { face.animate().translationY(-16f).setDuration(140).withEndAction { face.animate().translationY(0f).setDuration(140).withEndAction { face.animate().translationY(-10f).setDuration(120).withEndAction { face.animate().translationY(0f).setDuration(140).start() }.start() }.start() }.start() }
+    private fun spinBounce() { face.animate().rotation(360f).translationY(-18f).setDuration(500).withEndAction { face.rotation = 0f; face.translationY = 0f }.start() }
+    private fun shiver() { ObjectAnimator.ofFloat(face, "translationX", 0f, 5f, -5f, 4f, -4f, 0f).setDuration(280).start() }
+    private fun bow() { face.animate().rotationX(40f).setDuration(250).withEndAction { face.animate().rotationX(0f).setDuration(300).start() }.start() }
+    private fun danceQuick() { ObjectAnimator.ofFloat(face, "rotation", 0f, -25f, 25f, -18f, 18f, 0f).setDuration(900).start() }
+    private fun wiggle() { ObjectAnimator.ofFloat(face, "translationY", 0f, -8f, 0f, -6f, 0f).setDuration(700).start() }
+    private fun orbit() { ObjectAnimator.ofFloat(face, "translationX", 0f, 14f, 0f, -14f, 0f).setDuration(1400).start(); ObjectAnimator.ofFloat(face, "translationY", -14f, 0f, 14f, 0f, -14f).setDuration(1400).start() }
+    private fun heartbeat() { ObjectAnimator.ofFloat(face, "scaleX", 1f, 1.18f, 1f, 1.12f, 1f).setDuration(800).start(); ObjectAnimator.ofFloat(face, "scaleY", 1f, 1.18f, 1f, 1.12f, 1f).setDuration(800).start() }
+    private fun nod() { face.animate().rotationX(-25f).setDuration(160).withEndAction { face.animate().rotationX(0f).setDuration(200).start() }.start() }
 
     // ---------- Fun animations ----------
     private fun tickle() {
