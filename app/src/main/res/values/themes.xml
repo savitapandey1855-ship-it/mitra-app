@@ -1,22 +1,32 @@
 <resources>
-    <style name="Theme.Mitra" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Mitra" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:statusBarColor">#150B36</item>
         <item name="android:navigationBarColor">#150B36</item>
         <item name="android:windowBackground">#150B36</item>
         <item name="colorPrimary">#6C4BFF</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorAccent">#22D3EE</item>
-        <item name="android:textColorPrimary">#141B3D</item>
+        <item name="android:textColorPrimary">#101733</item>
+        <item name="android:textColorSecondary">#3B4468</item>
+        <item name="android:textColorHint">#6B7391</item>
         <item name="alertDialogTheme">@style/BubluDialog</item>
         <item name="materialAlertDialogTheme">@style/BubluDialog</item>
     </style>
 
     <style name="BubluDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="isLightTheme">true</item>
         <item name="colorPrimary">#6C4BFF</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSecondary">#22D3EE</item>
-        <item name="android:textColorPrimary">#141B3D</item>
-        <item name="android:textColorSecondary">#4A5578</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#101733</item>
+        <item name="colorOnSurfaceVariant">#3B4468</item>
+        <item name="colorOnBackground">#101733</item>
+        <item name="colorBackground">#FFFFFF</item>
+        <item name="android:textColorPrimary">#101733</item>
+        <item name="android:textColorSecondary">#3B4468</item>
+        <item name="android:textColorTertiary">#3B4468</item>
+        <item name="android:textColorHint">#6B7391</item>
         <item name="android:windowBackground">@drawable/dialog_round</item>
         <item name="android:windowMinWidthMajor">88%</item>
         <item name="android:windowMinWidthMinor">92%</item>

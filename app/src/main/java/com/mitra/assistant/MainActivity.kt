@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Popups ke text saaf dikhein - hamesha light mode
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
         setContentView(R.layout.activity_main)
         statusTxt = findViewById(R.id.statusTxt)
         toggleBtn = findViewById(R.id.toggleBtn)
@@ -214,6 +216,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showAdminCodeDialog() {
         val input = EditText(this)
+        input.setTextColor(0xFF101733.toInt())
+        input.setHintTextColor(0xFF6B7391.toInt())
         input.hint = "Admin code"
         AlertDialog.Builder(this).setTitle("Admin access")
             .setMessage("Enter the admin code to manage API keys.")
