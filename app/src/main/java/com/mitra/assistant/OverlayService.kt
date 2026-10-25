@@ -60,6 +60,8 @@ class OverlayService : Service() {
     private var ringAnim: ObjectAnimator? = null
     private var mode = "bublu"
     private var player: android.media.MediaPlayer? = null
+    private lateinit var wave: WaveView
+    @Volatile private var alwaysListen = false
     private var moodSeq = 0
     private var revertRunnable: Runnable? = null
     private var busySince = 0L
@@ -189,6 +191,12 @@ class OverlayService : Service() {
         rlp.bottomMargin = dp(6)
         root.addView(reply, rlp)
 
+        wave = WaveView(this)
+        val wlp = LinearLayout.LayoutParams(dp(64), dp(22))
+        wlp.bottomMargin = dp(4)
+        wave.visibility = View.GONE
+        root.addView(wave, wlp)
+
         face = ImageView(this).apply { setImageResource(R.drawable.char_idle) }
         ring = ImageView(this).apply {
             setImageResource(R.drawable.zora_ring)
@@ -223,9 +231,11 @@ class OverlayService : Service() {
         var startTouchX = 0f
         var startTouchY = 0f
         var moved = false
+        var downTime = 0L
         root.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    downTime = System.currentTimeMillis()
                     startX = params.x; startY = params.y
                     startTouchX = e.rawX; startTouchY = e.rawY
                     moved = false
@@ -262,7 +272,9 @@ class OverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!moved) onTap()
+                    if (!moved) {
+                        if (System.currentTimeMillis() - downTime > 650) onLongPress() else onTap()
+                    }
                     true
                 }
                 else -> false
@@ -283,10 +295,15 @@ class OverlayService : Service() {
     private fun listenSarvam(key: String) {
         listening = true
         setMood(R.drawable.char_listen, "Sun raha hoon...")
+        showWave()
         Thread {
             val wav = recordWav()
             if (wav == null) {
-                main.post { listening = false; setMood(R.drawable.char_sad, "Awaaz nahi aayi, phir bolo") }
+                main.post {
+                    listening = false
+                    if (!alwaysListen) setMood(R.drawable.char_sad, "Awaaz nahi aayi, phir bolo")
+                    afterListen()
+                }
                 return@Thread
             }
             main.post { setMood(R.drawable.char_think, "Samajh raha hoon...") }
@@ -294,7 +311,8 @@ class OverlayService : Service() {
             main.post {
                 listening = false
                 if (ok && txt.isNotBlank()) handle(txt)
-                else setMood(R.drawable.char_sad, if (ok) "Kuch samajh nahi aaya" else "STT error: $txt")
+                else if (!alwaysListen) setMood(R.drawable.char_sad, if (ok) "Kuch samajh nahi aaya" else "STT error: $txt")
+                afterListen()
             }
         }.start()
     }
@@ -324,6 +342,7 @@ class OverlayService : Service() {
                 var peak = 0
                 for (i in 0 until n) { val a = Math.abs(buf[i].toInt()); if (a > peak) peak = a }
                 if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
+                if (peak > 0) main.post { try { wave.setLevel((peak / 7000f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
                 for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
                 if (heard && System.currentTimeMillis() - lastVoice > 1200) break
             }
@@ -592,19 +611,20 @@ class OverlayService : Service() {
         recognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p0: Bundle?) { setMood(R.drawable.char_listen) }
             override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(p0: Float) {}
+            override fun onRmsChanged(p0: Float) { try { wave.setLevel(((p0 + 2f) / 12f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
             override fun onBufferReceived(p0: ByteArray?) {}
             override fun onEndOfSpeech() { setMood(R.drawable.char_think) }
             override fun onError(p0: Int) {
                 listening = false
-                setMood(R.drawable.char_sad, "Samajh nahi aaya, phir bolo")
+                if (!alwaysListen) setMood(R.drawable.char_sad, "Samajh nahi aaya, phir bolo")
+                afterListen()
             }
             override fun onResults(p0: Bundle?) {
                 listening = false
                 val list = p0?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = list?.firstOrNull() ?: ""
-                if (text.isBlank()) setMood(R.drawable.char_sad, "Kuch sunai nahi diya")
-                else handle(text)
+                if (text.isBlank()) { if (!alwaysListen) setMood(R.drawable.char_sad, "Kuch sunai nahi diya") } else handle(text)
+                afterListen()
             }
             override fun onPartialResults(p0: Bundle?) {}
             override fun onEvent(p0: Int, p1: Bundle?) {}
@@ -613,6 +633,26 @@ class OverlayService : Service() {
 
     private fun onTap() {
         if (sleeping) { wakeUp(); return }
+        if (listening || busy) return
+        if (alwaysListen) { setMood(R.drawable.char_listen, "Mic ON hai - bas bolo!"); return }
+        beginListen()
+    }
+
+    private fun onLongPress() {
+        alwaysListen = !alwaysListen
+        if (alwaysListen) {
+            setMood(R.drawable.char_listen, "Mic ON - bolte raho, sun raha hoon")
+            showWave()
+            main.postDelayed({ beginListen() }, 500)
+        } else {
+            try { recognizer?.cancel() } catch (e: Exception) {}
+            listening = false
+            hideWave()
+            setMood(R.drawable.char_happy, "Mic OFF")
+        }
+    }
+
+    private fun beginListen() {
         if (listening || busy) return
         val skey = getSharedPreferences("mitra", MODE_PRIVATE).getString("sarvam_key", "")?.trim() ?: ""
         if (skey.isNotBlank()) { listenSarvam(skey); return }
@@ -625,14 +665,23 @@ class OverlayService : Service() {
         }
         setMood(R.drawable.char_listen, "Sun raha hoon...")
         listening = true
+        showWave()
         main.postDelayed({ listening = false }, 15000)
         try {
             r.startListening(i)
         } catch (e: Exception) {
             listening = false
+            hideWave()
             setMood(R.drawable.char_sad, "Mic me dikkat")
         }
     }
+
+    private fun afterListen() {
+        if (alwaysListen) main.postDelayed({ beginListen() }, 500) else hideWave()
+    }
+
+    private fun showWave() { try { wave.visibility = View.VISIBLE; wave.start() } catch (e: Exception) {} }
+    private fun hideWave() { try { wave.stop(); wave.visibility = View.GONE } catch (e: Exception) {} }
 
     // ---------- Sleep / Wake ----------
     private fun sleep() {
@@ -1873,6 +1922,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         live = null
+        alwaysListen = false
         sleeping = false
         stopSleepMonitor()
         try { tts?.shutdown() } catch (e: Exception) {}
