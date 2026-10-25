@@ -12,6 +12,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -60,12 +61,12 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.setBtn).setOnClickListener { showSettings() }
         findViewById<Button>(R.id.designBtn).setOnClickListener { pickDesign() }
-        findViewById<Button>(R.id.addSched).setOnClickListener { addSchedDialog() }
-        findViewById<Button>(R.id.addTask).setOnClickListener { addTaskDialog() }
-        findViewById<Button>(R.id.addNote).setOnClickListener { addNoteDialog() }
-        findViewById<Button>(R.id.addGroup).setOnClickListener { addGroupDialog() }
-        findViewById<Button>(R.id.addAlias).setOnClickListener { addAliasDialog() }
-        findViewById<Button>(R.id.addEvent).setOnClickListener { addEventDialog() }
+        findViewById<View>(R.id.addSched).setOnClickListener { addSchedDialog() }
+        findViewById<View>(R.id.addTask).setOnClickListener { addTaskDialog() }
+        findViewById<View>(R.id.addNote).setOnClickListener { addNoteDialog() }
+        findViewById<View>(R.id.addGroup).setOnClickListener { addGroupDialog() }
+        findViewById<View>(R.id.addAlias).setOnClickListener { addAliasDialog() }
+        findViewById<View>(R.id.addEvent).setOnClickListener { addEventDialog() }
         toggleBtn.setOnClickListener { if (isRunning()) stopBublu() else tryStart() }
 
         setupAdminHold()
@@ -82,6 +83,79 @@ class MainActivity : AppCompatActivity() {
         updateUi()
         updateDesign()
         loadLists()
+        setupShowing = false
+        handler.postDelayed({ maybeShowSetupStep() }, 700)
+    }
+
+    // ---------- Step-by-step setup (auto on open) ----------
+    private var setupShowing = false
+
+    private fun firstMissingStep(): Int? {
+        if (!Settings.canDrawOverlays(this)) return 1
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return 2
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return 3
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return 4
+        if (!isAccEnabled()) return 5
+        if (!hasNotifAccess()) return 6
+        return null
+    }
+
+    private fun hasNotifAccess(): Boolean {
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
+        return flat.contains(packageName)
+    }
+
+    private fun maybeShowSetupStep() {
+        if (setupShowing) return
+        if (prefs.getBoolean("setup_done", false)) return
+        val step = firstMissingStep()
+        if (step == null) {
+            prefs.edit().putBoolean("setup_done", true).apply()
+            return
+        }
+        showStepDialog(step)
+    }
+
+    private fun showStepDialog(step: Int) {
+        setupShowing = true
+        val title: String
+        val msg: String
+        when (step) {
+            1 -> { title = "Step 1 of 6 · Display over other apps"; msg = "Bublu floats on your screen so you can talk to it anywhere.\n\nTap \"Open settings\", then turn Bublu ON." }
+            2 -> { title = "Step 2 of 6 · Microphone"; msg = "So Bublu can hear your voice.\n\nTap Allow." }
+            3 -> { title = "Step 3 of 6 · Notifications"; msg = "For reminders, alarms and important group messages." }
+            4 -> { title = "Step 4 of 6 · Contacts & Phone"; msg = "To find people by name and call them." }
+            5 -> { title = "Step 5 of 6 · Accessibility"; msg = "This lets Bublu open apps, tap buttons and type.\n\nFind Bublu in the list and turn it ON." }
+            else -> { title = "Step 6 of 6 · Notification access"; msg = "Optional. Lets Bublu read messages from your important groups." }
+        }
+        val dlg = AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(msg)
+            .setCancelable(false)
+            .setPositiveButton("Open settings") { _, _ -> openStep(step) }
+            .setNegativeButton(if (step == 6) "Skip" else "Later") { _, _ ->
+                if (step == 6) prefs.edit().putBoolean("setup_done", true).apply()
+            }
+            .create()
+        dlg.setOnDismissListener { setupShowing = false }
+        dlg.show()
+    }
+
+    private fun openStep(step: Int) {
+        when (step) {
+            1 -> startActivityForResult(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQ_OVERLAY
+            )
+            2 -> ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            3 -> if (Build.VERSION.SDK_INT >= 33)
+                ActivityCompat.requestPermissions(this, arrayOf("android.permission.POST_NOTIFICATIONS"), REQ_NOTIF)
+            4 -> ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE), REQ_CONTACTS
+            )
+            5 -> openAccSettings()
+            6 -> openNotifAccess()
+        }
     }
 
     private fun isRunning() = prefs.getBoolean("running", false)
@@ -453,7 +527,7 @@ class MainActivity : AppCompatActivity() {
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
             when (w) {
-                0 -> showPermDialog()
+                0 -> { prefs.edit().putBoolean("setup_done", false).apply(); maybeShowSetupStep() }
                 1 -> openAccSettings()
                 2 -> openNotifAccess()
                 3 -> openAutostart()
@@ -566,7 +640,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        grantNext()
+        setupShowing = false
+        handler.postDelayed({ maybeShowSetupStep() }, 600)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

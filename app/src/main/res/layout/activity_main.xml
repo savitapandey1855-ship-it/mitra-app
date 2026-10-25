@@ -125,14 +125,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addSched"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -167,14 +169,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addTask"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -209,14 +213,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addNote"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -251,14 +257,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addGroup"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -293,14 +301,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addAlias"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -336,14 +346,16 @@
                     android:textStyle="bold"
                     android:textSize="16sp" />
 
-                <Button
+                <TextView
                     android:id="@+id/addEvent"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
                     android:background="@drawable/btn_3d"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
                     android:text="+"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textSize="26sp"
                     android:textStyle="bold" />
             </LinearLayout>
 

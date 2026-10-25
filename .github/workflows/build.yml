@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v59
-          name: Bublu APK v59
-          body: "v59 - voice fixed: replies speak by default, works even without a Sarvam key (phone TTS fallback), plus a Speak ON/OFF switch in Settings."
+          tag_name: apk-v60
+          name: Bublu APK v60
+          body: "v60 - automatic step-by-step permission setup on open, colourful rounded popups, and the + buttons now show + clearly."
           files: app/build/outputs/apk/debug/app-debug.apk
