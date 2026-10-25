@@ -603,9 +603,15 @@ class MitraAccessibilityService : AccessibilityService() {
     // =========================================================
     fun takePhoto(onStatus: (String) -> Unit): Boolean {
         return try {
-            val pkg = findInstalled("camera") ?: findInstalled("gcam")
-            if (pkg == null) { onStatus("Camera app nahi mila"); return false }
-            openAppAndCheck(pkg.first, pkg.second)
+            val camPkg = listOf(
+                "com.android.camera", "com.android.camera2", "com.google.android.GoogleCamera",
+                "com.sec.android.app.camera", "com.miui.camera", "com.oppo.camera",
+                "com.vivo.camera", "com.oneplus.camera", "com.transsion.camera"
+            ).firstOrNull { p ->
+                try { packageManager.getLaunchIntentForPackage(p) != null } catch (e: Exception) { false }
+            }
+            if (camPkg == null) { onStatus("Camera app nahi mila"); return false }
+            openAppAndCheck(camPkg, "Camera")
             Thread.sleep(3000)
             onStatus("Photo khinch raha hoon...")
             cameraShutter()
