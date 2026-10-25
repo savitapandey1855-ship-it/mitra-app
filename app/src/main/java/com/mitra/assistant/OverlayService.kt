@@ -441,20 +441,7 @@ class OverlayService : Service() {
         }.start()
     }
 
-    private fun moodRes(resId: Int): Int {
-        if (mode != "zora") return resId
-        return when (resId) {
-            R.drawable.char_idle -> R.drawable.zora_idle
-            R.drawable.char_listen -> R.drawable.zora_listen
-            R.drawable.char_think -> R.drawable.zora_think
-            R.drawable.char_happy -> R.drawable.zora_happy
-            R.drawable.char_sad -> R.drawable.zora_sad
-            R.drawable.char_sleep -> R.drawable.zora_sleep
-            R.drawable.char_wake -> R.drawable.zora_wake
-            R.drawable.char_laugh -> R.drawable.zora_laugh
-            else -> resId
-        }
-    }
+    private fun moodRes(resId: Int): Int = resId
 
     private fun applyMode() {
         design = getSharedPreferences("mitra", MODE_PRIVATE).getInt("design", 0)
