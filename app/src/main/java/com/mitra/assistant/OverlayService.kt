@@ -1778,15 +1778,23 @@ class OverlayService : Service() {
             if (bdays.isNotEmpty()) extra = " Aaj " + bdays.joinToString(", ") { "${it.first} ka ${it.third}" } + " hai!"
             setMood(R.drawable.char_happy, "$greet Aaj $day, $date hai.$extra", 8000)
             val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
-            if (key.isNotBlank()) {
+            if (key.isNotBlank() && sp.getBoolean("festival_on", true)) {
                 val shownAt = System.currentTimeMillis()
                 Thread {
-                    val (ok, txt) = Gemini.ask(key, "Is $date a festival in India? Reply in max 6 words, or reply exactly 'No'.")
-                    if (ok && !txt.trim().lowercase().startsWith("no")) {
-                        // date ko poora padhne do, phir tyohar bolo
-                        val wait = 5500 - (System.currentTimeMillis() - shownAt)
-                        if (wait > 0) Thread.sleep(wait)
-                        main.post { setMood(R.drawable.char_happy, "Aur aaj $txt hai!", 6000) }
+                    val (ok, txt) = Gemini.ask(
+                        key,
+                        "Today's date is $date. Is today EXACTLY a major Indian festival (Diwali, Holi, Eid, Raksha Bandhan, etc.)? " +
+                            "Answer in this exact format: 'YES <festival name>' or 'NO'. If you are not 100% sure, answer 'NO'. Never guess."
+                    )
+                    val t = txt.trim()
+                    if (ok && t.uppercase().startsWith("YES")) {
+                        val name = t.substring(3).trim().trim('.', '!')
+                        if (name.isNotBlank()) {
+                            // date ko poora padhne do, phir tyohar bolo
+                            val wait = 5500 - (System.currentTimeMillis() - shownAt)
+                            if (wait > 0) Thread.sleep(wait)
+                            main.post { setMood(R.drawable.char_happy, "Aur aaj $name hai!", 6000) }
+                        }
                     }
                 }.start()
             }

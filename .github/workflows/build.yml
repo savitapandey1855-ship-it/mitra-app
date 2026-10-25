@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v40
-          name: Bublu APK v40
-          body: "v40 - keeps listening while you speak (1.5s pause = done); battery alert below 5% (repeats every ~90s)."
+          tag_name: apk-v41
+          name: Bublu APK v41
+          body: "v41 - festival announcement only when AI is 100% sure (strict YES/NO), plus a festival ON/OFF toggle in Settings."
           files: app/build/outputs/apk/debug/app-debug.apk

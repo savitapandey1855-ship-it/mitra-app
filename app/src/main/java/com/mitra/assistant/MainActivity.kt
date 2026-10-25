@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
         val items = arrayOf(
             "Permissions do", "Click/Type permission", "Autostart ON karo",
             "Notification access ON karo", "Gemini key (AI)", "Sarvam key (voice)",
-            "Awaaz (TTS) ON/OFF", "Voice chuno (awaaz)", "Test AI",
+            "Awaaz (TTS) ON/OFF", "Voice chuno (awaaz)", "Tyohar batao ON/OFF", "Test AI",
             "Alias add karo (nickname)", "Important group add karo", "Jaanch (diagnose)"
         )
         AlertDialog.Builder(this).setTitle("Settings").setItems(items) { _, w ->
@@ -279,12 +279,19 @@ class MainActivity : AppCompatActivity() {
                 5 -> showSarvamKeyDialog()
                 6 -> toggleTts()
                 7 -> pickVoice()
-                8 -> testAi()
-                9 -> addAliasDialog()
-                10 -> addGroupDialog()
-                11 -> showDiagnose()
+                8 -> toggleFestival()
+                9 -> testAi()
+                10 -> addAliasDialog()
+                11 -> addGroupDialog()
+                12 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun toggleFestival() {
+        val on = !(prefs.getBoolean("festival_on", true))
+        prefs.edit().putBoolean("festival_on", on).apply()
+        Toast.makeText(this, if (on) "Tyohar bataayega (sirf pakka pata ho to)" else "Tyohar batana band", Toast.LENGTH_LONG).show()
     }
 
     private fun pickVoice() {
