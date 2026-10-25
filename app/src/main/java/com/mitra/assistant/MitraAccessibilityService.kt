@@ -488,6 +488,10 @@ class MitraAccessibilityService : AccessibilityService() {
 
             if (isInChat()) { back(); Thread.sleep(1200) }
 
+            // WhatsApp last-used tab pe khulta hai (Status/Calls) - pehle CHATS tab pe jao
+            goToChats()
+            Thread.sleep(900)
+
             var opened = false
 
             // 1) Home chat list: pehle jo SAMNE DIKH raha hai (bina scroll), phir thoda scroll
@@ -569,6 +573,16 @@ class MitraAccessibilityService : AccessibilityService() {
         return false
     }
 
+    /** WhatsApp ko Home (Chats) tab pe le aao. */
+    private fun goToChats(): Boolean {
+        if (clickByDesc("Chats")) return true
+        if (clickByText("Chats")) return true
+        // fallback: neeche wale nav ka pehla (left) tab
+        val dm = resources.displayMetrics
+        tap((dm.widthPixels * 0.12f).toInt(), (dm.heightPixels * 0.965f).toInt())
+        return true
+    }
+
     private fun clickArchived(): Boolean {
         val root = rootInActiveWindow ?: return false
         val n = findNode(root) {
@@ -621,6 +635,7 @@ class MitraAccessibilityService : AccessibilityService() {
         for (row in rows) {
             val r = Rect(); row.getBoundsInScreen(r)
             if (r.top < (dm.heightPixels * 0.10f).toInt()) continue // toolbar/header skip
+            if (r.top > (dm.heightPixels * 0.88f).toInt()) continue // neeche ka tab bar skip (Status/Calls)
             if (clickNodeOrTap(row)) return true
         }
         return false

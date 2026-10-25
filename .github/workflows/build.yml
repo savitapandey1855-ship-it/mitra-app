@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v35
-          name: Bublu APK v35
-          body: "v35 - full swipe for reels/shorts scrolling (no more tiny scroll) + better Sarvam voice (voice picker in Settings)."
+          tag_name: apk-v36
+          name: Bublu APK v36
+          body: "v36 - WhatsApp: always go to the Chats tab first (was landing on Status/Calls); never tap the bottom tab bar."
           files: app/build/outputs/apk/debug/app-debug.apk
