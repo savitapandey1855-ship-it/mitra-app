@@ -126,7 +126,6 @@ class MainActivity : AppCompatActivity() {
         avatar.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    Toast.makeText(this, "Hold 30 seconds for admin access...", Toast.LENGTH_SHORT).show()
                     adminHold?.let { handler.removeCallbacks(it) }
                     val r = Runnable { showAdminCodeDialog() }
                     adminHold = r

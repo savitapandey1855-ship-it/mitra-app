@@ -42,26 +42,47 @@ object RemoteConfig {
         return false
     }
 
-    /** Admin panel se keys Firebase me publish karo (sirf admin, login/secret ke saath). */
+    /** Admin panel se keys Firebase me publish karo (login/secret ke saath). */
     fun uploadKeys(context: Context, gemini: String, sarvam: String): Pair<Boolean, String> {
         val prefs = context.getSharedPreferences("mitra", Context.MODE_PRIVATE)
-        var url = configUrl(context)
+        val base = configUrl(context)
 
         val secret = prefs.getString("db_secret", "")?.trim() ?: ""
         val email = prefs.getString("fb_email", "")?.trim() ?: ""
         val pass = prefs.getString("fb_pass", "") ?: ""
 
-        val token: String = when {
-            secret.isNotBlank() -> secret
-            email.isNotBlank() && pass.isNotBlank() ->
-                FirebaseAuth.signIn(email, pass) ?: return Pair(false, "Firebase login failed")
-            else -> ""
+        var token = ""
+        var loginErr = ""
+        if (secret.isNotBlank()) token = secret
+        else if (email.isNotBlank() && pass.isNotBlank()) {
+            val (t, e) = FirebaseAuth.signIn(email, pass)
+            token = t ?: ""
+            loginErr = e
         }
+
+        // 1) login/secret ke saath
+        if (token.isNotBlank()) {
+            val r = put(base, token, gemini, sarvam)
+            if (r.first) return r
+            // 2) fallback: bina auth (agar rules open hain)
+            val r2 = put(base, "", gemini, sarvam)
+            if (r2.first) return Pair(true, "ok")
+            return Pair(false, "Login ke saath: ${r.second}\nBina login: ${r2.second}")
+        }
+
+        // koi login nahi - seedha try
+        val r = put(base, "", gemini, sarvam)
+        if (r.first) return Pair(true, "ok")
+        val hint = if (loginErr.isNotBlank()) "Firebase login: $loginErr\n" else ""
+        return Pair(false, hint + r.second)
+    }
+
+    private fun put(base: String, token: String, gemini: String, sarvam: String): Pair<Boolean, String> {
+        var url = base
         if (token.isNotBlank()) {
             val sep = if (url.contains("?")) "&" else "?"
             url = url + sep + "auth=" + java.net.URLEncoder.encode(token, "UTF-8")
         }
-
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
             conn.requestMethod = "PUT"
@@ -76,7 +97,10 @@ object RemoteConfig {
             conn.outputStream.use { it.write(body.toByteArray()) }
             val code = conn.responseCode
             if (code in 200..299) Pair(true, "ok")
-            else Pair(false, "HTTP $code (rules/secret check karo)")
+            else {
+                val err = try { conn.errorStream?.bufferedReader()?.readText()?.take(180) ?: "" } catch (e: Exception) { "" }
+                Pair(false, "HTTP $code $err")
+            }
         } catch (e: Exception) { Pair(false, e.message ?: "network error") }
     }
 

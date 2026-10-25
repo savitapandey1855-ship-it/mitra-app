@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v57
-          name: Bublu APK v57
-          body: "v57 - secure publishing: write locked to Firebase Auth (email/password) or a database secret; everyone can still read the keys."
+          tag_name: apk-v58
+          name: Bublu APK v58
+          body: "v58 - removed the admin hint from the UI (secret gate); publish errors now show the exact Firebase reason."
           files: app/build/outputs/apk/debug/app-debug.apk

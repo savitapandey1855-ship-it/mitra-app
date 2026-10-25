@@ -48,12 +48,16 @@ class AdminActivity : AppCompatActivity() {
             Thread {
                 val (ok, msg) = RemoteConfig.uploadKeys(this, gk, sk)
                 runOnUiThread {
-                    Toast.makeText(
-                        this,
-                        if (ok) "Published! Every device will load these keys on first open."
-                        else "Saved locally. Publish failed: $msg",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    val detail = if (ok) {
+                        "Every device will load these keys on first open."
+                    } else {
+                        "$msg\n\nTips:\n- HTTP 401/403 = rules publish nahi hue, ya login galat\n- 'EMAIL_NOT_FOUND' / 'INVALID_PASSWORD' = Authentication me user banao\n- 'OPERATION_NOT_ALLOWED' = Email/Password provider enable karo"
+                    }
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle(if (ok) "Published!" else "Publish failed")
+                        .setMessage(detail)
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
             }.start()
         }

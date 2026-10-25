@@ -100,14 +100,6 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:gravity="center"
-                android:text="Hold the Bublu face for 30 seconds for admin access"
-                android:textColor="#7C8BC7"
-                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
