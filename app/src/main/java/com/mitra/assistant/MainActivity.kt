@@ -443,6 +443,7 @@ class MainActivity : AppCompatActivity() {
             "Notification access (important groups)",
             "Autostart (background)",
             "Voice",
+            "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
             "Test AI",
             "Add nickname",
@@ -457,14 +458,21 @@ class MainActivity : AppCompatActivity() {
                 2 -> openNotifAccess()
                 3 -> openAutostart()
                 4 -> pickVoice()
-                5 -> myDetailsDialog()
-                6 -> testAi()
-                7 -> addAliasDialog()
-                8 -> addGroupDialog()
-                9 -> toggleFestival()
-                10 -> showDiagnose()
+                5 -> toggleSpeak()
+                6 -> myDetailsDialog()
+                7 -> testAi()
+                8 -> addAliasDialog()
+                9 -> addGroupDialog()
+                10 -> toggleFestival()
+                11 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun toggleSpeak() {
+        val on = !prefs.getBoolean("tts_on", true)
+        prefs.edit().putBoolean("tts_on", on).apply()
+        Toast.makeText(this, if (on) "Bublu will speak" else "Bublu will stay silent", Toast.LENGTH_SHORT).show()
     }
 
     private fun myDetailsDialog() {

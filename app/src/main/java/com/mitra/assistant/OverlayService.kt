@@ -423,15 +423,15 @@ class OverlayService : Service() {
 
     private fun speak(text: String) {
         val sp = getSharedPreferences("mitra", MODE_PRIVATE)
-        if (!sp.getBoolean("tts_on", false)) return
-        val key = sp.getString("sarvam_key", "")?.trim() ?: return
-        if (key.isBlank()) return
+        if (!sp.getBoolean("tts_on", true)) return
         val clean = text.replace("\"", " ").take(400)
         if (clean.isBlank()) return
+        val key = sp.getString("sarvam_key", "")?.trim() ?: ""
+        if (key.isBlank()) { speakLocal(clean); return }
         Thread {
             val spk = sp.getString("tts_speaker", "priya") ?: "priya"
             val (ok, bytes) = Sarvam.tts(key, clean, spk)
-            if (!ok || bytes == null) return@Thread
+            if (!ok || bytes == null) { speakLocal(clean); return@Thread }
             try {
                 val f = java.io.File(cacheDir, "bublu_tts.wav")
                 f.writeBytes(bytes)
@@ -448,6 +448,18 @@ class OverlayService : Service() {
                 }
             } catch (e: Exception) {}
         }.start()
+    }
+
+    /** Phone ki apni TTS - agar Sarvam key na ho to bhi bole. */
+    private fun speakLocal(text: String) {
+        main.post {
+            try {
+                if (ttsReady && tts != null) {
+                    tts?.setLanguage(java.util.Locale("en", "IN"))
+                    tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bublu")
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     private fun moodRes(resId: Int): Int = resId
