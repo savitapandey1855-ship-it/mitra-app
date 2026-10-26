@@ -761,6 +761,50 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { false }
     }
 
+    private fun collectClickable(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
+        try {
+            if (node.isClickable && node.isVisibleToUser) out.add(node)
+            for (i in 0 until node.childCount) node.getChild(i)?.let { collectClickable(it, out) }
+        } catch (e: Exception) {}
+    }
+
+    /** Gallery/grid me pehla bada video/photo tile tap karo. */
+    fun clickFirstTile(): Boolean {
+        return try {
+            val root = rootInActiveWindow ?: return false
+            val nodes = ArrayList<AccessibilityNodeInfo>()
+            collectClickable(root, nodes)
+            for (nd in nodes) {
+                val r = Rect()
+                nd.getBoundsInScreen(r)
+                if (r.width() > 140 && r.height() > 140 && r.top > 300) {
+                    nd.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    return true
+                }
+            }
+            false
+        } catch (e: Exception) { false }
+    }
+
+    /** Play Store se app install karo (search + Install tap). */
+    fun installApp(name: String): Boolean {
+        return try {
+            val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(name)))
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+            Thread.sleep(4500)
+            var ok = clickByText("Install")
+            if (!ok) ok = clickByDesc("Install")
+            if (!ok) {
+                // search result pe pehla app kholo
+                clickFirstTile()
+                Thread.sleep(3000)
+                ok = clickByText("Install") || clickByDesc("Install")
+            }
+            ok
+        } catch (e: Exception) { false }
+    }
+
     /** Kisi bhi app me text bhejo (ChatGPT jaisi app me sawaal). */
     fun askInAppText(pkg: String, appName: String, text: String, onStatus: (String) -> Unit): Boolean {
         return try {

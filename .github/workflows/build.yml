@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v82
-          name: Bublu APK v82
-          body: "v82 - polish pass: safer quiz (no crash on empty), receivers and timer cleaned up on stop, and the health check now shows key counts, notification access and photos permission."
+          tag_name: apk-v83
+          name: Bublu APK v83
+          body: "v83 - video editing support: installs CapCut/VN/InShot if missing, opens your video in the editor and then guides you step by step; also helps upload to YouTube."
           files: app/build/outputs/apk/debug/app-debug.apk

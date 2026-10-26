@@ -1307,6 +1307,22 @@ class OverlayService : Service() {
             guideStart(t); return
         }
 
+        // ---- Video edit (editor app install / open + guide) ----
+        if (n.contains("video") && (n.contains("edit") || n.contains("editing"))) {
+            videoEdit(t); return
+        }
+
+        // ---- YouTube pe video daalo ----
+        if (n.contains("youtube") && (n.contains("upload") || n.contains("daalo") || n.contains("post") || n.contains("chadhao"))) {
+            youtubeUpload(); return
+        }
+
+        // ---- Editor app download ----
+        if ((n.contains("capcut") || n.contains("inshot") || n.contains("kinemaster") || n.contains("vn editor")) &&
+            (n.contains("download") || n.contains("install") || n.contains("daalo"))) {
+            installEditor(t); return
+        }
+
         // ---- UPI (GPay / PhonePe / Paytm) - PIN aap daalo ----
         if ((n.contains("gpay") || n.contains("phonepe") || n.contains("paytm") || n.contains("upi")) &&
             (n.contains("bhejo") || n.contains("bhej") || n.contains("pay") || n.contains("send") || n.contains("transfer"))) {
@@ -2098,7 +2114,12 @@ class OverlayService : Service() {
         "gallery" to "com.google.android.apps.photos",
         "play store" to "com.android.vending",
         "settings" to "com.android.settings",
-        "calculator" to "com.google.android.calculator"
+        "calculator" to "com.google.android.calculator",
+        "capcut" to "com.lemon.lvoverseas",
+        "vn editor" to "com.frontrow.vlog",
+        "vn" to "com.frontrow.vlog",
+        "inshot" to "com.camerasideas.instashot",
+        "kinemaster" to "com.nexstreaming.app.kinemasterfree"
     )
 
     private fun guideStart(t: String) {
@@ -2161,6 +2182,97 @@ class OverlayService : Service() {
             val steps = parseSteps(brainAnswer(prompt))
             main.post {
                 if (steps.isEmpty()) setMood(R.drawable.char_sad, "Samajh nahi paya - phir bolo")
+                else beginGuide(steps)
+            }
+        }.start()
+    }
+
+    // ---------- Video editing ----------
+    private val editors = listOf(
+        "CapCut" to "com.lemon.lvoverseas",
+        "VN Editor" to "com.frontrow.vlog",
+        "InShot" to "com.camerasideas.instashot",
+        "KineMaster" to "com.nexstreaming.app.kinemasterfree"
+    )
+
+    private fun installEditor(t: String) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        val name = when {
+            t.contains("inshot") -> "InShot"
+            t.contains("kinemaster") -> "KineMaster"
+            t.contains("vn") -> "VN Video Editor"
+            else -> "CapCut"
+        }
+        setMood(R.drawable.char_think, "Installing $name...")
+        Thread {
+            val ok = a.installApp(name)
+            main.post {
+                if (ok) setMood(R.drawable.char_happy, "$name install ho gaya! Ab bolo \"video edit karo\"", 8000)
+                else setMood(R.drawable.char_sad, "$name install nahi hua - Play Store me Install dabao", 7000)
+            }
+        }.start()
+    }
+
+    private fun videoEdit(t: String) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        val installed = editors.firstOrNull { findInstalled(it.second) != null }
+        if (installed == null) {
+            setMood(R.drawable.char_think, "Koi editor nahi mila - CapCut install kar raha hoon...")
+            Thread {
+                val ok = a.installApp("CapCut")
+                main.post {
+                    if (ok) setMood(R.drawable.char_happy, "CapCut install ho gaya. Ab \"video edit karo\" bolo", 8000)
+                    else setMood(R.drawable.char_sad, "CapCut install nahi hua - Play Store se karo", 7000)
+                }
+            }.start()
+            return
+        }
+        val goal = t.replace(
+            Regex("\\b(video|edit|editing|kardo|kar|do|meri|mera|is|ko|ye|please|app|me)\\b"), " "
+        ).replace(Regex("\\s+"), " ").trim()
+        setMood(R.drawable.char_think, "Opening ${installed.first}...")
+        Thread {
+            a.openAppSmart(installed.second, installed.first)
+            Thread.sleep(4200)
+            var started = a.clickByText("New project")
+            if (!started) started = a.clickByDesc("New project")
+            if (!started) started = a.clickByText("New Project")
+            if (!started) started = a.clickByDesc("Create new project")
+            Thread.sleep(2600)
+            val picked = a.clickFirstTile()
+            if (picked) {
+                Thread.sleep(1400)
+                if (!a.clickByText("Add")) a.clickByText("Select")
+            }
+            Thread.sleep(2600)
+            val screen = a.readScreenText()
+            val steps = makeSteps(installed.first, "edit this video: ${if (goal.length > 2) goal else "trim, add music, export"}", screen)
+            main.post {
+                if (steps.isEmpty())
+                    setMood(R.drawable.char_happy, "${installed.first} me video khul gaya. Ab \"guide karo\" bolo", 8000)
+                else beginGuide(steps)
+            }
+        }.start()
+    }
+
+    private fun youtubeUpload() {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        setMood(R.drawable.char_think, "Opening YouTube...")
+        Thread {
+            a.openAppSmart("com.google.android.youtube", "YouTube")
+            Thread.sleep(4200)
+            var ok = a.clickByDesc("Create")
+            if (!ok) ok = a.clickByText("Create")
+            if (!ok) ok = a.clickByDesc("+")
+            Thread.sleep(1600)
+            if (!a.clickByText("Upload a video")) a.clickByText("Upload")
+            Thread.sleep(2600)
+            val steps = makeSteps("YouTube", "upload a video and publish it", a.readScreenText())
+            main.post {
+                if (steps.isEmpty()) setMood(R.drawable.char_happy, "Upload screen khul gaya - video chuno", 7000)
                 else beginGuide(steps)
             }
         }.start()
