@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v71
-          name: Bublu APK v71
-          body: "v71 - built-in Bublu Notes (title + body, save/edit/delete) as a fallback when the phone's Notes app cannot be written to."
+          tag_name: apk-v72
+          name: Bublu APK v72
+          body: "v72 - STT timeout fixed: retries once, then switches to the phone recognizer automatically. Note topic now detected whether 'notes' comes first or last."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -63,6 +63,7 @@ class OverlayService : Service() {
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
     @Volatile private var speaking = false
+    @Volatile private var sarvamOffUntil = 0L
     private var lastBatteryAlert = 0L
     private var lastBatteryWarn = 0L
     @Volatile private var hidden = false
@@ -418,18 +419,29 @@ class OverlayService : Service() {
                 }
                 return@Thread
             }
-            main.post { setMood(R.drawable.char_think, "Samajh raha hoon...") }
-            val (ok, txt) = Sarvam.transcribe(key, wav)
+            main.post { setMood(R.drawable.char_think, "Thinking...") }
+            var (ok, txt) = Sarvam.transcribe(key, wav)
+            if (!ok || txt.isBlank()) {
+                // ek baar dobara try (transient timeout ho sakta hai)
+                Thread.sleep(700)
+                val r2 = Sarvam.transcribe(key, wav)
+                ok = r2.first; txt = r2.second
+            }
             main.post {
                 listening = false
-                if (ok && txt.isNotBlank()) handle(txt)
-                else if (!alwaysListen) setMood(R.drawable.char_sad, if (ok) "Kuch samajh nahi aaya" else "STT error: $txt")
+                if (ok && txt.isNotBlank()) {
+                    handle(txt)
+                } else {
+                    // Sarvam fail - 2 minute ke liye phone ke recognizer pe switch
+                    sarvamOffUntil = System.currentTimeMillis() + 120000
+                    setMood(R.drawable.char_sad, "Awaaz clear nahi aayi - phir se bolo", 3500)
+                }
                 afterListen()
             }
         }.start()
     }
 
-    private fun recordWav(maxMs: Int = 12000): ByteArray? {
+    private fun recordWav(maxMs: Int = 10000): ByteArray? {
         val sr = 16000
         val minBuf = android.media.AudioRecord.getMinBufferSize(
             sr, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT
@@ -456,7 +468,7 @@ class OverlayService : Service() {
                 if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
                 if (peak > 0) main.post { try { wave.setLevel((peak / 7000f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
                 for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
-                if (heard && System.currentTimeMillis() - lastVoice > 1900) break
+                if (heard && System.currentTimeMillis() - lastVoice > 1600) break
             }
             rec.stop()
         } catch (e: Exception) {} finally { try { rec.release() } catch (e: Exception) {} }
@@ -965,7 +977,7 @@ class OverlayService : Service() {
         // Jab tak Bublu bol raha hai, sunna shuru mat karo (apni hi awaaz na sune)
         if (speaking) { main.postDelayed({ beginListen() }, 1200); return }
         val skey = getSharedPreferences("mitra", MODE_PRIVATE).getString("sarvam_key", "")?.trim() ?: ""
-        if (skey.isNotBlank()) { listenSarvam(skey); return }
+        if (skey.isNotBlank() && System.currentTimeMillis() > sarvamOffUntil) { listenSarvam(skey); return }
         if (recognizer == null) initRecognizer()
         val r = recognizer ?: return
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -2365,16 +2377,23 @@ class OverlayService : Service() {
         main.post { setMood(R.drawable.char_laugh, "$title: $text") }
     }
 
-    /** "Class 10 A letter to god ki story notes me likho" -> topic nikaalo. */
+    private fun stripNoteWords(s: String): String = s.replace(
+        Regex("\\b(ki story|ka story|ki notes|ka notes|story|notes|note|keep|ke baare me|ke bare me|about|ki|ka|ke|me|jaake|jaa ke|likho|likh|paste|save|karo|kar|do|de|please|app|application|meri|mera|banao|bana|the|a|an)\\b"), " "
+    ).replace(Regex("\\s+"), " ").trim()
+
+    /** Topic nikaalo - "notes me X likho" aur "X notes me likho" dono handle. */
     private fun extractNoteTopic(t: String): String {
         val lower = t.lowercase()
-        val idx = listOf(lower.indexOf(" notes"), lower.indexOf(" note"), lower.indexOf(" keep"))
-            .filter { it > 0 }.minOrNull() ?: return ""
-        var s = t.substring(0, idx).trim()
-        s = s.replace(
-            Regex("\\b(ki story|ka story|ki notes|ka notes|story|notes|note|ke baare me|ke bare me|about|ki|ka|ke|me|jaake|jaa ke|likho|likh|paste|karo|kar|do|de|please|app|application|meri|mera|banao|bana)\\b"), " "
-        ).replace(Regex("\\s+"), " ").trim()
-        return s
+        val keys = listOf("notes app me", "note app me", "notes me", "note me", "keep me", "notes", "note", "keep")
+        for (k in keys) {
+            val i = lower.indexOf(k)
+            if (i < 0) continue
+            val before = stripNoteWords(t.substring(0, i).trim())
+            val after = stripNoteWords(t.substring(i + k.length).trim())
+            if (before.length >= 4) return before
+            if (after.length >= 4) return after
+        }
+        return ""
     }
 
     /** Gemini se padhne layak notes banao. */
