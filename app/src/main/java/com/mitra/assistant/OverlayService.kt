@@ -420,21 +420,15 @@ class OverlayService : Service() {
                 return@Thread
             }
             main.post { setMood(R.drawable.char_think, "Thinking...") }
-            var (ok, txt) = Sarvam.transcribe(key, wav)
-            if (!ok || txt.isBlank()) {
-                // ek baar dobara try (transient timeout ho sakta hai)
-                Thread.sleep(700)
-                val r2 = Sarvam.transcribe(key, wav)
-                ok = r2.first; txt = r2.second
-            }
+            val (ok, txt) = Sarvam.transcribe(key, wav)
             main.post {
                 listening = false
                 if (ok && txt.isNotBlank()) {
                     handle(txt)
                 } else {
-                    // Sarvam fail - 2 minute ke liye phone ke recognizer pe switch
-                    sarvamOffUntil = System.currentTimeMillis() + 120000
-                    setMood(R.drawable.char_sad, "Awaaz clear nahi aayi - phir se bolo", 3500)
+                    // Sarvam slow/fail - 5 minute ke liye phone recognizer (fast)
+                    sarvamOffUntil = System.currentTimeMillis() + 300000
+                    setMood(R.drawable.char_sad, "Phir se bolo (phone mic on)", 3000)
                 }
                 afterListen()
             }

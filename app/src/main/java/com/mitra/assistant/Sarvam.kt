@@ -15,8 +15,8 @@ object Sarvam {
             conn.doOutput = true
             conn.setRequestProperty("api-subscription-key", key)
             conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            conn.connectTimeout = 20000
-            conn.readTimeout = 40000
+            conn.connectTimeout = 8000
+            conn.readTimeout = 15000
             val os = conn.outputStream
 
             fun field(name: String, value: String) {
@@ -62,8 +62,8 @@ object Sarvam {
             conn.doOutput = true
             conn.setRequestProperty("api-subscription-key", key)
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.connectTimeout = 20000
-            conn.readTimeout = 40000
+            conn.connectTimeout = 10000
+            conn.readTimeout = 25000
             val body = org.json.JSONObject().apply {
                 put("text", text)
                 put("language_code", lang)

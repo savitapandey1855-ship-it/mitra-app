@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v72
-          name: Bublu APK v72
-          body: "v72 - STT timeout fixed: retries once, then switches to the phone recognizer automatically. Note topic now detected whether 'notes' comes first or last."
+          tag_name: apk-v73
+          name: Bublu APK v73
+          body: "v73 - much faster speech: Sarvam STT timeout cut from 40s to 15s, no double retry, and an instant switch to the phone recognizer if it is slow."
           files: app/build/outputs/apk/debug/app-debug.apk
