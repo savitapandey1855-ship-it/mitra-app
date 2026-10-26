@@ -98,6 +98,13 @@ class FxView(context: Context) : View(context) {
 
     fun fireworkAt(cx: Float, cy: Float) { burst(cx, cy, 34) }
 
+    /** Bublu ke colour ka chhota tukda nikal ke gol-gol ghoom ke wapas mil jaata hai. */
+    fun orbiter(cx: Float, cy: Float, color: Int, radius: Float) {
+        parts.add(P(cx, cy, radius, 0.20f, 0f, 85f, color, 9f, 6))
+        parts.add(P(cx, cy, radius * 0.72f, 0.26f, -14f, 78f, color, 6f, 6))
+        invalidate()
+    }
+
     /** Titliyan - Bublu ke aas paas udti hain. */
     fun butterflies(cx: Float, cy: Float, n: Int) {
         for (i in 0 until n) {
@@ -120,8 +127,10 @@ class FxView(context: Context) : View(context) {
             val p = it.next()
             p.life += dt
             if (p.life >= p.maxLife) { it.remove(); continue }
-            p.x += p.vx * dt
-            p.y += p.vy * dt
+            if (p.kind != 6) {
+                p.x += p.vx * dt
+                p.y += p.vy * dt
+            }
             if (p.kind == 0 || p.kind == 1) p.vy += 0.22f * dt
             if (p.kind == 5) p.x += Math.sin(p.life * 0.18).toFloat() * 2.0f * dt
             val alpha = (255 * (1 - p.life / p.maxLife)).toInt().coerceIn(0, 255)
@@ -141,6 +150,22 @@ class FxView(context: Context) : View(context) {
                     paint.style = Paint.Style.STROKE
                     paint.strokeWidth = 2f
                     canvas.drawCircle(p.x, p.y, p.size * 2.2f, paint)
+                }
+                6 -> {
+                    val t = (p.life / p.maxLife).coerceIn(0f, 1f)
+                    val ang = p.life * p.vy
+                    val r = p.vx * Math.sin((Math.PI * t).toFloat())
+                    val baseA = if (t > 0.85f) (((1f - (t - 0.85f) / 0.15f) * 255).toInt().coerceIn(0, 255)) else 255
+                    for (k in 0 until 4) {
+                        val aa = ang - k * 0.18f
+                        val rr = r * (1f - k * 0.08f)
+                        paint.alpha = (baseA * (1f - k * 0.22f)).toInt().coerceIn(0, 255)
+                        canvas.drawCircle(
+                            p.x + (Math.cos(aa.toDouble()) * rr).toFloat(),
+                            p.y + (Math.sin(aa.toDouble()) * rr).toFloat(),
+                            p.size * (1f - k * 0.18f), paint
+                        )
+                    }
                 }
                 5 -> {
                     val flap = Math.abs(Math.sin(p.life * 0.5)).toFloat()

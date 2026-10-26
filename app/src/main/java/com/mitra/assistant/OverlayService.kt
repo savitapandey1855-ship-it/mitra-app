@@ -333,6 +333,20 @@ class OverlayService : Service() {
     private fun fxHearts() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.hearts(c.first, c.second, 9) }
     private fun fxConfetti() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.confettiAround(c.first, c.second, 34) }
     private fun fxFirework() { if (!::fx.isInitialized) return; val c = bubbleCenter(); fx.fireworkAt(c.first, c.second) }
+
+    private fun designColor(): Int = when (design) {
+        1 -> 0xFF28C6FF.toInt()
+        2 -> 0xFFC56BFF.toInt()
+        3 -> 0xFF3ED98A.toInt()
+        else -> 0xFF5B8BFF.toInt()
+    }
+
+    /** Next-level: Bublu ke colour ka tukda nikal ke chaaro taraf ghoom ke wapas jud jaata hai. */
+    private fun fxOrbit() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.orbiter(c.first, c.second, designColor(), dp(52).toFloat())
+    }
     private fun fxButterflies() {
         if (!::fx.isInitialized) return
         val c = bubbleCenter()
@@ -633,7 +647,10 @@ class OverlayService : Service() {
         tricks.random()()
         // Sirf rangeen effects - kuch bolta nahi
         if (Math.random() < 0.85) {
-            listOf<() -> Unit>({ fxBurst() }, { fxSparkles() }, { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxFirework() }, { fxButterflies() }).random()()
+            listOf<() -> Unit>(
+                { fxOrbit() }, { fxOrbit() }, { fxBurst() }, { fxSparkles() },
+                { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxButterflies() }
+            ).random()()
         }
     }
 
