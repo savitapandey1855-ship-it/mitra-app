@@ -92,14 +92,30 @@ class MainActivity : AppCompatActivity() {
     // ---------- Step-by-step setup (auto on open) ----------
     private var setupShowing = false
 
+    private fun isBatteryOk(): Boolean {
+        return try {
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            pm.isIgnoringBatteryOptimizations(packageName)
+        } catch (e: Exception) { true }
+    }
+
+    private fun requestBattery() {
+        try {
+            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+        } catch (e: Exception) {
+            try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } catch (e2: Exception) {}
+        }
+    }
+
     private fun firstMissingStep(): Int? {
         if (!Settings.canDrawOverlays(this)) return 1
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return 2
+        if (!isBatteryOk()) return 2
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return 3
         if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return 3
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return 4
-        if (!isAccEnabled()) return 5
-        if (!hasNotifAccess()) return 6
+            ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return 4
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return 5
+        if (!isAccEnabled()) return 6
+        if (!hasNotifAccess()) return 7
         return null
     }
 
@@ -124,20 +140,21 @@ class MainActivity : AppCompatActivity() {
         val title: String
         val msg: String
         when (step) {
-            1 -> { title = "Step 1 of 6 · Display over other apps"; msg = "Bublu floats on your screen so you can talk to it anywhere.\n\nTap \"Open settings\", then turn Bublu ON." }
-            2 -> { title = "Step 2 of 6 · Microphone"; msg = "So Bublu can hear your voice.\n\nTap Allow." }
-            3 -> { title = "Step 3 of 6 · Notifications"; msg = "For reminders, alarms and important group messages." }
-            4 -> { title = "Step 4 of 6 · Contacts & Phone"; msg = "To find people by name and call them." }
-            5 -> { title = "Step 5 of 6 · Accessibility"; msg = "This lets Bublu open apps, tap buttons and type.\n\nFind Bublu in the list and turn it ON." }
-            else -> { title = "Step 6 of 6 · Notification access"; msg = "Optional. Lets Bublu read messages from your important groups." }
+            1 -> { title = "Step 1 of 7 · Popup (display over other apps)"; msg = "Bublu floats on your screen so you can talk to it anywhere.\n\nTap \"Open settings\", then turn Bublu ON." }
+            2 -> { title = "Step 2 of 7 · Run in background"; msg = "Allow Bublu to keep working in the background so it doesn't stop by itself.\n\nTap Allow." }
+            3 -> { title = "Step 3 of 7 · Microphone"; msg = "So Bublu can hear your voice.\n\nTap Allow." }
+            4 -> { title = "Step 4 of 7 · Notifications"; msg = "For reminders, alarms and important group messages." }
+            5 -> { title = "Step 5 of 7 · Contacts & Phone"; msg = "To find people by name and call them." }
+            6 -> { title = "Step 6 of 7 · Accessibility"; msg = "This lets Bublu open apps, tap buttons and type.\n\nFind Bublu in the list and turn it ON." }
+            else -> { title = "Step 7 of 7 · Notification access"; msg = "Optional. Lets Bublu read messages from your important groups." }
         }
         val dlg = AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(msg)
             .setCancelable(false)
             .setPositiveButton("Open settings") { _, _ -> openStep(step) }
-            .setNegativeButton(if (step == 6) "Skip" else "Later") { _, _ ->
-                if (step == 6) prefs.edit().putBoolean("setup_done", true).apply()
+            .setNegativeButton(if (step == 7) "Skip" else "Later") { _, _ ->
+                if (step == 7) prefs.edit().putBoolean("setup_done", true).apply()
             }
             .create()
         dlg.setOnDismissListener { setupShowing = false }
@@ -149,14 +166,15 @@ class MainActivity : AppCompatActivity() {
             1 -> startActivityForResult(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQ_OVERLAY
             )
-            2 -> ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
-            3 -> if (Build.VERSION.SDK_INT >= 33)
+            2 -> requestBattery()
+            3 -> ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            4 -> if (Build.VERSION.SDK_INT >= 33)
                 ActivityCompat.requestPermissions(this, arrayOf("android.permission.POST_NOTIFICATIONS"), REQ_NOTIF)
-            4 -> ActivityCompat.requestPermissions(
+            5 -> ActivityCompat.requestPermissions(
                 this, arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE), REQ_CONTACTS
             )
-            5 -> openAccSettings()
-            6 -> openNotifAccess()
+            6 -> openAccSettings()
+            7 -> openNotifAccess()
         }
     }
 
@@ -520,6 +538,7 @@ class MainActivity : AppCompatActivity() {
             "Accessibility (tap & type)",
             "Notification access (important groups)",
             "Autostart (background)",
+            "Background & popup permissions",
             "Voice",
             "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
@@ -535,16 +554,36 @@ class MainActivity : AppCompatActivity() {
                 1 -> openAccSettings()
                 2 -> openNotifAccess()
                 3 -> openAutostart()
-                4 -> pickVoice()
-                5 -> toggleSpeak()
-                6 -> myDetailsDialog()
-                7 -> testAi()
-                8 -> addAliasDialog()
-                9 -> addGroupDialog()
-                10 -> toggleFestival()
-                11 -> showDiagnose()
+                4 -> backgroundDialog()
+                5 -> pickVoice()
+                6 -> toggleSpeak()
+                7 -> myDetailsDialog()
+                8 -> testAi()
+                9 -> addAliasDialog()
+                10 -> addGroupDialog()
+                11 -> toggleFestival()
+                12 -> showDiagnose()
             }
         }.show()
+    }
+
+    private fun backgroundDialog() {
+        val items = arrayOf(
+            "Allow background running (battery)",
+            "Autostart (Xiaomi / Realme / Vivo / Oppo)",
+            "Popup permission (display over other apps)"
+        )
+        AlertDialog.Builder(this).setTitle("Background & popup")
+            .setItems(items) { _, w ->
+                when (w) {
+                    0 -> requestBattery()
+                    1 -> openAutostart()
+                    2 -> startActivityForResult(
+                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
+                        REQ_OVERLAY
+                    )
+                }
+            }.show()
     }
 
     private fun toggleSpeak() {
@@ -691,8 +730,10 @@ class MainActivity : AppCompatActivity() {
         val micOn = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val keyOn = (prefs.getString("gemini_key", "") ?: "").isNotBlank()
         val sarvamOn = (prefs.getString("sarvam_key", "") ?: "").isNotBlank()
+        val battOk = isBatteryOk()
         val msg = "1. Accessibility: " + (if (accOn) "ON (good)" else "OFF (needed for apps, tap, type)") +
             "\n2. Display over apps: " + (if (overlayOn) "ON (good)" else "OFF (needed)") +
+            "\n2b. Background running: " + (if (battOk) "allowed (good)" else "restricted (needed)") +
             "\n3. Microphone: " + (if (micOn) "ON (good)" else "OFF (needed)") +
             "\n4. AI key: " + (if (keyOn) "present (good)" else "missing") +
             "\n5. Voice key: " + (if (sarvamOn) "present (good)" else "missing") +

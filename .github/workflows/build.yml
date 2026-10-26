@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v61
-          name: Bublu APK v61
-          body: "v61 - popup and settings text now dark and clearly readable (light mode forced + explicit dialog colours)."
+          tag_name: apk-v62
+          name: Bublu APK v62
+          body: "v62 - background + popup permissions added: battery (background running) step in setup, Background & popup menu in Settings, and health check shows it."
           files: app/build/outputs/apk/debug/app-debug.apk
