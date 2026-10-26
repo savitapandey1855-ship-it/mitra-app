@@ -25,6 +25,14 @@ class SceneView @JvmOverloads constructor(
     var charScale: Float = 0.55f
     var captionAlpha: Int = 255
 
+    /** 16:9 preview */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = MeasureSpec.getSize(widthMeasureSpec)
+        val h = MeasureSpec.getSize(heightMeasureSpec)
+        val target = (w * 9f / 16f).toInt()
+        setMeasuredDimension(w, if (target in 1..h) target else h)
+    }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 

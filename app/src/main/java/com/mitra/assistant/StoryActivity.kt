@@ -410,8 +410,8 @@ class StoryActivity : AppCompatActivity() {
             try {
                 val frames = ArrayList<Bitmap>()
                 for (s in scenes) {
-                    val w = 720
-                    val h = 1280
+                    val w = 1280
+                    val h = 720
                     val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     val c = Canvas(bmp)
                     s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
