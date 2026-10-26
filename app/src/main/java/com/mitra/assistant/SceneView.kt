@@ -25,12 +25,13 @@ class SceneView @JvmOverloads constructor(
     var charScale: Float = 0.55f
     var captionAlpha: Int = 255
     var paletteIndex: Int = 0
+    var vertical: Boolean = false
 
     /** 16:9 preview */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
         val h = MeasureSpec.getSize(heightMeasureSpec)
-        val target = (w * 9f / 16f).toInt()
+        val target = if (vertical) (w * 16f / 9f).toInt() else (w * 9f / 16f).toInt()
         setMeasuredDimension(w, if (target in 1..h) target else h)
     }
 

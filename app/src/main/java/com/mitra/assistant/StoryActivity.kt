@@ -57,6 +57,7 @@ class StoryActivity : AppCompatActivity() {
         sceneView = findViewById(R.id.scene)
         status = findViewById(R.id.status)
 
+        sceneView.vertical = intent.getBooleanExtra("vertical", false)
         topic = intent.getStringExtra("topic") ?: "a friendly robot"
         minutes = intent.getIntExtra("minutes", 2)
 
@@ -68,6 +69,7 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnVoice).setOnClickListener { pickVoice() }
         findViewById<Button>(R.id.btnNext).setOnClickListener { nextScene() }
         findViewById<Button>(R.id.btnSaveFrames).setOnClickListener { saveFrames() }
+        findViewById<Button>(R.id.btn3d).setOnClickListener { start3d() }
         findViewById<Button>(R.id.btnMp4).setOnClickListener { makeMp4() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
 
@@ -112,6 +114,35 @@ class StoryActivity : AppCompatActivity() {
     }
 
     /** Background service me story banao - app band karo tab bhi chalegi. */
+    /** 3D-look short (9:16) - 2 AI images + Hindi voice. */
+    private fun start3d() {
+        val box = EditText(this)
+        box.setTextColor(0xFF101733.toInt())
+        box.setText(topic)
+        AlertDialog.Builder(this).setTitle("3D Short ka topic").setView(box)
+            .setPositiveButton("Banao") { _, _ ->
+                topic = box.text.toString().trim().ifBlank { "a friendly robot" }
+                sceneView.vertical = true
+                status.text = "3D short ban rahi hai (2 image + voice)..."
+                try {
+                    val si = android.content.Intent(this, StoryService::class.java)
+                    si.putExtra("topic", topic)
+                    si.putExtra("minutes", minutes)
+                    si.putExtra("mode", "3d")
+                    getSharedPreferences("mitra", MODE_PRIVATE).edit()
+                        .putString("story_progress", "Shuru...")
+                        .putString("story_json", "[]")
+                        .apply()
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(si) else startService(si)
+                    pollProgress()
+                } catch (e: Exception) {
+                    status.text = "Service start nahi hui: " + e.message
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun buildStory() {
         status.text = "Background me ban rahi hai... (app band kar sakte ho)"
         try {

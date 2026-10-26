@@ -32,6 +32,7 @@ class StoryService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val topic = intent?.getStringExtra("topic") ?: "a friendly robot"
         val minutes = intent?.getIntExtra("minutes", 2) ?: 2
+        val mode = intent?.getStringExtra("mode") ?: "story"
         KeyPool.init(this)
 
         startForeground(41, notif("Story ban rahi hai..."))
@@ -66,27 +67,48 @@ class StoryService : Service() {
                 }
 
                 val dir = File(cacheDir, "story").apply { mkdirs() }
+                var charPath = ""
+                var bgPath = ""
+                if (mode == "3d") {
+                    try {
+                        prefs.edit().putString("story_progress", "3D character bana raha hoon...").apply()
+                        val chBmp = fetch("cute 3D Pixar style cartoon character of " + topic + ", full body, plain white background, studio lighting, high detail")
+                        if (chBmp != null) {
+                            val f = java.io.File(cacheDir, "char3d.png")
+                            val fos = java.io.FileOutputStream(f)
+                            chBmp.compress(Bitmap.CompressFormat.PNG, 95, fos)
+                            fos.close()
+                            charPath = f.absolutePath
+                        }
+                        prefs.edit().putString("story_progress", "Background ke liye 45s wait (free limit)...").apply()
+                        Thread.sleep(45000)
+                        prefs.edit().putString("story_progress", "3D background bana raha hoon...").apply()
+                        val bgBmp = fetch("3D render cartoon background of " + topic + ", cinematic depth of field, soft light, no text")
+                        if (bgBmp != null) {
+                            val f2 = java.io.File(cacheDir, "bg3d.png")
+                            val fos2 = java.io.FileOutputStream(f2)
+                            bgBmp.compress(Bitmap.CompressFormat.PNG, 95, fos2)
+                            fos2.close()
+                            bgPath = f2.absolutePath
+                        }
+                    } catch (e: Exception) {}
+                }
+
                 val arr = JSONArray()
                 for ((i, s) in scenes.withIndex()) {
                     prefs.edit().putString("story_progress", "Scene ${i + 1}/${scenes.size} images...").apply()
                     updateNotif("Scene ${i + 1}/${scenes.size} bana raha hoon...")
 
-                    val bg: Bitmap? = null
-                    val ch: Bitmap? = null
-
-                    val bgFile = File(dir, "bg_$i.png")
-                    val chFile = File(dir, "ch_$i.png")
-                    bg?.let { FileOutputStream(bgFile).use { os -> it.compress(Bitmap.CompressFormat.PNG, 92, os) } }
-                    ch?.let { FileOutputStream(chFile).use { os -> it.compress(Bitmap.CompressFormat.PNG, 92, os) } }
+                    val bg: Bitmap? = if (bgPath.isNotBlank()) android.graphics.BitmapFactory.decodeFile(bgPath) else null
+                    val ch: Bitmap? = if (charPath.isNotBlank()) android.graphics.BitmapFactory.decodeFile(charPath) else null
 
                     arr.put(
                         JSONObject()
-                            .put("bg", if (bg != null) bgFile.absolutePath else "")
-                            .put("ch", if (ch != null) chFile.absolutePath else "")
+                            .put("bg", bgPath)
+                            .put("ch", charPath)
                             .put("line", s.third)
                     )
 
-                    // frame bhi save karo (1080x1920)
                     saveFrame(bg, ch, s.third, i)
                 }
                 prefs.edit()
@@ -232,8 +254,9 @@ class StoryService : Service() {
 
     private fun saveFrame(bg: Bitmap?, ch: Bitmap?, line: String, index: Int) {
         try {
-            val w = 1280
-            val h = 720
+            val vertical = bg != null || ch != null
+            val w = if (vertical) 1080 else 1280
+            val h = if (vertical) 1920 else 720
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             if (bg != null) c.drawBitmap(bg, null, Rect(0, 0, w, h), null)

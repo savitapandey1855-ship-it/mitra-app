@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v98
-          name: Bublu APK v98
-          body: "v98 - captions now show only the Hindi story line (all JSON junk stripped) and scenes have premium gradient backgrounds."
+          tag_name: apk-v99
+          name: Bublu APK v99
+          body: "v99 - 3D Short mode: 9:16 vertical short with a Pixar-style 3D character + 3D background (2 AI images), Hindi narration and captions."
           files: app/build/outputs/apk/debug/app-debug.apk
