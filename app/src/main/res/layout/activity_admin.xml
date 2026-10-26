@@ -105,6 +105,32 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Cloudflare image API (free - 3D characters &amp; backgrounds)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/cfAccount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Cloudflare Account ID"
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+
+            <EditText
+                android:id="@+id/cfToken"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Workers AI API token"
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#7C8BC7" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="Firebase config URL (JSON with gemini + sarvam)"
                 android:textColor="#FFFFFF"

@@ -95,7 +95,7 @@ class StoryService : Service() {
                 if (mode == "3d") {
                     try {
                         prefs.edit().putString("story_progress", "3D character bana raha hoon...").apply()
-                        val chBmp = fetch("cute 3D Pixar style cartoon character of " + topic + ", full body, plain white background, studio lighting, high detail")
+                        val chBmp = ImageGen.gen(this, "cute 3D Pixar style cartoon character of " + topic + ", full body, different pose, plain white background, studio lighting, high detail", 768, 768)
                         if (chBmp != null) {
                             val f = java.io.File(cacheDir, "char3d.png")
                             val fos = java.io.FileOutputStream(f)
@@ -106,7 +106,7 @@ class StoryService : Service() {
                         prefs.edit().putString("story_progress", "Background ke liye 45s wait (free limit)...").apply()
                         Thread.sleep(45000)
                         prefs.edit().putString("story_progress", "3D background bana raha hoon...").apply()
-                        val bgBmp = fetch("3D render cartoon background of " + topic + ", cinematic depth of field, soft light, no text")
+                        val bgBmp = ImageGen.gen(this, "3D render cartoon background of " + topic + ", cinematic depth of field, soft light, no text", 768, 768)
                         if (bgBmp != null) {
                             val f2 = java.io.File(cacheDir, "bg3d.png")
                             val fos2 = java.io.FileOutputStream(f2)

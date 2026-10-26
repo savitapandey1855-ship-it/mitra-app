@@ -49,6 +49,12 @@ class AdminActivity : AppCompatActivity() {
         findViewById<Button>(R.id.addSarvamKey).setOnClickListener {
             addKeyRow(sExtra, "", sRows)
         }
+
+        // ---- Cloudflare (free image generation) ----
+        val cfAcc = findViewById<EditText>(R.id.cfAccount)
+        val cfTok = findViewById<EditText>(R.id.cfToken)
+        cfAcc.setText(prefs.getString("cf_account", ""))
+        cfTok.setText(prefs.getString("cf_token", ""))
         u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 
@@ -58,6 +64,8 @@ class AdminActivity : AppCompatActivity() {
             KeyPool.save("gemini", gk.split("\n", ","))
             KeyPool.save("sarvam", sk.split("\n", ","))
             prefs.edit()
+                .putString("cf_account", findViewById<EditText>(R.id.cfAccount).text.toString().trim())
+                .putString("cf_token", findViewById<EditText>(R.id.cfToken).text.toString().trim())
                 .putString("config_url", u.text.toString().trim())
                 .putString("fb_email", fe.text.toString().trim())
                 .putString("fb_pass", fp.text.toString())

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v102
-          name: Bublu APK v102
-          body: "v102 - story now asks for plain numbered Hindi lines (no JSON) with retries, so you get a full 8-30 scene story instead of a single line."
+          tag_name: apk-v103
+          name: Bublu APK v103
+          body: "v103 - image generation now uses Cloudflare Workers AI (free, ~173 images/day) with Pollinations and AI Horde as fallbacks; admin panel has Cloudflare Account ID + token fields."
           files: app/build/outputs/apk/debug/app-debug.apk
