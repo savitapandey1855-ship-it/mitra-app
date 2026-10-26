@@ -64,6 +64,9 @@ class OverlayService : Service() {
     @Volatile private var alwaysListen = false
     @Volatile private var speaking = false
     @Volatile private var sarvamOffUntil = 0L
+    @Volatile private var wakeOn = true
+    private var wakeRec: android.speech.SpeechRecognizer? = null
+    @Volatile private var wakeActive = false
     private var lastBatteryAlert = 0L
     private var lastBatteryWarn = 0L
     @Volatile private var hidden = false
@@ -174,6 +177,8 @@ class OverlayService : Service() {
         main.postDelayed({ proactiveGreet() }, 12000)
         scheduleTrick()
         scheduleWatch()
+        wakeOn = getSharedPreferences("mitra", MODE_PRIVATE).getBoolean("wake_on", true)
+        main.postDelayed({ startWakeLoop() }, 2500)
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
         try { registerReceiver(scamReceiver, android.content.IntentFilter("com.mitra.assistant.SCAM")) } catch (e: Exception) {}
         try {
@@ -1014,7 +1019,8 @@ class OverlayService : Service() {
 
     private fun afterListen() {
         // Thoda sabra - jawab bolne ke baad 2.5s ruk kar phir suno
-        if (alwaysListen) main.postDelayed({ beginListen() }, 2500) else hideWave()
+        if (alwaysListen) main.postDelayed({ beginListen() }, 2500)
+        else { hideWave(); scheduleWakeRestart(800) }
     }
 
     private fun showWave() { try { wave.visibility = View.VISIBLE; wave.start() } catch (e: Exception) {} }
@@ -2028,6 +2034,89 @@ class OverlayService : Service() {
             body = txt.substringAfter("\n").trim()
         }
         return Pair(subject, body)
+    }
+
+    // ---------- Wake word (Bublu / Bablu / Hey friend) ----------
+    private fun hasWakeWord(t: String): Boolean =
+        t.contains("bublu") || t.contains("bablu") || t.contains("bub lu") ||
+            t.contains("hey friend") || t.contains("hello friend") || t.contains("bulbul") ||
+            t.contains("hey bublu") || t.contains("are bublu")
+
+    private fun startWakeLoop() {
+        if (!wakeOn || wakeActive) return
+        if (listening || busy || speaking || quizOn || guideOn || capcutMode) {
+            main.postDelayed({ startWakeLoop() }, 1500)
+            return
+        }
+        try {
+            if (wakeRec == null) {
+                wakeRec = android.speech.SpeechRecognizer.createSpeechRecognizer(this)
+                wakeRec?.setRecognitionListener(object : android.speech.RecognitionListener {
+                    override fun onReadyForSpeech(b: Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(v: Float) {}
+                    override fun onBufferReceived(b: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+                    override fun onEvent(t: Int, b: Bundle?) {}
+                    override fun onError(error: Int) {
+                        wakeActive = false
+                        scheduleWakeRestart(900)
+                    }
+                    override fun onResults(results: Bundle?) {
+                        wakeActive = false
+                        val list = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                        val txt = list?.joinToString(" ")?.lowercase() ?: ""
+                        if (hasWakeWord(txt)) onWakeWord(txt) else scheduleWakeRestart(400)
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val list = partialResults?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                            ?: return
+                        val txt = list.joinToString(" ").lowercase()
+                        if (hasWakeWord(txt)) {
+                            wakeActive = false
+                            try { wakeRec?.cancel() } catch (e: Exception) {}
+                            onWakeWord(txt)
+                        }
+                    }
+                })
+            }
+            val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900)
+            }
+            wakeRec?.startListening(i)
+            wakeActive = true
+        } catch (e: Exception) {
+            scheduleWakeRestart(2500)
+        }
+    }
+
+    private fun scheduleWakeRestart(ms: Long) {
+        if (!wakeOn) return
+        main.postDelayed({ startWakeLoop() }, ms)
+    }
+
+    private fun onWakeWord(txt: String) {
+        sleeping = false
+        hidden = false
+        try { wakeRec?.cancel() } catch (e: Exception) {}
+        wakeActive = false
+        setMood(R.drawable.char_wake, "Haan kya hua?")
+        // ek hi saans me command bola ho to seedha chalao
+        val after = txt
+            .substringAfter("bublu", "")
+            .ifBlank { txt.substringAfter("bablu", "") }
+            .ifBlank { txt.substringAfter("friend", "") }
+            .replace(Regex("^[,\\.\\s]+|[,\\.\\s]+$"), "")
+            .trim()
+        if (after.length > 4 && !after.equals("kya hua", true)) {
+            main.postDelayed({ handle(after) }, 700)
+        } else {
+            main.postDelayed({ beginListen() }, 1100)
+        }
     }
 
     // ---------- Quiz mode ----------
@@ -3759,6 +3848,9 @@ class OverlayService : Service() {
         alwaysListen = false
         try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
         try { unregisterReceiver(scamReceiver) } catch (e: Exception) {}
+        wakeOn = false
+        try { wakeRec?.destroy() } catch (e: Exception) {}
+        wakeRec = null
         try { timerJob?.cancel() } catch (e: Exception) {}
         quizOn = false
         guideOn = false

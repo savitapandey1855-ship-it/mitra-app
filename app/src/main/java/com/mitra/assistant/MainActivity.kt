@@ -582,6 +582,7 @@ class MainActivity : AppCompatActivity() {
             "Background & popup permissions",
             "Bublu Studio (video editor)",
             "Story Studio (AI cartoon video)",
+            "Wake word (Bublu/Bablu): " + (if (prefs.getBoolean("wake_on", true)) "ON" else "OFF"),
             "Voice",
             "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
@@ -600,14 +601,15 @@ class MainActivity : AppCompatActivity() {
                 4 -> backgroundDialog()
                 5 -> startActivity(Intent(this, EditorActivity::class.java))
                 6 -> startActivity(Intent(this, StoryActivity::class.java))
-                7 -> pickVoice()
-                8 -> toggleSpeak()
-                9 -> myDetailsDialog()
-                10 -> testAi()
-                11 -> addAliasDialog()
-                12 -> addGroupDialog()
-                13 -> toggleFestival()
-                14 -> showDiagnose()
+                7 -> toggleWake()
+                8 -> pickVoice()
+                9 -> toggleSpeak()
+                10 -> myDetailsDialog()
+                11 -> testAi()
+                12 -> addAliasDialog()
+                13 -> addGroupDialog()
+                14 -> toggleFestival()
+                15 -> showDiagnose()
             }
         }.show()
     }
@@ -629,6 +631,20 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }.show()
+    }
+
+    private fun toggleWake() {
+        val on = !prefs.getBoolean("wake_on", true)
+        prefs.edit().putBoolean("wake_on", on).apply()
+        Toast.makeText(
+            this,
+            if (on) "Wake word ON - \"Bublu\" bolo" else "Wake word OFF",
+            Toast.LENGTH_SHORT
+        ).show()
+        if (!on) {
+            try { stopService(Intent(this, OverlayService::class.java)) } catch (e: Exception) {}
+        }
+        Toast.makeText(this, if (on) "Bublu ko dobara ON karo (wake word lagega)" else "", Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleSpeak() {

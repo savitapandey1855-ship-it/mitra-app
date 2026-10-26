@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v88
-          name: Bublu APK v88
-          body: "v88 - Story Studio (AI cartoon video with cut-out characters, animated scenes and spoken narration), remembers the video you just edited, and understands Shorts/Reel commands."
+          tag_name: apk-v89
+          name: Bublu APK v89
+          body: "v89 - wake word: say Bublu, Bablu or Hey friend and it wakes up with 'Haan kya hua?', plus a wake-word on/off switch."
           files: app/build/outputs/apk/debug/app-debug.apk
