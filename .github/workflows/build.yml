@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v103
-          name: Bublu APK v103
-          body: "v103 - image generation now uses Cloudflare Workers AI (free, ~173 images/day) with Pollinations and AI Horde as fallbacks; admin panel has Cloudflare Account ID + token fields."
+          tag_name: apk-v104
+          name: Bublu APK v104
+          body: "v104 - Cloudflare account ID pre-filled; you only need to paste the Workers AI token in the admin panel."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -18,9 +18,14 @@ import java.net.URLEncoder
  */
 object ImageGen {
 
+    /** User ka Cloudflare account id (admin panel se badla ja sakta hai). */
+    private const val DEFAULT_CF_ACCOUNT = "b3b1b21be5efcfa358164ff8c7bccba2"
+
+
     fun gen(ctx: Context, prompt: String, w: Int = 768, h: Int = 768): Bitmap? {
         val prefs = ctx.getSharedPreferences("mitra", Context.MODE_PRIVATE)
-        val acc = prefs.getString("cf_account", "") ?: ""
+        // Account ID default (secret nahi hai - token hi secret hota hai)
+        val acc = prefs.getString("cf_account", "")?.ifBlank { DEFAULT_CF_ACCOUNT } ?: DEFAULT_CF_ACCOUNT
         val tok = prefs.getString("cf_token", "") ?: ""
 
         if (acc.isNotBlank() && tok.isNotBlank()) {
