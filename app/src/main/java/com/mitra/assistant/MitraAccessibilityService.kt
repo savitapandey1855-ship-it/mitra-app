@@ -795,23 +795,62 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { false }
     }
 
-    /** Play Store se app install karo (search + Install tap). */
+    /** Text ke andar ka match dhoondh ke tap karo. */
+    fun clickByTextContains(q: String): Boolean {
+        return try {
+            val root = rootInActiveWindow ?: return false
+            val nodes = ArrayList<AccessibilityNodeInfo>()
+            collectClickable(root, nodes)
+            val ql = q.lowercase()
+            for (n in nodes) {
+                val t = ((n.text?.toString() ?: "") + " " + (n.contentDescription?.toString() ?: "")).lowercase()
+                if (t.contains(ql)) {
+                    n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    return true
+                }
+            }
+            false
+        } catch (e: Exception) { false }
+    }
+
+    /** Play Store se app install karo - search, result kholo, Install dabao (retry ke saath). */
     fun installApp(name: String): Boolean {
         return try {
-            val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(name)))
+            val i = Intent(
+                Intent.ACTION_VIEW,
+                android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(name) + "&c=apps")
+            )
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(i)
-            Thread.sleep(4500)
-            var ok = clickByText("Install")
-            if (!ok) ok = clickByDesc("Install")
-            if (!ok) {
-                // search result pe pehla app kholo
-                clickFirstTile()
+            Thread.sleep(5000)
+
+            // search results me app ke naam wale result pe tap
+            if (!clickByTextContains(name)) {
+                if (!clickFirstTile()) scrollDown()
                 Thread.sleep(3000)
-                ok = clickByText("Install") || clickByDesc("Install")
+                clickByTextContains(name)
             }
-            ok
+            Thread.sleep(4000)
+
+            // Install / Update / Open
+            for (t in 0 until 6) {
+                if (clickByText("Install")) return true
+                if (clickByDesc("Install")) return true
+                if (clickByText("Update")) return true
+                if (clickByDesc("Update")) return true
+                if (clickByText("Open")) return true
+                Thread.sleep(1800)
+            }
+            false
         } catch (e: Exception) { false }
+    }
+
+    fun scrollDown() {
+        try {
+            val root = rootInActiveWindow ?: return
+            val list = root.findAccessibilityNodeInfosByViewId("") ?: return
+            list.size
+        } catch (e: Exception) {}
     }
 
     /** Kisi bhi app me text bhejo (ChatGPT jaisi app me sawaal). */

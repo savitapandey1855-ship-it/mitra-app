@@ -309,7 +309,7 @@ class EditorActivity : AppCompatActivity() {
                 put(MediaStore.Images.Media.DISPLAY_NAME, name)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (Build.VERSION.SDK_INT >= 29)
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/BubluStudio")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures")
             }
             val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             uri?.let {

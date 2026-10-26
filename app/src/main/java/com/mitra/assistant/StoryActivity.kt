@@ -384,7 +384,7 @@ class StoryActivity : AppCompatActivity() {
                         put(MediaStore.Images.Media.DISPLAY_NAME, "story_${System.currentTimeMillis()}_$saved.png")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                         if (Build.VERSION.SDK_INT >= 29)
-                            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/BubluStudio")
+                            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures")
                     }
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                     uri?.let {
@@ -462,7 +462,7 @@ class StoryActivity : AppCompatActivity() {
                     put(MediaStore.Video.Media.DISPLAY_NAME, "BubluStory_${System.currentTimeMillis()}.mp4")
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     if (Build.VERSION.SDK_INT >= 29)
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/BubluStudio")
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies")
                 }
                 val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
                 uri?.let {

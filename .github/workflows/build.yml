@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v96
-          name: Bublu APK v96
-          body: "v96 - story videos are now 16:9, no Pollinations images (fast and never rate-limited), clean Hindi narration lines only and stylish captions with no JSON junk."
+          tag_name: apk-v97
+          name: Bublu APK v97
+          body: "v97 - real MP4 (fixed encoder with correct frame pacing, so the gallery player shows a timeline), videos saved to Movies and pictures to Pictures, and Play Store install flow fixed."
           files: app/build/outputs/apk/debug/app-debug.apk

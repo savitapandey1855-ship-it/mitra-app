@@ -2739,7 +2739,7 @@ class OverlayService : Service() {
                 put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "bublu_story_${System.currentTimeMillis()}.png")
                 put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
                 if (android.os.Build.VERSION.SDK_INT >= 29)
-                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/BubluStudio")
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures")
             }
             val uri = contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             uri?.let {

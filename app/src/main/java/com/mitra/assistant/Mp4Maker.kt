@@ -10,7 +10,11 @@ import android.media.MediaFormat
 import android.media.MediaMuxer
 import java.io.File
 
-/** Bitmaps -> MP4 (H.264) with a gentle Ken Burns zoom. */
+/**
+ * Bitmaps -> real MP4 (H.264).
+ * Input surface use karta hai: koi input buffer queue nahi (warna stream kharab ho jaata hai).
+ * Frame pacing real-time hai, isliye video ki duration sahi aati hai.
+ */
 object Mp4Maker {
 
     fun encode(
@@ -23,22 +27,24 @@ object Mp4Maker {
         var codec: MediaCodec? = null
         var surface: android.view.Surface? = null
         var muxer: MediaMuxer? = null
+        var muxerStarted = false
         return try {
             var w = frames[0].width
             var h = frames[0].height
             if (w % 2 != 0) w -= 1
             if (h % 2 != 0) h -= 1
 
-            val fps = 24
+            val fps = 8
             val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
                 )
-                setInteger(MediaFormat.KEY_BIT_RATE, w * h * 4)
+                setInteger(MediaFormat.KEY_BIT_RATE, w * h * 3)
                 setInteger(MediaFormat.KEY_FRAME_RATE, fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             }
+
             codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             surface = codec.createInputSurface()
@@ -46,17 +52,13 @@ object Mp4Maker {
 
             muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var trackIndex = -1
-            var muxerStarted = false
             val info = MediaCodec.BufferInfo()
-            var pts = 0L
-            val frameDur = 1_000_000L / fps
 
-            fun drain(endOfStream: Boolean) {
-                val status = arrayOf(MediaCodec.BufferInfo())
+            fun drain(end: Boolean) {
                 while (true) {
-                    val idx = codec!!.dequeueOutputBuffer(status[0], 10_000)
+                    val idx = codec!!.dequeueOutputBuffer(info, 10_000)
                     if (idx == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                        if (!endOfStream) break
+                        if (!end) return
                     } else if (idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         if (!muxerStarted) {
                             trackIndex = muxer!!.addTrack(codec!!.outputFormat)
@@ -64,38 +66,37 @@ object Mp4Maker {
                             muxerStarted = true
                         }
                     } else if (idx >= 0) {
-                        val buf = codec!!.getOutputBuffer(idx) ?: continue
-                        if (status[0].size > 0) {
-                            if (status[0].flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
-                                status[0].size = 0
+                        val buf = codec!!.getOutputBuffer(idx)
+                        if (buf != null) {
+                            if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
+                                info.size = 0
                             }
-                            if (status[0].size > 0 && muxerStarted) {
-                                buf.position(status[0].offset)
-                                buf.limit(status[0].offset + status[0].size)
-                                muxer!!.writeSampleData(trackIndex, buf, status[0])
+                            if (info.size > 0 && muxerStarted) {
+                                buf.position(info.offset)
+                                buf.limit(info.offset + info.size)
+                                muxer!!.writeSampleData(trackIndex, buf, info)
                             }
                         }
                         codec!!.releaseOutputBuffer(idx, false)
-                        if (status[0].flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
                     }
                 }
             }
 
+            val frameMs = (1000L / fps)
             for ((fi, bmp) in frames.withIndex()) {
-                val count = (secondsEach * fps).toInt().coerceAtLeast(12)
+                val count = (secondsEach * fps).toInt().coerceAtLeast(8)
                 for (f in 0 until count) {
                     val canvas: Canvas = surface.lockCanvas(null)
                     canvas.drawColor(Color.BLACK)
                     val zoom = 1f + 0.06f * (f.toFloat() / count)
-                    val m = Matrix().apply { setScale(zoom, zoom, w / 2f, h / 2f) }
+                    val m = Matrix()
+                    m.setScale(zoom, zoom, w / 2f, h / 2f)
                     canvas.drawBitmap(bmp, m, null)
                     surface.unlockCanvasAndPost(canvas)
 
-                    val bufIdx = codec.dequeueInputBuffer(10_000)
-                    if (bufIdx >= 0) {
-                        codec.queueInputBuffer(bufIdx, 0, 0, pts, 0)
-                        pts += frameDur
-                    }
+                    // real-time pacing -> sahi duration
+                    Thread.sleep(frameMs)
                     drain(false)
                 }
                 onProgress(fi + 1, frames.size)
