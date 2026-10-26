@@ -252,6 +252,7 @@ class StoryActivity : AppCompatActivity() {
         sceneView.bg = s.bg
         sceneView.character = s.ch
         sceneView.line = s.line
+        sceneView.paletteIndex = i
         sceneView.charX = 0.2f
         sceneView.captionAlpha = 0
         sceneView.invalidate()

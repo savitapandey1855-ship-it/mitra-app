@@ -24,6 +24,7 @@ class SceneView @JvmOverloads constructor(
     var charX: Float = 0.5f
     var charScale: Float = 0.55f
     var captionAlpha: Int = 255
+    var paletteIndex: Int = 0
 
     /** 16:9 preview */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -42,7 +43,22 @@ class SceneView @JvmOverloads constructor(
         // background
         val b = bg
         if (b != null) canvas.drawBitmap(b, null, Rect(0, 0, width, height), paint)
-        else canvas.drawColor(0xFF0B1030.toInt())
+        else {
+            val pals = arrayOf(
+                intArrayOf(0xFF141E30.toInt(), 0xFF243B55.toInt()),
+                intArrayOf(0xFF2B1055.toInt(), 0xFF7597DE.toInt()),
+                intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt()),
+                intArrayOf(0xFF3A1C71.toInt(), 0xFFD76D77.toInt()),
+                intArrayOf(0xFF134E5E.toInt(), 0xFF71B280.toInt())
+            )
+            val pal = pals[Math.abs(paletteIndex) % pals.size]
+            val gp = Paint(Paint.ANTI_ALIAS_FLAG)
+            gp.shader = android.graphics.LinearGradient(
+                0f, 0f, width.toFloat(), height.toFloat(), pal[0], pal[1],
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), gp)
+        }
 
         // character
         val c = character

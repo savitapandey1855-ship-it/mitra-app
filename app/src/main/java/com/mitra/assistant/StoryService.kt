@@ -126,24 +126,52 @@ class StoryService : Service() {
         return null
     }
 
-    /** AI ne JSON nahi diya - plain text se scenes bana lo. */
+    /** AI ne JSON nahi diya - plain text / kachre se sirf narration lines nikaalo. */
     private fun fallbackScenes(raw: String, topic: String): List<Triple<String, String, String>> {
-        val lines = raw.split("\n", "।", ". ")
-            .map {
-                it.replace("*", " ").replace("#", " ").replace("`", " ")
-                    .replace("[", " ").replace("]", " ").replace("{", " ").replace("}", " ")
-                    .replace(Regex("^[\\s\\-\\d.\\)]+"), "").trim()
-            }
-            .filter { it.length > 12 }
-            .take(20)
-        if (lines.isEmpty()) return emptyList()
-        return lines.map {
+        val lines = ArrayList<String>()
+
+        // 1) "line" ki value dhoondho (quotes ho ya na ho)
+        val r1 = Regex("\"line\"\\s*[:=]\\s*\"([^\"]+)\"")
+        for (m in r1.findAll(raw)) lines.add(m.groupValues[1])
+        if (lines.isEmpty()) {
+            val r2 = Regex("(?i)line\\s*\"?\\s*[:=]\\s*\"?([^\",}\\]]+)")
+            for (m in r2.findAll(raw)) lines.add(m.groupValues[1])
+        }
+
+        // 2) warna line-by-line saaf karo
+        if (lines.isEmpty()) {
+            for (x in raw.split("\n", "।")) lines.add(x)
+        }
+
+        val clean = ArrayList<String>()
+        for (x in lines) {
+            val c = cleanLine(x)
+            if (c.length > 8) clean.add(c)
+            if (clean.size >= 20) break
+        }
+        if (clean.isEmpty()) return emptyList()
+        return clean.map {
             Triple(
-                "cartoon scene of $topic, colourful background, no text",
-                "cute cartoon character for $topic, plain white background, full body",
+                "cartoon scene of " + topic + ", colourful background, no text",
+                "cute cartoon character for " + topic + ", plain white background, full body",
                 it
             )
         }
+    }
+
+    /** JSON ke tukde (bg:, char:, quotes) hata ke sirf story line chhodo. */
+    private fun cleanLine(src: String): String {
+        var t = src
+        // pehle "line": ... wali value nikaalo
+        val m = Regex("(?i)\"?line\"?\\s*[:=]\\s*\"?([^\"]+)").find(t)
+        if (m != null) t = m.groupValues[1]
+        // baaki keys hatao
+        t = t.replace(Regex("(?i)\"?(bg|char|line|image|background|idx)\"?\\s*[:=]\\s*"), " ")
+        val junk = charArrayOf('"', '*', '#', '`', '[', ']', '{', '}', '\\')
+        for (j in junk) t = t.replace(j.toString(), " ")
+        t = t.replace(Regex("\\s+"), " ").trim()
+        t = t.trim(',', '.', ':', ';', ' ', '-')
+        return t
     }
 
     private fun parse(raw: String?): List<Triple<String, String, String>> {
@@ -158,8 +186,8 @@ class StoryService : Service() {
                 val o = a.optJSONObject(i) ?: continue
                 val bg = o.optString("bg", "").trim()
                 val ch = o.optString("char", "").trim()
-                val line = o.optString("line", "").trim()
-                if (bg.isBlank() && ch.isBlank()) continue
+                val line = cleanLine(o.optString("line", ""))
+                if (line.isBlank()) continue
                 out.add(
                     Triple(
                         bg.ifBlank { "colourful cartoon background" },
