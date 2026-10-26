@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v69
-          name: Bublu APK v69
-          body: "v69 - greeting no longer interrupts when you tap to speak; popup (display over other apps) permission is now required and enforced before starting."
+          tag_name: apk-v70
+          name: Bublu APK v70
+          body: "v70 - patience: Bublu never listens while it is speaking, waits 2.5s after replying, and gives a longer silence before deciding you are done."
           files: app/build/outputs/apk/debug/app-debug.apk

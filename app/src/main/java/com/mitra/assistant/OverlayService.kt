@@ -62,6 +62,7 @@ class OverlayService : Service() {
     private var player: android.media.MediaPlayer? = null
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
+    @Volatile private var speaking = false
     private var lastBatteryAlert = 0L
     private var lastBatteryWarn = 0L
     @Volatile private var hidden = false
@@ -455,7 +456,7 @@ class OverlayService : Service() {
                 if (peak > 2500) { heard = true; lastVoice = System.currentTimeMillis() }
                 if (peak > 0) main.post { try { wave.setLevel((peak / 7000f).coerceIn(0.2f, 1f)) } catch (e: Exception) {} }
                 for (i in 0 until n) { val s = buf[i].toInt(); out.write(s and 0xFF); out.write((s shr 8) and 0xFF) }
-                if (heard && System.currentTimeMillis() - lastVoice > 1500) break
+                if (heard && System.currentTimeMillis() - lastVoice > 1900) break
             }
             rec.stop()
         } catch (e: Exception) {} finally { try { rec.release() } catch (e: Exception) {} }
@@ -545,6 +546,7 @@ class OverlayService : Service() {
         if (!sp.getBoolean("tts_on", true)) return
         val clean = text.replace("\"", " ").take(400)
         if (clean.isBlank()) return
+        speaking = true
         val key = sp.getString("sarvam_key", "")?.trim() ?: ""
         if (key.isBlank()) { speakLocal(clean); return }
         Thread {
@@ -560,12 +562,15 @@ class OverlayService : Service() {
                         player = android.media.MediaPlayer().apply {
                             setDataSource(f.absolutePath)
                             setOnPreparedListener { start() }
-                            setOnCompletionListener { it.release(); if (player === it) player = null }
+                            setOnCompletionListener { it.release(); if (player === it) player = null; speaking = false }
+                            setOnErrorListener { mp, _, _ ->
+                                mp.release(); if (player === mp) player = null; speaking = false; true
+                            }
                             prepareAsync()
                         }
-                    } catch (e: Exception) {}
+                    } catch (e: Exception) { speaking = false }
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) { speaking = false }
         }.start()
     }
 
@@ -576,8 +581,12 @@ class OverlayService : Service() {
                 if (ttsReady && tts != null) {
                     tts?.setLanguage(java.util.Locale("en", "IN"))
                     tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bublu")
+                    val est = (text.length * 75L + 900L).coerceAtMost(25000L)
+                    main.postDelayed({ speaking = false }, est)
+                } else {
+                    speaking = false
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) { speaking = false }
         }
     }
 
@@ -953,6 +962,8 @@ class OverlayService : Service() {
 
     private fun beginListen() {
         if (listening || busy) return
+        // Jab tak Bublu bol raha hai, sunna shuru mat karo (apni hi awaaz na sune)
+        if (speaking) { main.postDelayed({ beginListen() }, 1200); return }
         val skey = getSharedPreferences("mitra", MODE_PRIVATE).getString("sarvam_key", "")?.trim() ?: ""
         if (skey.isNotBlank()) { listenSarvam(skey); return }
         if (recognizer == null) initRecognizer()
@@ -976,7 +987,8 @@ class OverlayService : Service() {
     }
 
     private fun afterListen() {
-        if (alwaysListen) main.postDelayed({ beginListen() }, 500) else hideWave()
+        // Thoda sabra - jawab bolne ke baad 2.5s ruk kar phir suno
+        if (alwaysListen) main.postDelayed({ beginListen() }, 2500) else hideWave()
     }
 
     private fun showWave() { try { wave.visibility = View.VISIBLE; wave.start() } catch (e: Exception) {} }
