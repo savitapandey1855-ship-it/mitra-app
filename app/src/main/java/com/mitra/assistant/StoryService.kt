@@ -129,7 +129,11 @@ class StoryService : Service() {
     /** AI ne JSON nahi diya - plain text se scenes bana lo. */
     private fun fallbackScenes(raw: String, topic: String): List<Triple<String, String, String>> {
         val lines = raw.split("\n", "।", ". ")
-            .map { it.replace(Regex("[*#`\[\]{}]"), " ").replace(Regex("^[\\s\\-\\d.\\)]+"), "").trim() }
+            .map {
+                it.replace("*", " ").replace("#", " ").replace("`", " ")
+                    .replace("[", " ").replace("]", " ").replace("{", " ").replace("}", " ")
+                    .replace(Regex("^[\\s\\-\\d.\\)]+"), "").trim()
+            }
             .filter { it.length > 12 }
             .take(20)
         if (lines.isEmpty()) return emptyList()
