@@ -124,7 +124,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasPhotosPerm(): Boolean = if (Build.VERSION.SDK_INT >= 33)
-        ContextCompat.checkSelfPermission(this, "android.permission.READ_MEDIA_IMAGES") == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(this, "android.permission.READ_MEDIA_IMAGES") == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, "android.permission.READ_MEDIA_VIDEO") == PackageManager.PERMISSION_GRANTED
     else
         ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
 
@@ -193,7 +194,10 @@ class MainActivity : AppCompatActivity() {
             6 -> openAccSettings()
             7 -> openNotifAccess()
             8 -> if (Build.VERSION.SDK_INT >= 33)
-                ActivityCompat.requestPermissions(this, arrayOf("android.permission.READ_MEDIA_IMAGES"), 77)
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf("android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO"), 77
+                )
             else ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 77)
         }
     }

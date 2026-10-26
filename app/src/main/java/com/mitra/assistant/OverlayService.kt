@@ -1310,10 +1310,26 @@ class OverlayService : Service() {
             guideStart(t); return
         }
 
+        // ---- Video create/edit + upload (natural language) ----
+        if (n.contains("video") &&
+            (n.contains("banao") || n.contains("banado") || n.contains("edit") || n.contains("upload") ||
+                n.contains("daalo") || n.contains("post") || n.contains("story") || n.contains("cartoon"))) {
+            val platform = when {
+                n.contains("youtube") -> "youtube"
+                n.contains("instagram") || n.contains("insta") || n.contains("reel") -> "instagram"
+                n.contains("facebook") || n.contains("fb") -> "facebook"
+                else -> null
+            }
+            if (n.contains("cartoon") || n.contains("story") || n.contains("kahani")) {
+                storyVideo(t, platform); return
+            }
+            autoEdit(t, platform); return
+        }
+
         // ---- Full auto edit (sab khud kare) ----
         if ((n.contains("auto") || n.contains("ready") || n.contains("poori") || n.contains("puri")) &&
             (n.contains("video") || n.contains("edit"))) {
-            autoEdit(t); return
+            autoEdit(t, null); return
         }
 
         // ---- Video edit (editor app install / open + guide) ----
@@ -2348,7 +2364,7 @@ class OverlayService : Service() {
     }
 
     // ---------- Full auto edit (title, filter, effects, bg, music, voiceover, export) ----------
-    private fun autoEdit(t: String) {
+    private fun autoEdit(t: String, platform: String? = null) {
         val a = MitraAccessibilityService.instance
         if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
         val wantVoice = t.contains("voice") || t.contains("awaaz") || t.contains("narration") || t.contains("bol")
@@ -2425,6 +2441,11 @@ class OverlayService : Service() {
                         12000
                     )
                 }
+                if (platform != null) {
+                    Thread.sleep(3000)
+                    main.post { setMood(R.drawable.char_think, "Ab $platform pe upload karta hoon...") }
+                    uploadTo(platform)
+                }
             } catch (e: Exception) {
                 main.post { setMood(R.drawable.char_sad, "Edit ke beech me dikkat aayi - 'guide karo' bolo") }
             }
@@ -2482,6 +2503,145 @@ class OverlayService : Service() {
         Thread.sleep(1400)
         a.tapAny("Export", "Save to device", "Done")
         Thread.sleep(2000)
+    }
+
+    // ---------- Cartoon story video ----------
+    private fun storyVideo(t: String, platform: String?) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        val topic = t.replace(
+            Regex("\\b(ek|video|banao|banado|cartoon|story|kahani|aur|pe|par|upload|karo|kar|do|youtube|instagram|insta|facebook|fb|reel|daalo|post|meri|mera)\\b"),
+            " "
+        ).replace(Regex("\\s+"), " ").trim().ifBlank { "a friendly robot" }
+
+        setMood(R.drawable.char_think, "Story likh raha hoon...")
+        Thread {
+            val raw = brainAnswer(
+                "Write a very short 3-scene cartoon story for kids about: $topic. " +
+                    "For each scene give an image prompt (max 8 words, cartoon style) and one narration line. " +
+                    "Reply ONLY as JSON: [{\"img\":\"...\",\"line\":\"...\"}]"
+            )
+            val scenes = parseScenes(raw)
+            if (scenes.isEmpty()) {
+                main.post { setMood(R.drawable.char_sad, "Story nahi ban payi - key check karo") }
+                return@Thread
+            }
+            var saved = 0
+            for (s in scenes) {
+                main.post { setMood(R.drawable.char_think, "Cartoon scene ${saved + 1} bana raha hoon...") }
+                val bmp = fetchPollinations(s.first + ", cartoon style, vibrant, no text")
+                if (bmp != null && saveBitmap(bmp)) saved++
+            }
+            if (saved == 0) {
+                main.post { setMood(R.drawable.char_sad, "Cartoon images nahi ban payi - internet dekho") }
+                return@Thread
+            }
+            main.post { setMood(R.drawable.char_happy, "$saved cartoon scenes ready! Ab CapCut me video banata hoon", 6000) }
+
+            a.openAppSmart("com.lemon.lvoverseas", "CapCut")
+            Thread.sleep(4500)
+            a.tapAny("New project", "New Project", "Create new project", "Start creating")
+            Thread.sleep(2700)
+            a.clickFirstTile()
+            Thread.sleep(700)
+            a.clickFirstTile()
+            Thread.sleep(700)
+            a.clickFirstTile()
+            Thread.sleep(1200)
+            a.tapAny("Add", "Select", "Next", "Done")
+            Thread.sleep(3000)
+            val lines = scenes.map { it.second }
+            main.post {
+                if (lines.isNotEmpty()) beginGuide(lines)
+                else setMood(R.drawable.char_happy, "Scenes CapCut me aa gaye - 'export' bolo")
+            }
+            if (platform != null) {
+                main.post { setMood(R.drawable.char_think, "Export karke $platform pe daalna hai - pehle export karo") }
+            }
+        }.start()
+    }
+
+    private fun parseScenes(raw: String?): List<Pair<String, String>> {
+        if (raw == null) return emptyList()
+        val s = raw.indexOf('[')
+        val e = raw.lastIndexOf(']')
+        if (s < 0 || e <= s) return emptyList()
+        return try {
+            val arr = org.json.JSONArray(raw.substring(s, e + 1))
+            val out = ArrayList<Pair<String, String>>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val img = o.optString("img", "").trim()
+                val line = o.optString("line", "").trim()
+                if (img.isNotBlank()) out.add(Pair(img, line))
+            }
+            out
+        } catch (ex: Exception) { emptyList() }
+    }
+
+    private fun fetchPollinations(prompt: String): android.graphics.Bitmap? {
+        return try {
+            val q = java.net.URLEncoder.encode(prompt, "UTF-8")
+            val conn = java.net.URL("https://image.pollinations.ai/prompt/$q?width=768&height=768&nologo=true")
+                .openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 60000
+            android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+        } catch (e: Exception) { null }
+    }
+
+    private fun saveBitmap(bmp: android.graphics.Bitmap): Boolean {
+        return try {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "bublu_story_${System.currentTimeMillis()}.png")
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                if (android.os.Build.VERSION.SDK_INT >= 29)
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/BubluStudio")
+            }
+            val uri = contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            uri?.let {
+                contentResolver.openOutputStream(it)?.use { os ->
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 95, os)
+                }
+                true
+            } ?: false
+        } catch (e: Exception) { false }
+    }
+
+    // ---------- Upload ----------
+    private fun uploadTo(platform: String) {
+        val a = MitraAccessibilityService.instance ?: return
+        try {
+            when (platform) {
+                "youtube" -> {
+                    a.openAppSmart("com.google.android.youtube", "YouTube")
+                    Thread.sleep(4200)
+                    if (!a.tapAny("Create", "+")) a.clickByDesc("Create")
+                    Thread.sleep(1600)
+                    a.tapAny("Upload a video", "Upload")
+                }
+                "instagram" -> {
+                    a.openAppSmart("com.instagram.android", "Instagram")
+                    Thread.sleep(4600)
+                    a.tapAny("Create", "+", "New post")
+                    Thread.sleep(1800)
+                    a.tapAny("Reel", "Post", "Video")
+                }
+                "facebook" -> {
+                    a.openAppSmart("com.facebook.katana", "Facebook")
+                    Thread.sleep(4600)
+                    a.tapAny("What's on your mind", "Create post", "Photo/video", "Photo")
+                }
+            }
+            Thread.sleep(2800)
+            val steps = makeSteps(platform, "upload the edited video with a good title and caption", a.readScreenText())
+            main.post {
+                if (steps.isEmpty()) setMood(R.drawable.char_happy, "$platform ka upload screen khul gaya - video chuno", 8000)
+                else beginGuide(steps)
+            }
+        } catch (e: Exception) {
+            main.post { setMood(R.drawable.char_sad, "$platform upload nahi khula") }
+        }
     }
 
     // ---------- Video editing ----------

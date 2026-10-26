@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v86
-          name: Bublu APK v86
-          body: "v86 - Bublu Studio: an in-app editor with video preview, text, objects, filters, effects, backgrounds, AI art from Pollinations, code-generated objects, sound, save and PNG export."
+          tag_name: apk-v87
+          name: Bublu APK v87
+          body: "v87 - natural language video commands: cartoon story videos (AI scenes + narration) and edit-then-upload to YouTube, Instagram or Facebook."
           files: app/build/outputs/apk/debug/app-debug.apk
