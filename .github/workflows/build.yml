@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v100
-          name: Bublu APK v100
-          body: "v100 - MP4 saving fixed on Android 9 and older (storage permission + safe fallback path); captions clean."
+          tag_name: apk-v101
+          name: Bublu APK v101
+          body: "v101 - MP4 encoder rewritten to the reliable YUV-buffer method that works on every phone; if it ever fails the exact reason is shown."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -498,11 +498,11 @@ class StoryActivity : AppCompatActivity() {
                 }
 
                 val out = java.io.File(cacheDir, "story_${System.currentTimeMillis()}.mp4")
-                val ok = Mp4Maker.encode(frames, 3.0f, out) { done, total ->
+                val res = Mp4Maker.encode(frames, 3.0f, out) { done, total ->
                     runOnUiThread { status.text = "MP4: $done/$total scenes" }
                 }
-                if (!ok || !out.exists()) {
-                    runOnUiThread { status.text = "MP4 nahi ban paya" }
+                if (!res.first || !out.exists()) {
+                    runOnUiThread { status.text = "MP4 nahi bana: " + res.second }
                     return@Thread
                 }
                 // Movies/BubluStudio me save karo
