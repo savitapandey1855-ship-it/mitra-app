@@ -69,6 +69,23 @@ class OverlayService : Service() {
     @Volatile private var hidden = false
     private var typeRunnable: Runnable? = null
     private lateinit var fx: FxView
+    private var lastScamAlert = 0L
+    private val scamReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
+            try {
+                if (System.currentTimeMillis() - lastScamAlert < 60000) return
+                lastScamAlert = System.currentTimeMillis()
+                val t = i?.getStringExtra("title") ?: ""
+                val b = i?.getStringExtra("text") ?: ""
+                setMood(
+                    R.drawable.char_sad,
+                    "⚠️ Scam lag raha hai: ${t.take(35)} - ${b.take(70)}. Link pe click mat karo!",
+                    9000
+                )
+            } catch (e: Exception) {}
+        }
+    }
+
     private val batteryReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
             try {
@@ -158,6 +175,7 @@ class OverlayService : Service() {
         scheduleTrick()
         scheduleWatch()
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
+        try { registerReceiver(scamReceiver, android.content.IntentFilter("com.mitra.assistant.SCAM")) } catch (e: Exception) {}
         try {
             tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
         } catch (e: Exception) {}
@@ -1189,11 +1207,17 @@ class OverlayService : Service() {
         // Quiz chal raha hai to jawab handle karo
         if (quizOn) { quizAnswer(t); return }
 
-        // Guide chal raha hai to next/band handle karo
+        // Guide chal raha hai to next/band/atka handle karo
         if (guideOn) {
             if (n.contains("band") || n.contains("stop") || n.contains("exit") || n.contains("chhodo")) {
                 guideOn = false
                 setMood(R.drawable.char_happy, "Guide band kar diya")
+                return
+            }
+            // Atak gaye? Thinking model se naya plan
+            if (n.contains("nahihu") || n.contains("kaamnahi") || n.contains("stuck") || n.contains("problem") ||
+                n.contains("nahiho") || n.contains("nhiho") || n.contains("atak") || n.contains("nahihua")) {
+                guideReplan()
                 return
             }
             if (n.contains("next") || n.contains("aage") || n.contains("agla") || n.contains("done") || n.contains("theek")) {
@@ -1256,32 +1280,17 @@ class OverlayService : Service() {
             return
         }
 
-        // ---- Guided mode ----
-        if (n.contains("guide") || n.contains("sikhao") || n.contains("sikha do") || n.contains("kaise karna")) {
-            val a = MitraAccessibilityService.instance
-            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
-            val txt = a.readScreenText()
-            val what = t.replace(
-                Regex("\\b(guide|karo|kar|do|sikhao|sikha|kaise|karna|hai|batao|mujhe|ko|please)\\b"), " "
-            ).replace(Regex("\\s+"), " ").trim()
-            setMood(R.drawable.char_think, "Thinking...")
-            Thread {
-                val prompt = "Phone screen content:\n${txt.take(900)}\n\n" +
-                    "The user wants to: ${if (what.length > 2) what else "use this screen"}. " +
-                    "Give exactly 4 very short steps (max 12 words each) as a JSON array of strings."
-                val steps = parseSteps(brainAnswer(prompt))
-                main.post {
-                    if (steps.isEmpty()) {
-                        setMood(R.drawable.char_sad, "Steps nahi ban paye")
-                        return@post
-                    }
-                    guideSteps = steps
-                    guideIdx = 0
-                    guideOn = true
-                    setMood(R.drawable.char_happy, "Step 1: ${steps[0]}\n\n\"next\" bolo aage ke liye", 12000)
-                }
-            }.start()
-            return
+        // ---- Guided mode (koi bhi app) ----
+        if (n.contains("guide") || n.contains("sikhao") || n.contains("sikhado") || n.contains("sikha do") ||
+            n.contains("kaise karna") || n.contains("kaise chalate") || n.contains("chalana") ||
+            n.contains("use karna")) {
+            guideStart(t); return
+        }
+
+        // ---- UPI (GPay / PhonePe / Paytm) - PIN aap daalo ----
+        if ((n.contains("gpay") || n.contains("phonepe") || n.contains("paytm") || n.contains("upi")) &&
+            (n.contains("bhejo") || n.contains("bhej") || n.contains("pay") || n.contains("send") || n.contains("transfer"))) {
+            upiPay(t); return
         }
 
         // ---- Quiz mode ----
@@ -2046,6 +2055,137 @@ class OverlayService : Service() {
     @Volatile private var guideOn = false
     private var guideSteps: List<String> = emptyList()
     private var guideIdx = 0
+    private var guideGoal = ""
+
+    private val knownApps = listOf(
+        "whatsapp" to "com.whatsapp",
+        "youtube" to "com.google.android.youtube",
+        "telegram" to "org.telegram.messenger",
+        "jiosaavn" to "com.jio.media.jiobeats",
+        "jio savan" to "com.jio.media.jiobeats",
+        "spotify" to "com.spotify.music",
+        "instagram" to "com.instagram.android",
+        "facebook" to "com.facebook.katana",
+        "gpay" to "com.google.android.apps.nbu.paisa.user",
+        "google pay" to "com.google.android.apps.nbu.paisa.user",
+        "phonepe" to "com.phonepe.app",
+        "paytm" to "net.one97.paytm",
+        "chrome" to "com.android.chrome",
+        "gmail" to "com.google.android.gm",
+        "camera" to "com.android.camera",
+        "gallery" to "com.google.android.apps.photos",
+        "play store" to "com.android.vending",
+        "settings" to "com.android.settings",
+        "calculator" to "com.google.android.calculator"
+    )
+
+    private fun guideStart(t: String) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        val appHit = knownApps.firstOrNull { t.contains(it.first) }
+        guideGoal = t.replace(
+            Regex("\\b(guide|karo|kar|do|sikhao|sikha|sikhado|kaise|chalate|chalana|use|karna|hai|batao|mujhe|ko|please|app|me|pe)\\b"),
+            " "
+        ).replace(Regex("\\s+"), " ").trim()
+        if (guideGoal.length < 3) guideGoal = "use this app"
+
+        if (appHit != null) {
+            setMood(R.drawable.char_think, "Opening ${appHit.first}...")
+            Thread {
+                a.openAppSmart(appHit.second, appHit.first)
+                Thread.sleep(3600)
+                val screen = a.readScreenText()
+                val steps = makeSteps(appHit.first, guideGoal, screen)
+                main.post {
+                    if (steps.isEmpty()) setMood(R.drawable.char_sad, "Steps nahi ban paye")
+                    else beginGuide(steps)
+                }
+            }.start()
+        } else {
+            setMood(R.drawable.char_think, "Thinking...")
+            Thread {
+                val screen = a.readScreenText()
+                val steps = makeSteps("this app", guideGoal, screen)
+                main.post {
+                    if (steps.isEmpty()) setMood(R.drawable.char_sad, "Steps nahi ban paye")
+                    else beginGuide(steps)
+                }
+            }.start()
+        }
+    }
+
+    private fun makeSteps(appName: String, goal: String, screen: String): List<String> {
+        val prompt = "App: $appName. Current screen text:\n${screen.take(800)}\n\n" +
+            "The user wants to: $goal. Give exactly 4 very short, practical steps " +
+            "(max 12 words each) in simple English/Hinglish, as a JSON array of strings."
+        return parseSteps(brainAnswer(prompt))
+    }
+
+    private fun beginGuide(steps: List<String>) {
+        guideSteps = steps
+        guideIdx = 0
+        guideOn = true
+        setMood(R.drawable.char_happy, "Step 1: ${steps[0]}\n\n\"next\" bolo aage ke liye", 13000)
+    }
+
+    /** User atak gaya - thinking model se naya plan. */
+    private fun guideReplan() {
+        setMood(R.drawable.char_think, "Thinking...")
+        Thread {
+            val a = MitraAccessibilityService.instance
+            val screen = a?.readScreenText() ?: ""
+            val prompt = "The user is stuck on this phone screen:\n${screen.take(800)}\n\n" +
+                "Their goal: $guideGoal. Give 3 short next steps to get unstuck, as a JSON array of strings."
+            val steps = parseSteps(brainAnswer(prompt))
+            main.post {
+                if (steps.isEmpty()) setMood(R.drawable.char_sad, "Samajh nahi paya - phir bolo")
+                else beginGuide(steps)
+            }
+        }.start()
+    }
+
+    // ---------- UPI (PIN aap daalo) ----------
+    private fun upiPay(t: String) {
+        val app = when {
+            t.contains("gpay") || t.contains("google pay") -> "gpay" to "com.google.android.apps.nbu.paisa.user"
+            t.contains("phonepe") -> "phonepe" to "com.phonepe.app"
+            else -> "paytm" to "net.one97.paytm"
+        }
+        val m = Regex("(.+?)\\s+ko\\s+(\\d+)").find(t)
+        val contact = m?.groupValues?.get(1)
+            ?.replace(Regex("\\b(upi|gpay|phonepe|paytm|google|pay|me|se|paise|rupaye|rupees|rs)\\b"), " ")
+            ?.replace(Regex("\\s+"), " ")?.trim() ?: ""
+        val amount = m?.groupValues?.get(2) ?: ""
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        if (contact.isBlank() || amount.isBlank()) {
+            setMood(R.drawable.char_sad, "Aise bolo: GPay me Rahul ko 200 bhejo", 6000)
+            return
+        }
+        setMood(R.drawable.char_think, "Opening ${app.first}...")
+        Thread {
+            a.openAppSmart(app.second, app.first)
+            Thread.sleep(4500)
+            var found = a.clickByText(contact)
+            if (!found) found = a.clickByDesc(contact)
+            if (!found) {
+                if (a.clickByDesc("Search") || a.clickByText("Search")) Thread.sleep(1300)
+                a.typeInto(contact)
+                Thread.sleep(2200)
+                found = a.clickByText(contact)
+            }
+            Thread.sleep(2200)
+            val typed = a.typeInto(amount)
+            main.post {
+                setMood(
+                    if (typed) R.drawable.char_happy else R.drawable.char_sad,
+                    if (typed) "$contact ko ₹$amount bhar diya. Ab PIN aap daalo 🔒"
+                    else "$contact nahi mila - manually karo",
+                    9000
+                )
+            }
+        }.start()
+    }
 
     private fun parseSteps(raw: String?): List<String> {
         if (raw == null) return emptyList()

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v79
-          name: Bublu APK v79
-          body: "v79 - multi-app chains (screen to Notes, screen to ChatGPT, ChatGPT answer to Notes) and Guided mode with step-by-step instructions."
+          tag_name: apk-v80
+          name: Bublu APK v80
+          body: "v80 - guided mode teaches any app (WhatsApp, YouTube, Telegram, JioSaavn...) and re-plans with the thinking model when you get stuck; scam alert from notifications; UPI fill up to the PIN."
           files: app/build/outputs/apk/debug/app-debug.apk
