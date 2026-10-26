@@ -45,15 +45,17 @@ class StoryService : Service() {
 
                 // 1) seedha plain lines maango (JSON nahi - isi se ek line ka bug aata tha)
                 val plainPrompt = "Ek nayi cartoon kahani sunao bacchon ke liye. Topic: " + topic + ". " +
-                        "Bilkul " + sceneCount + " chhoti lines likho, ek ke neeche ek, " +
-                        "HINDI me sirf Devanagari script (koi English letter nahi), har line 8-14 shabd, " +
-                        "kahani ke kram me. Sirf lines likho - koi number, JSON, bg, char, explanation nahi."
+                        "Bilkul " + sceneCount + " scenes likho, ek ke neeche ek, is EXACT format me:\n" +
+                        "<kahani ki line HINDI me, Devanagari, 8-14 shabd> | <english background prompt, 5-8 words, no people> | <pose: standing/waving/running/sitting/jumping>\n" +
+                        "Example: जंगल में शेर दहाड़ता है | dark jungle with tall trees at night | standing\n" +
+                        "Sirf ye lines likho - koi number, JSON, heading, explanation nahi."
                 var lines = parsePlain(brain(plainPrompt))
 
                 // 2) kam lines aayi to dobara maango
                 if (lines.size < 4) {
-                    val p2 = "Topic: " + topic + ". Likho " + sceneCount + " alag-alag Hindi vaakya (Devanagari), " +
-                            "har vaakya nayi line me, kahani ke kram me. Sirf vaakya, aur kuch nahi."
+                    val p2 = "Topic: " + topic + ". Likho " + sceneCount + " scenes is format me:\n" +
+                            "Hindi line (Devanagari) | english background prompt | pose\n" +
+                            "Har scene nayi line me, kahani ke kram me. Aur kuch nahi likho."
                     lines = parsePlain(brain(p2))
                 }
 
@@ -78,61 +80,102 @@ class StoryService : Service() {
                     return@Thread
                 }
 
+                // har scene ka apna bg prompt + pose (story ke hisaab se)
                 val scenes = ArrayList<Triple<String, String, String>>()
                 for (ln in lines) {
+                    val parts = ln.split("|")
+                    val text = parts[0].trim()
+                    val bgPrompt = if (parts.size > 1) parts[1].trim() else ""
+                    val pose = if (parts.size > 2) parts[2].trim() else "standing"
+                    if (text.isBlank()) continue
                     scenes.add(
                         Triple(
-                            "cartoon scene of " + topic + ", colourful background, no text",
-                            "cute cartoon character for " + topic + ", plain white background, full body",
-                            ln
+                            bgPrompt.ifBlank { "cartoon scene of " + topic + ", colourful, no text" },
+                            pose.ifBlank { "standing" },
+                            text
                         )
                     )
                 }
+                if (scenes.isEmpty()) {
+                    prefs.edit().putString("story_progress", "FAIL: scenes nahi bane").apply()
+                    stopSelf()
+                    return@Thread
+                }
 
                 val dir = File(cacheDir, "story").apply { mkdirs() }
-                var charPath = ""
-                var bgPath = ""
-                if (mode == "3d") {
-                    try {
-                        prefs.edit().putString("story_progress", "3D character bana raha hoon...").apply()
-                        val chBmp = ImageGen.gen(this, "cute 3D Pixar style cartoon character of " + topic + ", full body, different pose, plain white background, studio lighting, high detail", 768, 768)
-                        if (chBmp != null) {
-                            val f = java.io.File(cacheDir, "char3d.png")
-                            val fos = java.io.FileOutputStream(f)
-                            chBmp.compress(Bitmap.CompressFormat.PNG, 95, fos)
-                            fos.close()
-                            charPath = f.absolutePath
-                        }
-                        prefs.edit().putString("story_progress", "Background ke liye 45s wait (free limit)...").apply()
-                        Thread.sleep(45000)
-                        prefs.edit().putString("story_progress", "3D background bana raha hoon...").apply()
-                        val bgBmp = ImageGen.gen(this, "3D render cartoon background of " + topic + ", cinematic depth of field, soft light, no text", 768, 768)
+
+                // Images sirf tab jab Cloudflare key ho (warna gradient - koi wait nahi)
+                val useImages = ImageGen.hasCloudflare(this)
+                val bgPaths = ArrayList<String>()
+                val chPaths = ArrayList<String>()
+                if (useImages) {
+                    for ((i, sc) in scenes.withIndex()) {
+                        prefs.edit().putString("story_progress", "Image ${i + 1}/${scenes.size} (Cloudflare)...").apply()
+                        updateNotif("Image ${i + 1}/${scenes.size}")
+
+                        val bgBmp = ImageGen.gen(
+                            this,
+                            sc.first + ", 3D render cartoon background, cinematic depth, no text, no people",
+                            768, 768
+                        )
+                        val bgFile = File(dir, "bg_$i.png")
                         if (bgBmp != null) {
-                            val f2 = java.io.File(cacheDir, "bg3d.png")
-                            val fos2 = java.io.FileOutputStream(f2)
-                            bgBmp.compress(Bitmap.CompressFormat.PNG, 95, fos2)
-                            fos2.close()
-                            bgPath = f2.absolutePath
+                            val fos = FileOutputStream(bgFile)
+                            bgBmp.compress(Bitmap.CompressFormat.PNG, 92, fos)
+                            fos.close()
+                            bgPaths.add(bgFile.absolutePath)
+                        } else {
+                            bgPaths.add("")
                         }
-                    } catch (e: Exception) {}
+
+                        val poseWord = if (sc.second.isBlank()) "standing" else sc.second
+                        val chBmp = ImageGen.gen(
+                            this,
+                            "cute 3D Pixar style cartoon character for this story: " + topic +
+                                ", " + poseWord + " pose, full body, plain white background, studio lighting",
+                            768, 768
+                        )
+                        val chFile = File(dir, "ch_$i.png")
+                        if (chBmp != null) {
+                            val fos2 = FileOutputStream(chFile)
+                            chBmp.compress(Bitmap.CompressFormat.PNG, 92, fos2)
+                            fos2.close()
+                            chPaths.add(chFile.absolutePath)
+                        } else {
+                            chPaths.add("")
+                        }
+                    }
+                    if (bgPaths.all { it.isBlank() }) {
+                        prefs.edit().putString(
+                            "story_progress",
+                            "Image nahi bani - " + ImageGen.lastError
+                        ).apply()
+                    }
+                } else {
+                    prefs.edit().putString(
+                        "story_progress",
+                        "Images ke liye Cloudflare key daalo (admin panel). Abhi gradient se bana raha hoon..."
+                    ).apply()
                 }
 
                 val arr = JSONArray()
-                for ((i, s) in scenes.withIndex()) {
-                    prefs.edit().putString("story_progress", "Scene ${i + 1}/${scenes.size} images...").apply()
-                    updateNotif("Scene ${i + 1}/${scenes.size} bana raha hoon...")
+                for ((i, sc) in scenes.withIndex()) {
+                    prefs.edit().putString("story_progress", "Scene ${i + 1}/${scenes.size}").apply()
 
-                    val bg: Bitmap? = if (bgPath.isNotBlank()) android.graphics.BitmapFactory.decodeFile(bgPath) else null
-                    val ch: Bitmap? = if (charPath.isNotBlank()) android.graphics.BitmapFactory.decodeFile(charPath) else null
+                    val bP = if (i < bgPaths.size) bgPaths[i] else ""
+                    val cP = if (i < chPaths.size) chPaths[i] else ""
+
+                    val bg: Bitmap? = if (bP.isNotBlank()) android.graphics.BitmapFactory.decodeFile(bP) else null
+                    val ch: Bitmap? = if (cP.isNotBlank()) android.graphics.BitmapFactory.decodeFile(cP) else null
 
                     arr.put(
                         JSONObject()
-                            .put("bg", bgPath)
-                            .put("ch", charPath)
-                            .put("line", s.third)
+                            .put("bg", bP)
+                            .put("ch", cP)
+                            .put("line", sc.third)
                     )
 
-                    saveFrame(bg, ch, s.third, i)
+                    saveFrame(bg, ch, sc.third, i)
                 }
                 prefs.edit()
                     .putString("story_json", arr.toString())

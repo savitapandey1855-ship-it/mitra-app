@@ -22,6 +22,16 @@ object ImageGen {
     private const val DEFAULT_CF_ACCOUNT = "b3b1b21be5efcfa358164ff8c7bccba2"
 
 
+    @Volatile var lastProvider: String = ""
+    @Volatile var lastError: String = ""
+
+    /** Cloudflare key lagi hai ya nahi. */
+    fun hasCloudflare(ctx: Context): Boolean {
+        val prefs = ctx.getSharedPreferences("mitra", Context.MODE_PRIVATE)
+        val tok = prefs.getString("cf_token", "") ?: ""
+        return tok.isNotBlank()
+    }
+
     fun gen(ctx: Context, prompt: String, w: Int = 768, h: Int = 768): Bitmap? {
         val prefs = ctx.getSharedPreferences("mitra", Context.MODE_PRIVATE)
         // Account ID default (secret nahi hai - token hi secret hota hai)
@@ -29,10 +39,14 @@ object ImageGen {
         val tok = prefs.getString("cf_token", "") ?: ""
 
         if (acc.isNotBlank() && tok.isNotBlank()) {
-            cloudflare(acc, tok, prompt)?.let { return it }
+            val cf = cloudflare(acc, tok, prompt)
+            if (cf != null) { lastProvider = "cloudflare"; return cf }
         }
-        pollinations(prompt, w, h)?.let { return it }
-        horde(prompt, w, h)?.let { return it }
+        val po = pollinations(prompt, w, h)
+        if (po != null) { lastProvider = "pollinations"; return po }
+        val ho = horde(prompt, w, h)
+        if (ho != null) { lastProvider = "horde"; return ho }
+        lastProvider = "none"
         return null
     }
 
@@ -62,9 +76,15 @@ object ImageGen {
             writer.flush()
             writer.close()
 
-            if (c.responseCode !in 200..299) return null
+            if (c.responseCode !in 200..299) {
+                lastError = "Cloudflare HTTP " + c.responseCode
+                return null
+            }
             val text = c.inputStream.bufferedReader().readText()
-            val b64 = JSONObject(text).optJSONObject("result")?.optString("image") ?: return null
+            val b64 = JSONObject(text).optJSONObject("result")?.optString("image") ?: run {
+                lastError = "Cloudflare: " + text.take(120)
+                return null
+            }
             val bytes = Base64.decode(b64, Base64.DEFAULT)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         } catch (e: Exception) { null }

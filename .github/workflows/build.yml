@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v105
-          name: Bublu APK v105
-          body: "v105 - say or tap for a curved input box at the bottom with blue lights circling its border, an x to close, and it slides up with the keyboard."
+          tag_name: apk-v106
+          name: Bublu APK v106
+          body: "v106 - every scene now gets its own background and character pose from the story; no more 45s wait (images only with Cloudflare, otherwise instant gradient); exact Cloudflare error is shown."
           files: app/build/outputs/apk/debug/app-debug.apk
