@@ -65,7 +65,7 @@ object Mp4Maker {
                         }
                     } else if (idx >= 0) {
                         val buf = codec!!.getOutputBuffer(idx) ?: continue
-                        if (buf.position() > 0 || buf.size() > 0) {
+                        if (status[0].size > 0) {
                             if (status[0].flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
                                 status[0].size = 0
                             }
