@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B1030"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bublu Studio"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:background="#000000">
+
+        <VideoView
+            android:id="@+id/preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.mitra.assistant.EditCanvas
+            android:id="@+id/canvas"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnVideo"
+                style="@style/StudioBtn"
+                android:text="Video" />
+
+            <Button
+                android:id="@+id/btnText"
+                style="@style/StudioBtn"
+                android:text="Text" />
+
+            <Button
+                android:id="@+id/btnShape"
+                style="@style/StudioBtn"
+                android:text="Object" />
+
+            <Button
+                android:id="@+id/btnFilter"
+                style="@style/StudioBtn"
+                android:text="Filter" />
+
+            <Button
+                android:id="@+id/btnEffect"
+                style="@style/StudioBtn"
+                android:text="Effect" />
+
+            <Button
+                android:id="@+id/btnBg"
+                style="@style/StudioBtn"
+                android:text="BG" />
+
+            <Button
+                android:id="@+id/btnAI"
+                style="@style/StudioBtn"
+                android:text="AI art" />
+
+            <Button
+                android:id="@+id/btnCode"
+                style="@style/StudioBtn"
+                android:text="Code" />
+
+            <Button
+                android:id="@+id/btnSound"
+                style="@style/StudioBtn"
+                android:text="Sound" />
+
+            <Button
+                android:id="@+id/btnUndo"
+                style="@style/StudioBtn"
+                android:text="Undo" />
+
+            <Button
+                android:id="@+id/btnSave"
+                style="@style/StudioBtn"
+                android:text="Save" />
+
+            <Button
+                android:id="@+id/btnExport"
+                style="@style/StudioBtn"
+                android:text="Export" />
+        </LinearLayout>
+    </HorizontalScrollView>
+</LinearLayout>

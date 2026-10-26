@@ -46,6 +46,12 @@
             android:exported="false"
             android:label="Bublu Notes" />
 
+        <activity
+            android:name=".EditorActivity"
+            android:exported="false"
+            android:label="Bublu Studio"
+            android:theme="@style/Theme.Mitra" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"

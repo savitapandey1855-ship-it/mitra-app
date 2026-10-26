@@ -576,6 +576,7 @@ class MainActivity : AppCompatActivity() {
             "Notification access (important groups)",
             "Autostart (background)",
             "Background & popup permissions",
+            "Bublu Studio (video editor)",
             "Voice",
             "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
@@ -592,14 +593,15 @@ class MainActivity : AppCompatActivity() {
                 2 -> openNotifAccess()
                 3 -> openAutostart()
                 4 -> backgroundDialog()
-                5 -> pickVoice()
-                6 -> toggleSpeak()
-                7 -> myDetailsDialog()
-                8 -> testAi()
-                9 -> addAliasDialog()
-                10 -> addGroupDialog()
-                11 -> toggleFestival()
-                12 -> showDiagnose()
+                5 -> startActivity(Intent(this, EditorActivity::class.java))
+                6 -> pickVoice()
+                7 -> toggleSpeak()
+                8 -> myDetailsDialog()
+                9 -> testAi()
+                10 -> addAliasDialog()
+                11 -> addGroupDialog()
+                12 -> toggleFestival()
+                13 -> showDiagnose()
             }
         }.show()
     }
