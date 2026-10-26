@@ -1310,6 +1310,12 @@ class OverlayService : Service() {
             guideStart(t); return
         }
 
+        // ---- Full auto edit (sab khud kare) ----
+        if ((n.contains("auto") || n.contains("ready") || n.contains("poori") || n.contains("puri")) &&
+            (n.contains("video") || n.contains("edit"))) {
+            autoEdit(t); return
+        }
+
         // ---- Video edit (editor app install / open + guide) ----
         if (n.contains("video") && (n.contains("edit") || n.contains("editing"))) {
             videoEdit(t); return
@@ -2339,6 +2345,143 @@ class OverlayService : Service() {
                 else setMood(R.drawable.char_sad, "Export nahi mila - khud Export dabao", 6000)
             }
         }.start()
+    }
+
+    // ---------- Full auto edit (title, filter, effects, bg, music, voiceover, export) ----------
+    private fun autoEdit(t: String) {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        val wantVoice = t.contains("voice") || t.contains("awaaz") || t.contains("narration") || t.contains("bol")
+        val topic = t.replace(
+            Regex("\\b(video|edit|kardo|kar|do|auto|poori|puri|ready|banao|bana|meri|mera|is|ko|ye|please|voice|awaaz|narration|bol|ke|ka|ki|se)\\b"),
+            " "
+        ).replace(Regex("\\s+"), " ").trim().ifBlank { "my video" }
+
+        fun st(s: String) = main.post { setMood(R.drawable.char_think, s) }
+
+        setMood(R.drawable.char_think, "Opening CapCut...")
+        Thread {
+            try {
+                if (!a.openAppSmart("com.lemon.lvoverseas", "CapCut")) {
+                    main.post { setMood(R.drawable.char_sad, "CapCut nahi hai - 'CapCut download karo' bolo") }
+                    return@Thread
+                }
+                Thread.sleep(4500)
+                a.tapAny("New project", "New Project", "Create new project", "Start creating")
+                Thread.sleep(2700)
+                if (!a.clickFirstTile()) {
+                    main.post { setMood(R.drawable.char_sad, "Video nahi mila - gallery me video rakho") }
+                    return@Thread
+                }
+                Thread.sleep(1500)
+                a.tapAny("Add", "Select", "Next", "Done")
+                Thread.sleep(3200)
+
+                st("Filter lagaa raha hoon...")
+                ccFilter()
+                Thread.sleep(1200)
+
+                st("Effects...")
+                if (a.tapAny("Effects", "Effect")) {
+                    Thread.sleep(1500)
+                    a.tapAny("Basic", "Trending", "Retro")
+                    Thread.sleep(1200)
+                    a.clickFirstTile()
+                    Thread.sleep(1000)
+                    a.tapAny("✓", "Apply", "Done")
+                }
+                Thread.sleep(1200)
+
+                st("Title add...")
+                val title = (brainAnswer("Give ONE short catchy video title (max 6 words) for: $topic. Reply with only the title.") ?: topic).trim()
+                ccAddTextSync(title)
+                Thread.sleep(1200)
+
+                st("Background/canvas...")
+                if (a.tapAny("Canvas", "Background")) {
+                    Thread.sleep(1500)
+                    a.tapAny("Colour", "Color", "Solid")
+                    Thread.sleep(1000)
+                    a.tapAny("✓", "Apply", "Done")
+                }
+                Thread.sleep(1200)
+
+                st("Music...")
+                ccMusic()
+                Thread.sleep(1500)
+
+                if (wantVoice) {
+                    st("Voiceover record kar raha hoon...")
+                    ccVoiceoverSync(topic)
+                    Thread.sleep(1500)
+                }
+
+                st("Export 1080p...")
+                ccExportSync()
+                main.post {
+                    setMood(
+                        R.drawable.char_laugh,
+                        "Video ready! Title, filter, effects, bg, music" + (if (wantVoice) ", voiceover" else "") + " lag gaya 🎬",
+                        12000
+                    )
+                }
+            } catch (e: Exception) {
+                main.post { setMood(R.drawable.char_sad, "Edit ke beech me dikkat aayi - 'guide karo' bolo") }
+            }
+        }.start()
+    }
+
+    private fun ccAddTextSync(text: String) {
+        val a = MitraAccessibilityService.instance ?: return
+        a.tapAny("Text", "Texts")
+        Thread.sleep(1400)
+        a.tapAny("Add text", "Add Text", "Default text")
+        Thread.sleep(1500)
+        a.typeInto(text)
+        Thread.sleep(900)
+        a.tapAny("✓", "Done", "Apply")
+    }
+
+    /** CapCut voiceover: record khol ke Bublu khud narration bolta hai. */
+    private fun ccVoiceoverSync(topic: String) {
+        val a = MitraAccessibilityService.instance ?: return
+        val narration = (brainAnswer(
+            "Write a short friendly voiceover script (max 25 words) for a video about: $topic. Reply with only the script."
+        ) ?: "Yeh video $topic ke baare me hai. Umeed hai aapko pasand aayega.").trim()
+
+        var ok = a.tapAny("Audio", "Sounds")
+        Thread.sleep(1600)
+        ok = a.tapAny("Voiceover", "Voice over", "Record") || ok
+        Thread.sleep(1800)
+        a.tapAny("Record", "Start", "Record voiceover")
+        Thread.sleep(1200)
+
+        // Bublu khud bolta hai - CapCut ka mic use sun lega
+        val wait = sayForRecording(narration)
+        Thread.sleep(wait)
+        a.tapAny("Stop", "✓", "Done", "Finish")
+        Thread.sleep(1000)
+    }
+
+    /** Phone TTS se bol ke duration batao (recording ke liye). */
+    private fun sayForRecording(text: String): Long {
+        try {
+            if (ttsReady && tts != null) {
+                tts?.setLanguage(java.util.Locale("en", "IN"))
+                tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bublu")
+            }
+        } catch (e: Exception) {}
+        return (text.length * 85L + 3500L).coerceAtMost(35000L)
+    }
+
+    private fun ccExportSync() {
+        val a = MitraAccessibilityService.instance ?: return
+        a.tapAny("Export", "Save", "Share")
+        Thread.sleep(2200)
+        a.tapAny("1080p", "1080P", "Full HD")
+        Thread.sleep(1400)
+        a.tapAny("Export", "Save to device", "Done")
+        Thread.sleep(2000)
     }
 
     // ---------- Video editing ----------
