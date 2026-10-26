@@ -171,6 +171,27 @@ class StoryService : Service() {
         return null
     }
 
+    /** JSON array (strings ya objects) se lines nikaalo. */
+    private fun parseLines(raw: String?): List<String> {
+        if (raw == null) return ArrayList<String>()
+        val out = ArrayList<String>()
+        val s = raw.indexOf('[')
+        val e = raw.lastIndexOf(']')
+        if (s >= 0 && e > s) {
+            try {
+                val a = JSONArray(raw.substring(s, e + 1))
+                for (i in 0 until a.length()) {
+                    val v = a.opt(i)
+                    if (v is String) out.add(cleanLine(v))
+                    else if (v is JSONObject) out.add(cleanLine(v.optString("line", "")))
+                }
+            } catch (ex: Exception) {}
+        }
+        val clean = ArrayList<String>()
+        for (x in out) if (x.length > 8) clean.add(x)
+        return clean
+    }
+
     /** Plain text (numbered lines bhi) se saaf Hindi lines nikaalo. */
     private fun parsePlain(raw: String?): List<String> {
         if (raw == null) return ArrayList<String>()
@@ -180,7 +201,7 @@ class StoryService : Service() {
             // numbering / bullets hatao: "1.", "1)", "-", "*", "•"
             t = t.replace(Regex("^[\\s\\-\\*\\u2022]+"), "")
             t = t.replace(Regex("^\\d+\\s*[\\.\\)\\-:]\\s*"), "")
-            t = t.replace(Regex("^[\\"']+|[\\"']+$"), "")
+            t = t.replace(Regex("""^["']+|["']+$"""), "")
             if (t.contains("{") || t.contains("}") || t.contains("\"bg\"") || t.contains("\"char\"")) continue
             if (t.startsWith("Scene") || t.startsWith("Here")) continue
             val c = cleanLine(t)
