@@ -24,17 +24,43 @@ class SceneView @JvmOverloads constructor(
     var charX: Float = 0.5f
     var charScale: Float = 0.55f
     var captionAlpha: Int = 255
+    var paletteIndex: Int = 0
+
+    private val palettes = arrayOf(
+        intArrayOf(0xFF141E30.toInt(), 0xFF243B55.toInt()),
+        intArrayOf(0xFF2B1055.toInt(), 0xFF7597DE.toInt()),
+        intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt()),
+        intArrayOf(0xFF3A1C71.toInt(), 0xFFD76D77.toInt()),
+        intArrayOf(0xFF134E5E.toInt(), 0xFF71B280.toInt())
+    )
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+    /** 16:9 rakho (reels/shorts nahi, normal video). */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = MeasureSpec.getSize(widthMeasureSpec)
+        val h = MeasureSpec.getSize(heightMeasureSpec)
+        val target = (w * 9f / 16f).toInt()
+        setMeasuredDimension(w, if (target <= h) target else h)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // background
+        // background (gradient)
         val b = bg
-        if (b != null) canvas.drawBitmap(b, null, Rect(0, 0, width, height), paint)
-        else canvas.drawColor(0xFF0B1030.toInt())
+        if (b != null) {
+            canvas.drawBitmap(b, null, Rect(0, 0, width, height), paint)
+        } else {
+            val pal = palettes[paletteIndex % palettes.size]
+            val g = Paint(Paint.ANTI_ALIAS_FLAG)
+            g.shader = android.graphics.LinearGradient(
+                0f, 0f, width.toFloat(), height.toFloat(), pal[0], pal[1],
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), g)
+        }
 
         // character
         val c = character

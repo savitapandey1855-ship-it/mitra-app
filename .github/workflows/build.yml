@@ -27,7 +27,7 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        uses: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v95
-          name: Bublu APK v95
-          body: "v95 - story generation no longer fails: strict-JSON retry plus a plain-text fallback, real error shown in status; Studio layouts rebuilt mobile-friendly with bigger buttons in two rows."
+          tag_name: apk-v96
+          name: Bublu APK v96
+          body: "v96 - story videos are now 16:9, no Pollinations images (fast and never rate-limited), clean Hindi narration lines only and stylish captions with no JSON junk."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -144,12 +144,9 @@ class StoryActivity : AppCompatActivity() {
             val out = ArrayList<Scene>()
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
-                val bgP = o.optString("bg", "")
-                val chP = o.optString("ch", "")
                 val line = o.optString("line", "")
-                val bg = if (bgP.isNotBlank()) BitmapFactory.decodeFile(bgP) else null
-                val ch = if (chP.isNotBlank()) BitmapFactory.decodeFile(chP) else null
-                out.add(Scene("", "", line, bg, ch))
+                if (line.isBlank()) continue
+                out.add(Scene("", "", line, null, null))
             }
             scenes.clear()
             scenes.addAll(out)
@@ -252,6 +249,7 @@ class StoryActivity : AppCompatActivity() {
         sceneView.bg = s.bg
         sceneView.character = s.ch
         sceneView.line = s.line
+        sceneView.paletteIndex = i
         sceneView.charX = 0.2f
         sceneView.captionAlpha = 0
         sceneView.invalidate()
@@ -366,22 +364,11 @@ class StoryActivity : AppCompatActivity() {
         status.text = "Frames save kar raha hoon..."
         Thread {
             var saved = 0
-            for (s in scenes) {
+            for ((i, s) in scenes.withIndex()) {
                 try {
-                    val w = 1080
-                    val h = 1920
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val c = Canvas(bmp)
-                    s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
-                        ?: c.drawColor(0xFF0B1030.toInt())
-                    s.ch?.let { ch ->
-                        val th = h * 0.55f
-                        val tw = th * (ch.width.toFloat() / ch.height.toFloat())
-                        val left = (w - tw) / 2f
-                        c.drawBitmap(ch, null, android.graphics.RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
-                    }
+                    val bmp = buildFrame(s.line, i)
                     val values = ContentValues().apply {
-                        put(MediaStore.Images.Media.DISPLAY_NAME, "story_${System.currentTimeMillis()}_$saved.png")
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "story_${System.currentTimeMillis()}_$i.png")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                         if (Build.VERSION.SDK_INT >= 29)
                             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/BubluStudio")
@@ -399,7 +386,57 @@ class StoryActivity : AppCompatActivity() {
         }.start()
     }
 
-    /** Scenes -> MP4 video file (Movies/BubluStudio). */
+    /** 16:9 frame - gradient + stylish caption (sirf story line). */
+    private fun buildFrame(line: String, index: Int): Bitmap {
+        val w = 1280
+        val h = 720
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val palettes = arrayOf(
+            intArrayOf(0xFF141E30.toInt(), 0xFF243B55.toInt()),
+            intArrayOf(0xFF2B1055.toInt(), 0xFF7597DE.toInt()),
+            intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt()),
+            intArrayOf(0xFF3A1C71.toInt(), 0xFFD76D77.toInt()),
+            intArrayOf(0xFF134E5E.toInt(), 0xFF71B280.toInt())
+        )
+        val pal = palettes[index % palettes.size]
+        val bgP = android.graphics.Paint()
+        bgP.shader = android.graphics.LinearGradient(
+            0f, 0f, w.toFloat(), h.toFloat(), pal[0], pal[1],
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgP)
+
+        val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        tp.color = android.graphics.Color.WHITE
+        tp.textSize = h * 0.075f
+        tp.textAlign = android.graphics.Paint.Align.CENTER
+        tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        tp.setShadowLayer(12f, 0f, 5f, 0xFF000000.toInt())
+
+        val maxW = w * 0.84f
+        val rows = ArrayList<String>()
+        var curS = ""
+        for (wd in line.split(" ")) {
+            val test = if (curS.isEmpty()) wd else "$curS $wd"
+            if (tp.measureText(test) > maxW) { rows.add(curS); curS = wd } else curS = test
+        }
+        if (curS.isNotEmpty()) rows.add(curS)
+        val lineH = tp.textSize * 1.35f
+        val baseY = h * 0.55f + (rows.size - 1) * lineH / 2f
+        val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        barP.color = 0x66000000
+        val top = baseY - (rows.size - 1) * lineH - tp.textSize
+        c.drawRoundRect(android.graphics.RectF(w * 0.06f, top, w * 0.94f, baseY + tp.textSize * 0.6f), 28f, 28f, barP)
+        val accP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        accP.color = 0xFF22D3EE.toInt()
+        c.drawRoundRect(android.graphics.RectF(w * 0.06f, top, w * 0.075f, baseY + tp.textSize * 0.6f), 12f, 12f, accP)
+        val startY = baseY - (rows.size - 1) * lineH
+        for ((ri, rw) in rows.withIndex()) c.drawText(rw, w / 2f, startY + ri * lineH, tp)
+        return bmp
+    }
+
+    /** Scenes -> MP4 (1280x720, 16:9). */
     private fun makeMp4() {
         if (scenes.isEmpty()) {
             Toast.makeText(this, "Pehle story banao", Toast.LENGTH_SHORT).show()
@@ -409,46 +446,7 @@ class StoryActivity : AppCompatActivity() {
         Thread {
             try {
                 val frames = ArrayList<Bitmap>()
-                for (s in scenes) {
-                    val w = 720
-                    val h = 1280
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val c = Canvas(bmp)
-                    s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
-                        ?: c.drawColor(0xFF0B1030.toInt())
-                    s.ch?.let { ch ->
-                        val th = h * 0.55f
-                        val tw = th * (ch.width.toFloat() / ch.height.toFloat())
-                        val left = (w - tw) / 2f
-                        c.drawBitmap(ch, null, android.graphics.RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
-                    }
-                    if (s.line.isNotBlank()) {
-                        val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-                        tp.color = android.graphics.Color.WHITE
-                        tp.textSize = h * 0.045f
-                        tp.textAlign = android.graphics.Paint.Align.CENTER
-                        tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
-                        tp.setShadowLayer(10f, 0f, 4f, 0xFF000000.toInt())
-                        val maxW = w * 0.82f
-                        val rows = ArrayList<String>()
-                        var curS = ""
-                        for (wd in s.line.split(" ")) {
-                            val test = if (curS.isEmpty()) wd else "$curS $wd"
-                            if (tp.measureText(test) > maxW) { rows.add(curS); curS = wd } else curS = test
-                        }
-                        if (curS.isNotEmpty()) rows.add(curS)
-                        val lineH = tp.textSize * 1.3f
-                        val baseY = h * 0.90f
-                        val top = baseY - (rows.size - 1) * lineH - h * 0.03f
-                        val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-                        barP.color = 0xB3000000.toInt()
-                        c.drawRoundRect(android.graphics.RectF(w * 0.06f, top, w * 0.94f, baseY + h * 0.02f), h * 0.03f, h * 0.03f, barP)
-                        val startY = baseY - (rows.size - 1) * lineH
-                        for ((ri, rw) in rows.withIndex()) c.drawText(rw, w / 2f, startY + ri * lineH, tp)
-                    }
-                    frames.add(bmp)
-                }
-
+                for ((i, s) in scenes.withIndex()) frames.add(buildFrame(s.line, i))
                 val out = java.io.File(cacheDir, "story_${System.currentTimeMillis()}.mp4")
                 val ok = Mp4Maker.encode(frames, 3.0f, out) { done, total ->
                     runOnUiThread { status.text = "MP4: $done/$total scenes" }
@@ -457,7 +455,6 @@ class StoryActivity : AppCompatActivity() {
                     runOnUiThread { status.text = "MP4 nahi ban paya" }
                     return@Thread
                 }
-                // Movies/BubluStudio me save karo
                 val values = ContentValues().apply {
                     put(MediaStore.Video.Media.DISPLAY_NAME, "BubluStory_${System.currentTimeMillis()}.mp4")
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
