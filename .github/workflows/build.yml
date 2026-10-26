@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v73
-          name: Bublu APK v73
-          body: "v73 - much faster speech: Sarvam STT timeout cut from 40s to 15s, no double retry, and an instant switch to the phone recognizer if it is slow."
+          tag_name: apk-v74
+          name: Bublu APK v74
+          body: "v74 - admin panel has a 'Test Sarvam key' button that shows the exact HTTP code and error message."
           files: app/build/outputs/apk/debug/app-debug.apk

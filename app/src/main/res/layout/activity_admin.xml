@@ -178,6 +178,17 @@
             android:textSize="15sp" />
 
         <Button
+            android:id="@+id/testSarvam"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/btn_glass"
+            android:text="Test Sarvam key"
+            android:textAllCaps="false"
+            android:textColor="#8FE9FF"
+            android:textSize="15sp" />
+
+        <Button
             android:id="@+id/closeAdmin"
             android:layout_width="match_parent"
             android:layout_height="50dp"

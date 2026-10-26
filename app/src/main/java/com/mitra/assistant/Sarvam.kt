@@ -6,6 +6,35 @@ import java.net.URL
 /** Sarvam Saaras v4 speech-to-text (REST). Key user apne phone me daalta hai. */
 object Sarvam {
 
+    /** Key test - chhota TTS call karke exact jawab deta hai. */
+    fun testKey(key: String): Pair<Boolean, String> {
+        return try {
+            val conn = URL("https://api.sarvam.ai/text-to-speech").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("api-subscription-key", key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.connectTimeout = 8000
+            conn.readTimeout = 18000
+            val body = org.json.JSONObject().apply {
+                put("text", "test")
+                put("target_language_code", "hi-IN")
+                put("speaker", "priya")
+                put("model", "bulbul:v3")
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                Pair(true, "Key is working (HTTP $code)")
+            } else {
+                val err = try { conn.errorStream?.bufferedReader()?.readText()?.take(220) ?: "" } catch (e: Exception) { "" }
+                Pair(false, "HTTP $code\n$err")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Network: ${e.message ?: "error"}")
+        }
+    }
+
     fun transcribe(key: String, wav: ByteArray, langCode: String = "unknown", mode: String = "translit"): Pair<Boolean, String> {
         return try {
             val url = URL("https://api.sarvam.ai/speech-to-text")

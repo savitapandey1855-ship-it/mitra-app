@@ -63,6 +63,25 @@ class AdminActivity : AppCompatActivity() {
             }.start()
         }
 
+        findViewById<Button>(R.id.testSarvam).setOnClickListener {
+            val k = s.text.toString().trim()
+            if (k.isBlank()) {
+                Toast.makeText(this, "Sarvam key khaali hai", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            Toast.makeText(this, "Testing...", Toast.LENGTH_SHORT).show()
+            Thread {
+                val (ok, msg) = Sarvam.testKey(k)
+                runOnUiThread {
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle(if (ok) "Sarvam: working" else "Sarvam: failed")
+                        .setMessage(msg)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }.start()
+        }
+
         findViewById<Button>(R.id.fetchNow).setOnClickListener {
             prefs.edit().putString("config_url", u.text.toString().trim()).apply()
             Toast.makeText(this, "Fetching from Firebase...", Toast.LENGTH_SHORT).show()
