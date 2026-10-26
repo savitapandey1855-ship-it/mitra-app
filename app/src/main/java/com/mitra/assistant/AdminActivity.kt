@@ -29,14 +29,32 @@ class AdminActivity : AppCompatActivity() {
         ds.setText(prefs.getString("db_secret", ""))
 
         KeyPool.init(this)
-        g.setText(KeyPool.keys("gemini").joinToString("\n"))
-        s.setText(KeyPool.keys("sarvam").joinToString("\n"))
+
+        // ---- multiple keys: har key apni row me, + se nayi row ----
+        val gExtra = findViewById<android.widget.LinearLayout>(R.id.geminiExtra)
+        val sExtra = findViewById<android.widget.LinearLayout>(R.id.sarvamExtra)
+        val gRows = arrayListOf(g)
+        val sRows = arrayListOf(s)
+
+        val gKeys = KeyPool.keys("gemini")
+        val sKeys = KeyPool.keys("sarvam")
+        g.setText(gKeys.firstOrNull() ?: "")
+        s.setText(sKeys.firstOrNull() ?: "")
+        gKeys.drop(1).forEach { addKeyRow(gExtra, it, gRows) }
+        sKeys.drop(1).forEach { addKeyRow(sExtra, it, sRows) }
+
+        findViewById<Button>(R.id.addGeminiKey).setOnClickListener {
+            addKeyRow(gExtra, "", gRows)
+        }
+        findViewById<Button>(R.id.addSarvamKey).setOnClickListener {
+            addKeyRow(sExtra, "", sRows)
+        }
         u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 
         findViewById<Button>(R.id.saveAdmin).setOnClickListener {
-            val gk = g.text.toString().trim()
-            val sk = s.text.toString().trim()
+            val gk = gRows.map { it.text.toString().trim() }.filter { it.isNotBlank() }.joinToString("\n")
+            val sk = sRows.map { it.text.toString().trim() }.filter { it.isNotBlank() }.joinToString("\n")
             KeyPool.save("gemini", gk.split("\n", ","))
             KeyPool.save("sarvam", sk.split("\n", ","))
             prefs.edit()
@@ -105,5 +123,42 @@ class AdminActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.closeAdmin).setOnClickListener { finish() }
+    }
+
+    /** Ek nayi key row (EditText + × button) add karo. */
+    private fun addKeyRow(
+        container: android.widget.LinearLayout,
+        initial: String,
+        list: MutableList<EditText>
+    ) {
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val et = EditText(this).apply {
+            hint = "key"
+            setText(initial)
+            setTextColor(0xFFFFFFFF.toInt())
+            setHintTextColor(0xFF7C8BC7.toInt())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        val del = Button(this).apply {
+            text = "×"
+            setTextColor(0xFFFFB4B4.toInt())
+            setOnClickListener {
+                container.removeView(row)
+                list.remove(et)
+            }
+        }
+        row.addView(et)
+        row.addView(del)
+        container.addView(row)
+        list.add(et)
     }
 }

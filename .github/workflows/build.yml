@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v93
-          name: Bublu APK v93
-          body: "v93 - mic no longer flips on and off: wake word is off by default and, when enabled, waits several seconds between listens and stays quiet after you speak."
+          tag_name: apk-v94
+          name: Bublu APK v94
+          body: "v94 - admin panel: + buttons to add as many Gemini and Sarvam keys as you want, each in its own row with a x to remove."
           files: app/build/outputs/apk/debug/app-debug.apk

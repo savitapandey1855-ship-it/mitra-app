@@ -46,11 +46,27 @@
                 android:id="@+id/geminiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="One key per line (AIza...)"
-                android:inputType="textMultiLine"
-                android:minLines="2"
+                android:hint="AIza... (key 1)"
+                android:inputType="text"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#7C8BC7" />
+
+            <LinearLayout
+                android:id="@+id/geminiExtra"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/addGeminiKey"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/btn_glass"
+                android:text="+ Add another AI key"
+                android:textAllCaps="false"
+                android:textColor="#8FE9FF"
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -64,11 +80,27 @@
                 android:id="@+id/sarvamKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="One key per line (sk_...)"
-                android:inputType="textMultiLine"
-                android:minLines="2"
+                android:hint="sk_... (key 1)"
+                android:inputType="text"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#7C8BC7" />
+
+            <LinearLayout
+                android:id="@+id/sarvamExtra"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/addSarvamKey"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/btn_glass"
+                android:text="+ Add another voice key"
+                android:textAllCaps="false"
+                android:textColor="#8FE9FF"
+                android:textSize="14sp" />
 
             <TextView
                 android:layout_width="wrap_content"
