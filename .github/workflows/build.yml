@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v66
-          name: Bublu APK v66
-          body: "v66 - clean English status words: Listening..., Thinking..., Opening WhatsApp..., Sending..., Taking photo..."
+          tag_name: apk-v67
+          name: Bublu APK v67
+          body: "v67 - typing animation for answers, Gemini-written notes pasted into the Notes app (set-text + clipboard paste fallback), and a ChatGPT conversation loop with replies read out."
           files: app/build/outputs/apk/debug/app-debug.apk

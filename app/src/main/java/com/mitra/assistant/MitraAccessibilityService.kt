@@ -2,6 +2,9 @@ package com.mitra.assistant
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
 import android.graphics.Rect
@@ -81,7 +84,15 @@ class MitraAccessibilityService : AccessibilityService() {
             Thread.sleep(450)
             val all2 = ArrayList<AccessibilityNodeInfo>()
             rootInActiveWindow?.let { collectEditables(it, all2) }
-            val got = all2.any { it.text?.toString()?.contains(text.take(5)) == true }
+            var got = all2.any { it.text?.toString()?.contains(text.take(5)) == true }
+            if (!ok && !got) {
+                // set-text fail hua to clipboard paste try karo
+                setTextViaPaste(target, text)
+                Thread.sleep(350)
+                val all3 = ArrayList<AccessibilityNodeInfo>()
+                rootInActiveWindow?.let { collectEditables(it, all3) }
+                got = all3.any { it.text?.toString()?.contains(text.take(5)) == true }
+            }
             ok || got
         } catch (e: Exception) { false }
     }
@@ -683,6 +694,75 @@ class MitraAccessibilityService : AccessibilityService() {
             if (node.isClickable && (d.contains("photo") || d.contains("image") || d.contains("picture"))) out.add(node)
             for (i in 0 until node.childCount) node.getChild(i)?.let { collectPhotos(it, out) }
         } catch (e: Exception) {}
+    }
+
+    /** Focused input me likho: pehle set-text, phir clipboard paste. */
+    fun typeInto(text: String): Boolean {
+        return try {
+            val root = rootInActiveWindow ?: return false
+            val target = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: findEditable(root) ?: return false
+            if (setNodeText(target, text)) return true
+            setTextViaPaste(target, text)
+        } catch (e: Exception) { false }
+    }
+
+    private fun setTextViaPaste(target: AccessibilityNodeInfo, text: String): Boolean {
+        return try {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newPlainText("bublu", text))
+            target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+            Thread.sleep(180)
+            target.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+            Thread.sleep(250)
+            true
+        } catch (e: Exception) { false }
+    }
+
+    private fun collectTexts(node: AccessibilityNodeInfo, out: ArrayList<String>) {
+        try {
+            val t = node.text?.toString()?.trim() ?: ""
+            if (t.isNotEmpty() && !node.isEditable) out.add(t)
+            for (i in 0 until node.childCount) node.getChild(i)?.let { collectTexts(it, out) }
+        } catch (e: Exception) {}
+    }
+
+    /** Screen pe last lamba jawab (ChatGPT ka reply). */
+    fun readLastReply(): String {
+        return try {
+            val root = rootInActiveWindow ?: return ""
+            val texts = ArrayList<String>()
+            collectTexts(root, texts)
+            texts.lastOrNull { it.length > 18 } ?: ""
+        } catch (e: Exception) { "" }
+    }
+
+    /** ChatGPT jaisi app se lagatar baat - 4 message bhejo, reply padho, phir bye. */
+    fun chatWithApp(pkg: String, appName: String, onStatus: (String) -> Unit, onReply: (String) -> Unit): Boolean {
+        return try {
+            onStatus("Opening $appName...")
+            if (!openAppSmart(pkg, appName)) { onStatus("$appName nahi khula"); return false }
+            Thread.sleep(4200)
+            val msgs = listOf(
+                "Hello! How are you?",
+                "Nice. Tell me one interesting fact.",
+                "What should a class 10 student study today?",
+                "Bye! Talk to you later."
+            )
+            for ((i, m) in msgs.withIndex()) {
+                onStatus("Typing message ${i + 1}...")
+                if (!typeInto(m)) { onStatus("Type nahi ho paya"); return false }
+                Thread.sleep(700)
+                var sent = clickByDesc("Send")
+                if (!sent) sent = clickByText("Send")
+                if (!sent) pressEnter()
+                Thread.sleep(6500)
+                val reply = readLastReply()
+                if (reply.isNotBlank()) onReply(reply.take(230))
+                Thread.sleep(900)
+            }
+            home()
+            true
+        } catch (e: Exception) { false }
     }
 
     /** Pehla letter capital karo. */

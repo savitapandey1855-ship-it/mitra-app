@@ -64,6 +64,7 @@ class OverlayService : Service() {
     @Volatile private var alwaysListen = false
     private var lastBatteryAlert = 0L
     @Volatile private var hidden = false
+    private var typeRunnable: Runnable? = null
     private lateinit var fx: FxView
     private val batteryReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
@@ -471,6 +472,28 @@ class OverlayService : Service() {
         return spk == "shubh" || spk == "aditya" || spk == "rahul"
     }
 
+    /** Jawab fast typing animation ke saath dikhao. */
+    private fun typeOut(text: String) {
+        typeRunnable?.let { main.removeCallbacks(it) }
+        reply.text = ""
+        reply.visibility = View.VISIBLE
+        val step = when {
+            text.length > 220 -> 4
+            text.length > 100 -> 2
+            else -> 1
+        }
+        var i = 0
+        val r = object : Runnable {
+            override fun run() {
+                i = (i + step).coerceAtMost(text.length)
+                reply.text = text.substring(0, i)
+                if (i < text.length) main.postDelayed(this, 14)
+            }
+        }
+        typeRunnable = r
+        main.post(r)
+    }
+
     /** Status words English me: Listening / Thinking / Opening / Sending ... */
     private fun statusText(s: String): String {
         var t = s
@@ -597,8 +620,7 @@ class OverlayService : Service() {
         if (sayTxt == null) {
             reply.visibility = View.GONE
         } else {
-            reply.text = sayTxt
-            reply.visibility = View.VISIBLE
+            typeOut(sayTxt)
         }
         if (sayTxt != null && (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
                 resId == R.drawable.char_sad || resId == R.drawable.char_wake)) {
@@ -1292,11 +1314,19 @@ class OverlayService : Service() {
             return
         }
 
-        // Notes app me likho (Google Keep / OEM Notes)
-        if (n.contains("notes app") || n.contains("note app") || n.contains("notesapp") || n.contains("keep me") || n.contains("keep pe") || n.contains("notes kholo")) {
-            var t2 = after(t, listOf("notes app me ", "note app me ", "keep me ", "keep pe ", "notes app ", "note app ", "notes me ", "note me "))?.trim() ?: ""
-            t2 = t2.replace(Regex("\\b(likho|likh|likhna|bhejo|bhej|add|karo|kar|do|de|please|me|app|notes|note|kholo)\\b"), " ").replace(Regex("\\s+"), " ").trim()
-            if (t2.isNotBlank()) { rollAround { createNote(t2) }; return }
+        // Notes app me likho - Gemini se content bana ke paste karo
+        if ((n.contains("notes") || n.contains("note") || n.contains("keep")) &&
+            (n.contains("likho") || n.contains("likh") || n.contains("paste") ||
+                n.contains("jaake") || n.contains("jaa ke") || n.contains("save"))) {
+            val topic = extractNoteTopic(t)
+            if (topic.isNotBlank()) {
+                setMood(R.drawable.char_think, "Thinking...")
+                Thread {
+                    val content = generateContent(topic)
+                    main.post { rollAround { createNote(content) } }
+                }.start()
+                return
+            }
         }
         // Notes (app ke andar save hote hain)
         if (n.contains("notesdikhao") || n.contains("notespadho") || n.contains("notesbatao") || n.contains("notesunao") || n.contains("notesunado")) {
@@ -1400,6 +1430,27 @@ class OverlayService : Service() {
         // ---- Birthday / Anniversary set ----
         if (n.contains("birthday") || n.contains("janamdin") || n.contains("anniversary") || n.contains("saalgirah")) {
             handleEvent(t); return
+        }
+
+        // ---- ChatGPT se lagatar baat ----
+        if ((n.contains("chatgpt") || n.contains("chat gpt")) &&
+            (n.contains("baat") || n.contains("conversation") || n.contains("chat karo") ||
+                n.contains("greeting") || n.contains("baatein") || n.contains("baate"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            setMood(R.drawable.char_think, "Opening ChatGPT...")
+            Thread {
+                val ok = a.chatWithApp(
+                    "com.openai.chatgpt", "ChatGPT",
+                    { s -> main.post { setMood(R.drawable.char_think, s) } },
+                    { r -> main.post { setMood(R.drawable.char_happy, "ChatGPT: $r", 5000) } }
+                )
+                main.post {
+                    if (ok) setMood(R.drawable.char_laugh, "Chat done! Said bye and came back home.")
+                    else setMood(R.drawable.char_sad, "Chat nahi ho paya")
+                }
+            }.start()
+            return
         }
 
         // ---- Kisi bhi app me kaam: "ChatGPT se ye poocho" ----
@@ -2270,6 +2321,29 @@ class OverlayService : Service() {
 
     private fun showGroupMessage(title: String, text: String) {
         main.post { setMood(R.drawable.char_laugh, "$title: $text") }
+    }
+
+    /** "Class 10 A letter to god ki story notes me likho" -> topic nikaalo. */
+    private fun extractNoteTopic(t: String): String {
+        val lower = t.lowercase()
+        val idx = listOf(lower.indexOf(" notes"), lower.indexOf(" note"), lower.indexOf(" keep"))
+            .filter { it > 0 }.minOrNull() ?: return ""
+        var s = t.substring(0, idx).trim()
+        s = s.replace(
+            Regex("\\b(ki story|ka story|ki notes|ka notes|story|notes|note|ke baare me|ke bare me|about|ki|ka|ke|me|jaake|jaa ke|likho|likh|paste|karo|kar|do|de|please|app|application|meri|mera|banao|bana)\\b"), " "
+        ).replace(Regex("\\s+"), " ").trim()
+        return s
+    }
+
+    /** Gemini se padhne layak notes banao. */
+    private fun generateContent(topic: String): String {
+        val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
+        if (key.isBlank()) return topic
+        val prompt = "Write clean, well-organised study NOTES on: \"$topic\". " +
+            "Use short headings and bullet points. Simple English (Hinglish if the topic is Hindi). " +
+            "Useful for a school student. No intro line, no extra talk, max 250 words."
+        val (ok, txt) = Gemini.ask(key, prompt)
+        return if (ok && txt.isNotBlank()) txt.trim() else topic
     }
 
     private fun parsePhotoContact(t: String): String? {
