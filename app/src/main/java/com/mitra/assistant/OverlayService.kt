@@ -188,6 +188,14 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "TYPED_CMD") {
+            val t = intent.getStringExtra("text") ?: ""
+            if (t.isNotBlank()) {
+                lastUserTouch = System.currentTimeMillis()
+                main.postDelayed({ handle(t) }, 300)
+            }
+            return START_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             getSharedPreferences("mitra", MODE_PRIVATE).edit().putBoolean("running", false).apply()
             stopSelf()
@@ -929,6 +937,21 @@ class OverlayService : Service() {
         })
     }
 
+    /** Curved input box kholo (type karke command dene ke liye). */
+    private fun openInputBox() {
+        try {
+            val i = Intent(this, InputActivity::class.java)
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(i)
+        } catch (e: Exception) {}
+    }
+
+    private fun isInputBoxCommand(t: String): Boolean {
+        return t.contains("input box") || t.contains("inputbox") || t.contains("type box") ||
+            t.contains("type karo") || t.contains("likhna hai") || t.contains("likhne ka box") ||
+            t.contains("keyboard kholo") || t.contains("keyboard open") || t.contains("type karne")
+    }
+
     private fun onTap() {
         lastUserTouch = System.currentTimeMillis()
         if (hidden) { showBubble(); return }
@@ -1213,6 +1236,9 @@ class OverlayService : Service() {
         val t = text.lowercase().trim()
         val n = t.replace(" ", "")
         val acc = MitraAccessibilityService.instance
+
+        // input box kholna hai?
+        if (isInputBoxCommand(t)) { openInputBox(); return }
 
         // Aadat seekho
         try { Store.bumpHabit(this, t.take(45)) } catch (e: Exception) {}

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v104
-          name: Bublu APK v104
-          body: "v104 - Cloudflare account ID pre-filled; you only need to paste the Workers AI token in the admin panel."
+          tag_name: apk-v105
+          name: Bublu APK v105
+          body: "v105 - say or tap for a curved input box at the bottom with blue lights circling its border, an x to close, and it slides up with the keyboard."
           files: app/build/outputs/apk/debug/app-debug.apk

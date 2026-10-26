@@ -62,6 +62,12 @@
             android:label="Bublu Story Studio"
             android:theme="@style/Theme.Mitra" />
 
+        <activity
+            android:name=".InputActivity"
+            android:exported="false"
+            android:theme="@style/Theme.BubluInput"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+
         <service
             android:name=".StoryService"
             android:exported="false"
