@@ -41,6 +41,12 @@ object Gemini {
             if (r2.first) return r2
             last = r2
         }
+        // Saare Gemini keys fail -> Sarvam ka thinking model try karo
+        val sk = KeyPool.current("sarvam")
+        if (sk != null) {
+            val s = SarvamChat.ask(sk, prompt)
+            if (s.first) return s
+        }
         return last
     }
 
