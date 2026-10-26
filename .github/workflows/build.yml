@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v67
-          name: Bublu APK v67
-          body: "v67 - typing animation for answers, Gemini-written notes pasted into the Notes app (set-text + clipboard paste fallback), and a ChatGPT conversation loop with replies read out."
+          tag_name: apk-v68
+          name: Bublu APK v68
+          body: "v68 - battery alert now starts below 12% (gentle reminder every 5 min) and gets urgent below 5% (every 90 sec)."
           files: app/build/outputs/apk/debug/app-debug.apk

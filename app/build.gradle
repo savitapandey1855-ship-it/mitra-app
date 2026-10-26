@@ -11,8 +11,8 @@ android {
         applicationId "com.mitra.assistant"
         minSdk 24
         targetSdk 34
-        versionCode 67
-        versionName "67.0"
+        versionCode 68
+        versionName "68.0"
     }
 
     buildTypes {

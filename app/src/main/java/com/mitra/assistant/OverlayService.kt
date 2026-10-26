@@ -63,6 +63,7 @@ class OverlayService : Service() {
     private lateinit var wave: WaveView
     @Volatile private var alwaysListen = false
     private var lastBatteryAlert = 0L
+    private var lastBatteryWarn = 0L
     @Volatile private var hidden = false
     private var typeRunnable: Runnable? = null
     private lateinit var fx: FxView
@@ -73,11 +74,18 @@ class OverlayService : Service() {
                 val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) ?: 100
                 if (level < 0 || scale <= 0) return
                 val pct = level * 100 / scale
+                val now = System.currentTimeMillis()
                 if (pct in 0..5) {
-                    val now = System.currentTimeMillis()
+                    // bahut kam - har 90 second me
                     if (now - lastBatteryAlert > 90000) {
                         lastBatteryAlert = now
                         setMood(R.drawable.char_sad, "Battery sirf $pct% bachi hai - charger laga do!", 6000)
+                    }
+                } else if (pct in 6..12) {
+                    // kam - har 5 minute me yaad dilao
+                    if (now - lastBatteryWarn > 300000) {
+                        lastBatteryWarn = now
+                        setMood(R.drawable.char_sad, "Battery $pct% hai - charger laga lo", 5000)
                     }
                 }
             } catch (e: Exception) {}
