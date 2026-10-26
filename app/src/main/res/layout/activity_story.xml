@@ -73,6 +73,11 @@
                 android:text="Save frames" />
 
             <Button
+                android:id="@+id/btnMp4"
+                style="@style/StudioBtn"
+                android:text="Make MP4" />
+
+            <Button
                 android:id="@+id/btnSaveStory"
                 style="@style/StudioBtn"
                 android:text="Save story" />

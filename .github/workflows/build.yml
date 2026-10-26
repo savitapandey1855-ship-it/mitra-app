@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v91
-          name: Bublu APK v91
-          body: "v91 - Hindi (Devanagari) story narration with Sarvam storyteller voices (male/female picker) and stylish animated captions."
+          tag_name: apk-v92
+          name: Bublu APK v92
+          body: "v92 - real MP4 render of the story (H.264, Ken Burns zoom, saved to Movies/BubluStudio) and code movement in the editor: move, moveby, anim, animy."
           files: app/build/outputs/apk/debug/app-debug.apk

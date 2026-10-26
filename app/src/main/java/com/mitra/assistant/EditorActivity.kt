@@ -207,7 +207,7 @@ class EditorActivity : AppCompatActivity() {
         )
         AlertDialog.Builder(this)
             .setTitle("Code objects")
-            .setMessage("Commands: text <words> | circle/rect/star/heart <size> <#color> | image <prompt>")
+            .setMessage("Commands: text <words> | circle/rect/star/heart <size> <#color> | image <prompt>\nmove <i> <x> <y> | moveby <i> <dx> <dy> | anim <i> <fromX> <toX> <ms> | animy <i> <fromY> <toY> <ms>")
             .setView(input)
             .setPositiveButton("Run") { _, _ -> runCode(input.text.toString()) }
             .setNegativeButton("Cancel", null)
@@ -242,6 +242,35 @@ class EditorActivity : AppCompatActivity() {
                 "image" -> {
                     val p = line.removePrefix(parts[0]).trim()
                     if (p.isNotBlank()) { fetchAI(p); added++ }
+                }
+                "move" -> {
+                    val i = parts.getOrNull(1)?.toIntOrNull() ?: continue
+                    val x = parts.getOrNull(2)?.toFloatOrNull() ?: 0f
+                    val y = parts.getOrNull(3)?.toFloatOrNull() ?: 0f
+                    if (canvas.moveItem(i, x, y)) added++
+                }
+                "moveby" -> {
+                    val i = parts.getOrNull(1)?.toIntOrNull() ?: continue
+                    val dx = parts.getOrNull(2)?.toFloatOrNull() ?: 0f
+                    val dy = parts.getOrNull(3)?.toFloatOrNull() ?: 0f
+                    val it0 = canvas.items.getOrNull(i) ?: continue
+                    if (canvas.moveItem(i, it0.x + dx, it0.y + dy)) added++
+                }
+                "anim" -> {
+                    val i = parts.getOrNull(1)?.toIntOrNull() ?: continue
+                    val from = parts.getOrNull(2)?.toFloatOrNull() ?: 0f
+                    val to = parts.getOrNull(3)?.toFloatOrNull() ?: 800f
+                    val ms = parts.getOrNull(4)?.toLongOrNull() ?: 1500L
+                    canvas.animateX(i, from, to, ms)
+                    added++
+                }
+                "animy" -> {
+                    val i = parts.getOrNull(1)?.toIntOrNull() ?: continue
+                    val from = parts.getOrNull(2)?.toFloatOrNull() ?: 0f
+                    val to = parts.getOrNull(3)?.toFloatOrNull() ?: 800f
+                    val ms = parts.getOrNull(4)?.toLongOrNull() ?: 1500L
+                    canvas.animateY(i, from, to, ms)
+                    added++
                 }
             }
         }

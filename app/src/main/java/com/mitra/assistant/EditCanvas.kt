@@ -97,6 +97,40 @@ class EditCanvas @JvmOverloads constructor(
     fun undo() { if (items.isNotEmpty()) { items.removeAt(items.size - 1); invalidate() } }
     fun clearAll() { items.clear(); invalidate() }
 
+    /** Code se move: index, absolute x/y. */
+    fun moveItem(index: Int, x: Float, y: Float): Boolean {
+        if (index !in items.indices) return false
+        items[index].x = x
+        items[index].y = y
+        invalidate()
+        return true
+    }
+
+    /** Code se anim: index ka x from -> to, given ms me. */
+    fun animateX(index: Int, fromX: Float, toX: Float, ms: Long) {
+        if (index !in items.indices) return
+        val a = android.animation.ValueAnimator.ofFloat(fromX, toX)
+        a.duration = ms.coerceIn(200L, 20000L)
+        a.addUpdateListener {
+            items[index].x = it.animatedValue as Float
+            invalidate()
+        }
+        a.start()
+    }
+
+    fun animateY(index: Int, fromY: Float, toY: Float, ms: Long) {
+        if (index !in items.indices) return
+        val a = android.animation.ValueAnimator.ofFloat(fromY, toY)
+        a.duration = ms.coerceIn(200L, 20000L)
+        a.addUpdateListener {
+            items[index].y = it.animatedValue as Float
+            invalidate()
+        }
+        a.start()
+    }
+
+    fun itemCount(): Int = items.size
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (drawBg) {

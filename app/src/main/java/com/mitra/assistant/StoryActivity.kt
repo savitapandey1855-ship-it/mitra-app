@@ -68,6 +68,7 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnVoice).setOnClickListener { pickVoice() }
         findViewById<Button>(R.id.btnNext).setOnClickListener { nextScene() }
         findViewById<Button>(R.id.btnSaveFrames).setOnClickListener { saveFrames() }
+        findViewById<Button>(R.id.btnMp4).setOnClickListener { makeMp4() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
 
         if (intent.getBooleanExtra("auto", false)) askStory()
@@ -395,6 +396,84 @@ class StoryActivity : AppCompatActivity() {
                 } catch (e: Exception) {}
             }
             runOnUiThread { status.text = "$saved frames Pictures/BubluStudio me save ho gaye ✅" }
+        }.start()
+    }
+
+    /** Scenes -> MP4 video file (Movies/BubluStudio). */
+    private fun makeMp4() {
+        if (scenes.isEmpty()) {
+            Toast.makeText(this, "Pehle story banao", Toast.LENGTH_SHORT).show()
+            return
+        }
+        status.text = "MP4 ban raha hai... (thoda time lagega)"
+        Thread {
+            try {
+                val frames = ArrayList<Bitmap>()
+                for (s in scenes) {
+                    val w = 720
+                    val h = 1280
+                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    val c = Canvas(bmp)
+                    s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
+                        ?: c.drawColor(0xFF0B1030.toInt())
+                    s.ch?.let { ch ->
+                        val th = h * 0.55f
+                        val tw = th * (ch.width.toFloat() / ch.height.toFloat())
+                        val left = (w - tw) / 2f
+                        c.drawBitmap(ch, null, android.graphics.RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
+                    }
+                    if (s.line.isNotBlank()) {
+                        val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                        tp.color = android.graphics.Color.WHITE
+                        tp.textSize = h * 0.045f
+                        tp.textAlign = android.graphics.Paint.Align.CENTER
+                        tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        tp.setShadowLayer(10f, 0f, 4f, 0xFF000000.toInt())
+                        val maxW = w * 0.82f
+                        val rows = ArrayList<String>()
+                        var curS = ""
+                        for (wd in s.line.split(" ")) {
+                            val test = if (curS.isEmpty()) wd else "$curS $wd"
+                            if (tp.measureText(test) > maxW) { rows.add(curS); curS = wd } else curS = test
+                        }
+                        if (curS.isNotEmpty()) rows.add(curS)
+                        val lineH = tp.textSize * 1.3f
+                        val baseY = h * 0.90f
+                        val top = baseY - (rows.size - 1) * lineH - h * 0.03f
+                        val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                        barP.color = 0xB3000000.toInt()
+                        c.drawRoundRect(android.graphics.RectF(w * 0.06f, top, w * 0.94f, baseY + h * 0.02f), h * 0.03f, h * 0.03f, barP)
+                        val startY = baseY - (rows.size - 1) * lineH
+                        for ((ri, rw) in rows.withIndex()) c.drawText(rw, w / 2f, startY + ri * lineH, tp)
+                    }
+                    frames.add(bmp)
+                }
+
+                val out = java.io.File(cacheDir, "story_${System.currentTimeMillis()}.mp4")
+                val ok = Mp4Maker.encode(frames, 3.0f, out) { done, total ->
+                    runOnUiThread { status.text = "MP4: $done/$total scenes" }
+                }
+                if (!ok || !out.exists()) {
+                    runOnUiThread { status.text = "MP4 nahi ban paya" }
+                    return@Thread
+                }
+                // Movies/BubluStudio me save karo
+                val values = ContentValues().apply {
+                    put(MediaStore.Video.Media.DISPLAY_NAME, "BubluStory_${System.currentTimeMillis()}.mp4")
+                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                    if (Build.VERSION.SDK_INT >= 29)
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/BubluStudio")
+                }
+                val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                uri?.let {
+                    contentResolver.openOutputStream(it)?.use { os ->
+                        out.inputStream().use { ins -> ins.copyTo(os) }
+                    }
+                }
+                runOnUiThread { status.text = "MP4 ready! Movies/BubluStudio me hai 🎬" }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "MP4 fail: ${e.message}" }
+            }
         }.start()
     }
 
