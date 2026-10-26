@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v81
-          name: Bublu APK v81
-          body: "v81 - offline aware (friendly message instead of failing), offline timer, and habit memory (learns what you ask, reports your top habits)."
+          tag_name: apk-v82
+          name: Bublu APK v82
+          body: "v82 - polish pass: safer quiz (no crash on empty), receivers and timer cleaned up on stop, and the health check now shows key counts, notification access and photos permission."
           files: app/build/outputs/apk/debug/app-debug.apk

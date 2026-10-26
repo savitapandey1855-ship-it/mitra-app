@@ -765,15 +765,20 @@ class MainActivity : AppCompatActivity() {
         val accOn = isAccEnabled()
         val overlayOn = Settings.canDrawOverlays(this)
         val micOn = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val keyOn = (prefs.getString("gemini_key", "") ?: "").isNotBlank()
-        val sarvamOn = (prefs.getString("sarvam_key", "") ?: "").isNotBlank()
+        KeyPool.init(this)
+        val gCount = KeyPool.count("gemini")
+        val sCount = KeyPool.count("sarvam")
+        val photosOk = hasPhotosPerm()
+        val notifOk = hasNotifAccess()
         val battOk = isBatteryOk()
         val msg = "1. Accessibility: " + (if (accOn) "ON (good)" else "OFF (needed for apps, tap, type)") +
             "\n2. Display over apps: " + (if (overlayOn) "ON (good)" else "OFF (needed)") +
             "\n2b. Background running: " + (if (battOk) "allowed (good)" else "restricted (needed)") +
             "\n3. Microphone: " + (if (micOn) "ON (good)" else "OFF (needed)") +
-            "\n4. AI key: " + (if (keyOn) "present (good)" else "missing") +
-            "\n5. Voice key: " + (if (sarvamOn) "present (good)" else "missing") +
+            "\n4. AI keys (Gemini): " + (if (gCount > 0) "$gCount present (good)" else "missing") +
+            "\n5. Voice keys (Sarvam): " + (if (sCount > 0) "$sCount present (good)" else "missing") +
+            "\n6. Notification access: " + (if (notifOk) "ON (good)" else "OFF (group msgs + scam alert)") +
+            "\n7. Photos: " + (if (photosOk) "allowed (good)" else "not allowed (homework photo)") +
             "\n\nIf Accessibility is OFF, Bublu cannot open apps or tap buttons."
         AlertDialog.Builder(this)
             .setTitle("Bublu health check")

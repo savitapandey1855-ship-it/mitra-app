@@ -2010,6 +2010,7 @@ class OverlayService : Service() {
     }
 
     private fun quizAnswer(t: String) {
+        if (quizQ.isEmpty() || quizIdx >= quizQ.size) { quizOn = false; return }
         if (t.contains("band") || t.contains("stop") || t.contains("exit") || t.contains("chhodo")) {
             quizOn = false
             setMood(R.drawable.char_happy, "Quiz band kar diya")
@@ -2040,6 +2041,7 @@ class OverlayService : Service() {
     private fun finishQuiz() {
         quizOn = false
         val total = quizQ.size
+        if (total == 0) { setMood(R.drawable.char_happy, "Quiz khatam"); return }
         val msg = when {
             quizScore == total -> "Perfect $quizScore/$total! 🎉 Shabaash!"
             quizScore >= total * 0.6 -> "Score: $quizScore/$total - accha kiya!"
@@ -3134,6 +3136,10 @@ class OverlayService : Service() {
         live = null
         alwaysListen = false
         try { unregisterReceiver(batteryReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(scamReceiver) } catch (e: Exception) {}
+        try { timerJob?.cancel() } catch (e: Exception) {}
+        quizOn = false
+        guideOn = false
         sleeping = false
         stopSleepMonitor()
         try { tts?.shutdown() } catch (e: Exception) {}
