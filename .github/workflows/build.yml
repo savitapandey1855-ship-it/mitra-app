@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v78
-          name: Bublu APK v78
-          body: "v78 - Quiz mode (5 spoken MCQs, score at the end) and Exam mode (quiet + DND + timer)."
+          tag_name: apk-v79
+          name: Bublu APK v79
+          body: "v79 - multi-app chains (screen to Notes, screen to ChatGPT, ChatGPT answer to Notes) and Guided mode with step-by-step instructions."
           files: app/build/outputs/apk/debug/app-debug.apk

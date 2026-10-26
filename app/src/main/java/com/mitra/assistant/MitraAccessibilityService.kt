@@ -761,6 +761,22 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { false }
     }
 
+    /** Kisi bhi app me text bhejo (ChatGPT jaisi app me sawaal). */
+    fun askInAppText(pkg: String, appName: String, text: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("Opening $appName...")
+            if (!openAppSmart(pkg, appName)) return false
+            Thread.sleep(4200)
+            onStatus("Typing...")
+            if (!typeInto(text)) return false
+            Thread.sleep(800)
+            var sent = clickByDesc("Send")
+            if (!sent) sent = clickByText("Send")
+            if (!sent) pressEnter()
+            true
+        } catch (e: Exception) { false }
+    }
+
     /** Screen pe last lamba jawab (ChatGPT ka reply). */
     fun readLastReply(): String {
         return try {

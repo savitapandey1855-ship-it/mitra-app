@@ -1189,6 +1189,101 @@ class OverlayService : Service() {
         // Quiz chal raha hai to jawab handle karo
         if (quizOn) { quizAnswer(t); return }
 
+        // Guide chal raha hai to next/band handle karo
+        if (guideOn) {
+            if (n.contains("band") || n.contains("stop") || n.contains("exit") || n.contains("chhodo")) {
+                guideOn = false
+                setMood(R.drawable.char_happy, "Guide band kar diya")
+                return
+            }
+            if (n.contains("next") || n.contains("aage") || n.contains("agla") || n.contains("done") || n.contains("theek")) {
+                guideIdx++
+                if (guideIdx >= guideSteps.size) {
+                    guideOn = false
+                    setMood(R.drawable.char_laugh, "Sab steps ho gaye! 🎉")
+                } else {
+                    setMood(R.drawable.char_happy, "Step ${guideIdx + 1}: ${guideSteps[guideIdx]}\n\n\"next\" bolo", 12000)
+                }
+                return
+            }
+        }
+
+        // ---- Chain: screen -> Notes ----
+        if ((n.contains("screen") || n.contains("yescreen") || n.contains("ye")) && n.contains("notes") &&
+            (n.contains("save") || n.contains("daalo") || n.contains("likho") || n.contains("rakho"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            val txt = a.readScreenText()
+            if (txt.isBlank()) { setMood(R.drawable.char_sad, "Screen pe text nahi mila"); return }
+            saveNoteInApp(txt)
+            return
+        }
+
+        // ---- Chain: screen -> ChatGPT ----
+        if (n.contains("chatgpt") && (n.contains("screen") || n.contains("ye")) &&
+            (n.contains("poocho") || n.contains("pucho") || n.contains("ask"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            val txt = a.readScreenText()
+            if (txt.isBlank()) { setMood(R.drawable.char_sad, "Screen pe text nahi mila"); return }
+            setMood(R.drawable.char_think, "Opening ChatGPT...")
+            Thread {
+                val ok = a.askInAppText(
+                    "com.openai.chatgpt", "ChatGPT",
+                    "Explain this clearly and briefly:\n\n" + txt.take(900)
+                ) { s -> main.post { setMood(R.drawable.char_think, s) } }
+                if (!ok) { main.post { setMood(R.drawable.char_sad, "ChatGPT me type nahi hua") }; return@Thread }
+                Thread.sleep(6500)
+                val reply = a.readLastReply()
+                main.post {
+                    if (reply.isNotBlank()) {
+                        Store.addNoteV2(this, "ChatGPT answer", reply)
+                        setMood(R.drawable.char_laugh, "ChatGPT: ${reply.take(230)}", 12000)
+                    } else setMood(R.drawable.char_sad, "ChatGPT ka jawab nahi mila")
+                }
+            }.start()
+            return
+        }
+
+        // ---- Chain: ChatGPT ka jawab -> Notes ----
+        if (n.contains("jawab") && n.contains("notes") &&
+            (n.contains("save") || n.contains("daalo") || n.contains("likho") || n.contains("rakho"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            val reply = a.readLastReply()
+            if (reply.isBlank()) { setMood(R.drawable.char_sad, "Koi jawab nahi mila"); return }
+            saveNoteInApp(reply)
+            return
+        }
+
+        // ---- Guided mode ----
+        if (n.contains("guide") || n.contains("sikhao") || n.contains("sikha do") || n.contains("kaise karna")) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            val txt = a.readScreenText()
+            val what = t.replace(
+                Regex("\\b(guide|karo|kar|do|sikhao|sikha|kaise|karna|hai|batao|mujhe|ko|please)\\b"), " "
+            ).replace(Regex("\\s+"), " ").trim()
+            setMood(R.drawable.char_think, "Thinking...")
+            Thread {
+                val prompt = "Phone screen content:\n${txt.take(900)}\n\n" +
+                    "The user wants to: ${if (what.length > 2) what else "use this screen"}. " +
+                    "Give exactly 4 very short steps (max 12 words each) as a JSON array of strings."
+                val steps = parseSteps(brainAnswer(prompt))
+                main.post {
+                    if (steps.isEmpty()) {
+                        setMood(R.drawable.char_sad, "Steps nahi ban paye")
+                        return@post
+                    }
+                    guideSteps = steps
+                    guideIdx = 0
+                    guideOn = true
+                    setMood(R.drawable.char_happy, "Step 1: ${steps[0]}\n\n\"next\" bolo aage ke liye", 12000)
+                }
+            }.start()
+            return
+        }
+
         // ---- Quiz mode ----
         if (n.contains("quiz") || n.contains("sawalpoocho") || n.contains("testlo") || n.contains("questionpoocho")) {
             val subj = t.replace(Regex("\\b(quiz|lo|le|karo|kar|shuru|start|poocho|pucho|sawal|questions?|test|me|pe|ka|ki|ke)\\b"), " ")
@@ -1945,6 +2040,32 @@ class OverlayService : Service() {
             }
             out
         } catch (e: Exception) { emptyList() }
+    }
+
+    // ---------- Guided mode ----------
+    @Volatile private var guideOn = false
+    private var guideSteps: List<String> = emptyList()
+    private var guideIdx = 0
+
+    private fun parseSteps(raw: String?): List<String> {
+        if (raw == null) return emptyList()
+        val s = raw.indexOf('[')
+        val e = raw.lastIndexOf(']')
+        if (s >= 0 && e > s) {
+            try {
+                val arr = org.json.JSONArray(raw.substring(s, e + 1))
+                val out = ArrayList<String>()
+                for (i in 0 until arr.length()) {
+                    val v = arr.optString(i, "").trim()
+                    if (v.isNotBlank()) out.add(v)
+                }
+                if (out.isNotEmpty()) return out
+            } catch (ex: Exception) {}
+        }
+        return raw.split("\n").map { it.trim() }
+            .filter { it.length > 3 }
+            .map { it.replace(Regex("^\\d+[.)]\\s*"), "") }
+            .take(5)
     }
 
     // ---------- Exam mode ----------
