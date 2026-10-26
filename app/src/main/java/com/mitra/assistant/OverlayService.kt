@@ -1340,10 +1340,11 @@ class OverlayService : Service() {
                 n.contains("jaake") || n.contains("jaa ke") || n.contains("save"))) {
             val topic = extractNoteTopic(t)
             if (topic.isNotBlank()) {
+                val inApp = n.contains("bublu notes") || n.contains("apne notes") || n.contains("app me note")
                 setMood(R.drawable.char_think, "Thinking...")
                 Thread {
                     val content = generateContent(topic)
-                    main.post { rollAround { createNote(content) } }
+                    main.post { if (inApp) saveNoteInApp(content) else rollAround { createNote(content) } }
                 }.start()
                 return
             }
@@ -1763,11 +1764,27 @@ class OverlayService : Service() {
         return Pair(subject, body)
     }
 
+    /** Notes app fail ho to Bublu ke apne Notes me save karo. */
+    private fun saveNoteInApp(text: String) {
+        try {
+            val first = text.lineSequence().firstOrNull()?.trim() ?: ""
+            val title = if (first.length in 3..45) first else "Bublu note"
+            Store.addNoteV2(this, title, text)
+            setMood(
+                R.drawable.char_happy,
+                "Saved in Bublu Notes! Open the Notes card in the app to read it.",
+                7000
+            )
+        } catch (e: Exception) {
+            setMood(R.drawable.char_sad, "Note save nahi ho paya")
+        }
+    }
+
     private fun createNote(text: String) {
         val a = MitraAccessibilityService.instance
-        if (a == null) { setMood(R.drawable.char_sad, "Notes ke liye Accessibility ON karo"); return }
+        if (a == null) { saveNoteInApp(text); return }
         val pkg = findInstalled("keep") ?: findInstalled("note") ?: findInstalled("notebook") ?: findInstalled("memo")
-        if (pkg == null) { setMood(R.drawable.char_sad, "Koi Notes app nahi mila"); return }
+        if (pkg == null) { saveNoteInApp(text); return }
         setMood(R.drawable.char_think, "Notes khol raha hoon...")
         Thread {
             a.openAppAndCheck(pkg.first, pkg.second)
@@ -1785,8 +1802,8 @@ class OverlayService : Service() {
             var ok = a.writeNote(text)
             if (!ok) { Thread.sleep(700); ok = a.writeNote(text) }
             main.post {
-                if (ok) setMood(R.drawable.char_laugh, "Note likh diya: $text")
-                else setMood(R.drawable.char_sad, "Notes app me likh nahi paya - ek baar manually dekh lo")
+                if (ok) setMood(R.drawable.char_laugh, "Note saved in Notes app: ${text.take(30)}")
+                else saveNoteInApp(text)
             }
         }.start()
     }

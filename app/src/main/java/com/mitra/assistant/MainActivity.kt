@@ -65,7 +65,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.designBtn).setOnClickListener { pickDesign() }
         findViewById<View>(R.id.addSched).setOnClickListener { addSchedDialog() }
         findViewById<View>(R.id.addTask).setOnClickListener { addTaskDialog() }
-        findViewById<View>(R.id.addNote).setOnClickListener { addNoteDialog() }
+        findViewById<View>(R.id.addNote).setOnClickListener {
+            startActivity(Intent(this, NoteActivity::class.java))
+        }
         findViewById<View>(R.id.addGroup).setOnClickListener { addGroupDialog() }
         findViewById<View>(R.id.addAlias).setOnClickListener { addAliasDialog() }
         findViewById<View>(R.id.addEvent).setOnClickListener { addEventDialog() }
@@ -277,9 +279,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         noteBox.removeAllViews()
-        val notes = Store.notes(this)
-        if (notes.isEmpty()) noteBox.addView(row("No notes yet - tap + to add", null))
-        else for (i in notes.indices) noteBox.addView(row(notes[i], "note:$i"))
+        // purane notes ko naye format me le aao
+        if (Store.notesV2(this).isEmpty() && Store.notes(this).isNotEmpty()) {
+            for (t in Store.notes(this)) Store.addNoteV2(this, t.take(40).ifBlank { "Note" }, t)
+        }
+        val notes2 = Store.notesV2(this)
+        if (notes2.isEmpty()) noteBox.addView(row("No notes yet - tap + to add", null))
+        else for (n in notes2) {
+            val preview = n.third.replace("\n", " ").take(34)
+            noteBox.addView(row("${n.second}  —  $preview", "note2:${n.first}"))
+        }
 
         groupBox.removeAllViews()
         val grps = Store.importantGroups(this)
@@ -347,6 +356,13 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+                "note2" -> {
+                    val id = key.toIntOrNull()
+                    if (id != null) {
+                        if (w == 0) startActivity(Intent(this, NoteActivity::class.java).putExtra("note_id", id))
+                        else { Store.deleteNoteV2(this, id); loadLists() }
+                    }
+                }
                 "note" -> {
                     val i = key.toIntOrNull()
                     if (i != null) {
@@ -407,12 +423,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addNoteDialog() {
-        val input = EditText(this); input.hint = "New note"
-        AlertDialog.Builder(this).setTitle("Add note").setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val t = input.text.toString().trim()
-                if (t.isNotBlank()) { Store.addNote(this, t); loadLists() }
-            }.setNegativeButton("Cancel", null).show()
+        startActivity(Intent(this, NoteActivity::class.java))
     }
 
     private fun addSchedDialog() {

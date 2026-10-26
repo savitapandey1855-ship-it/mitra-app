@@ -109,6 +109,46 @@ object Store {
         saveTasks(c, l)
     }
 
+    // ---- Notes v2 (title + body) ----
+    fun notesV2(c: Context): MutableList<Triple<Int, String, String>> {
+        val out = ArrayList<Triple<Int, String, String>>()
+        try {
+            val arr = JSONArray(p(c).getString("notes2", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                out.add(Triple(o.getInt("id"), o.getString("title"), o.getString("body")))
+            }
+        } catch (e: Exception) {}
+        return out
+    }
+
+    fun saveNotesV2(c: Context, list: List<Triple<Int, String, String>>) {
+        val arr = JSONArray()
+        for (t in list) arr.put(JSONObject().put("id", t.first).put("title", t.second).put("body", t.third))
+        p(c).edit().putString("notes2", arr.toString()).apply()
+    }
+
+    fun addNoteV2(c: Context, title: String, body: String): Int {
+        val l = notesV2(c)
+        val id = (System.currentTimeMillis() % 1000000).toInt()
+        l.add(Triple(id, title, body))
+        saveNotesV2(c, l)
+        return id
+    }
+
+    fun updateNoteV2(c: Context, id: Int, title: String, body: String) {
+        val l = notesV2(c)
+        for (i in l.indices) if (l[i].first == id) l[i] = Triple(id, title, body)
+        saveNotesV2(c, l)
+    }
+
+    fun deleteNoteV2(c: Context, id: Int) {
+        saveNotesV2(c, notesV2(c).filter { it.first != id })
+    }
+
+    fun getNoteV2(c: Context, id: Int): Triple<Int, String, String>? =
+        notesV2(c).firstOrNull { it.first == id }
+
     // ---- Aliases (nickname -> asli naam ya number) ----
     fun aliases(c: Context): MutableList<Pair<String, String>> {
         val out = ArrayList<Pair<String, String>>()
