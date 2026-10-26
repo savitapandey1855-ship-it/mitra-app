@@ -465,6 +465,27 @@ class OverlayService : Service() {
         return out.toByteArray()
     }
 
+    /** Chuni hui voice ke hisaab se gender badlo (male: gaya/raha, female: gayi/rahi). */
+    private fun isMaleVoice(): Boolean {
+        val spk = getSharedPreferences("mitra", MODE_PRIVATE).getString("tts_speaker", "priya") ?: "priya"
+        return spk == "shubh" || spk == "aditya" || spk == "rahul"
+    }
+
+    private fun voiceText(s: String): String {
+        if (s.isBlank()) return s
+        return if (isMaleVoice()) {
+            s.replace("rahi hoon", "raha hoon")
+                .replace("rahi hu", "raha hu")
+                .replace("rahi", "raha")
+                .replace("gayi", "gaya")
+        } else {
+            s.replace("raha hoon", "rahi hoon")
+                .replace("raha hu", "rahi hu")
+                .replace("raha", "rahi")
+                .replace("gaya", "gayi")
+        }
+    }
+
     private fun speak(text: String) {
         val sp = getSharedPreferences("mitra", MODE_PRIVATE)
         if (!sp.getBoolean("tts_on", true)) return
@@ -549,15 +570,16 @@ class OverlayService : Service() {
             thinkAnim?.cancel()
             thinkAnim = null
         }
-        if (say == null) {
+        val sayTxt = if (say == null) null else voiceText(say)
+        if (sayTxt == null) {
             reply.visibility = View.GONE
         } else {
-            reply.text = say
+            reply.text = sayTxt
             reply.visibility = View.VISIBLE
         }
-        if (say != null && (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
+        if (sayTxt != null && (resId == R.drawable.char_happy || resId == R.drawable.char_laugh ||
                 resId == R.drawable.char_sad || resId == R.drawable.char_wake)) {
-            speak(say)
+            speak(sayTxt)
         }
         if (resId == R.drawable.char_laugh) { try { fxBurst() } catch (e: Exception) {} }
         // Kaam ke baad thodi der me wapas normal

@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v64
-          name: Bublu APK v64
-          body: "v64 - 5 new signature effects: spiral, atom orbit, comet with tail, spinning diamonds and energy ring waves."
+          tag_name: apk-v65
+          name: Bublu APK v65
+          body: "v65 - messages match the chosen voice: male voice says 'aa gaya / raha hoon', female voice says 'aa gayi / rahi hoon'."
           files: app/build/outputs/apk/debug/app-debug.apk
