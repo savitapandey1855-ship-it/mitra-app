@@ -756,7 +756,8 @@ class OverlayService : Service() {
     }
 
     private fun playRandomTrick() {
-        if (sleeping || listening || busy || alwaysListen) return
+        if (sleeping || listening || busy || alwaysListen || quizOn) return
+        if (System.currentTimeMillis() < examUntil) return
         val tricks = listOf<() -> Unit>(
             { blink() }, { bounce() }, { spinFace() }, { shake() }, { popFace() },
             { wobbleTrick() }, { floatUp() }, { pulse() }, { tilt(-16f) }, { tilt(16f) },
@@ -1184,6 +1185,25 @@ class OverlayService : Service() {
         val t = text.lowercase().trim()
         val n = t.replace(" ", "")
         val acc = MitraAccessibilityService.instance
+
+        // Quiz chal raha hai to jawab handle karo
+        if (quizOn) { quizAnswer(t); return }
+
+        // ---- Quiz mode ----
+        if (n.contains("quiz") || n.contains("sawalpoocho") || n.contains("testlo") || n.contains("questionpoocho")) {
+            val subj = t.replace(Regex("\\b(quiz|lo|le|karo|kar|shuru|start|poocho|pucho|sawal|questions?|test|me|pe|ka|ki|ke)\\b"), " ")
+                .replace(Regex("\\s+"), " ").trim()
+            startQuiz(if (subj.length > 2) subj else "Class 10 Science")
+            return
+        }
+
+        // ---- Exam / study mode ----
+        if (n.contains("exammode") || n.contains("padhaimode") || n.contains("studymode") || n.contains("exammode")) {
+            val off = n.contains("band") || n.contains("off") || n.contains("hatao") || n.contains("stop")
+            val mins = Regex("(\\d+)\\s*(?:min|minute)").find(n)?.groupValues?.get(1)?.toIntOrNull() ?: 60
+            examMode(!off, mins)
+            return
+        }
 
         // Status mode ke andar commands
         if (statusMode) {
@@ -1826,6 +1846,128 @@ class OverlayService : Service() {
             body = txt.substringAfter("\n").trim()
         }
         return Pair(subject, body)
+    }
+
+    // ---------- Quiz mode ----------
+    @Volatile private var quizOn = false
+    private var quizQ: List<Triple<String, List<String>, Int>> = emptyList()
+    private var quizIdx = 0
+    private var quizScore = 0
+
+    private fun startQuiz(subject: String) {
+        setMood(R.drawable.char_think, "Making quiz...")
+        Thread {
+            val prompt = "Create 5 multiple-choice questions for a Class 10 student on: $subject. " +
+                "Reply ONLY with a JSON array like [{\"q\":\"question\",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"answer\":0}]"
+            val parsed = parseQuiz(brainAnswer(prompt))
+            main.post {
+                if (parsed.isEmpty()) {
+                    setMood(R.drawable.char_sad, "Quiz ban nahi paya - phir try karo")
+                    return@post
+                }
+                quizQ = parsed
+                quizIdx = 0
+                quizScore = 0
+                quizOn = true
+                askQuizQuestion()
+            }
+        }.start()
+    }
+
+    private fun askQuizQuestion() {
+        if (quizIdx >= quizQ.size) { finishQuiz(); return }
+        val q = quizQ[quizIdx]
+        val opts = q.second.mapIndexed { i, o -> "${i + 1}. $o" }.joinToString("   ")
+        setMood(
+            R.drawable.char_think,
+            "Q${quizIdx + 1}/${quizQ.size}: ${q.first}\n$opts\n\nBolo option number",
+            16000
+        )
+    }
+
+    private fun quizAnswer(t: String) {
+        if (t.contains("band") || t.contains("stop") || t.contains("exit") || t.contains("chhodo")) {
+            quizOn = false
+            setMood(R.drawable.char_happy, "Quiz band kar diya")
+            return
+        }
+        val idx = when {
+            t.contains("option1") || t.contains("pehla") || t.matches(Regex(".*\\b1\\b.*")) -> 0
+            t.contains("option2") || t.contains("doosra") || t.matches(Regex(".*\\b2\\b.*")) -> 1
+            t.contains("option3") || t.contains("teesra") || t.matches(Regex(".*\\b3\\b.*")) -> 2
+            t.contains("option4") || t.contains("chautha") || t.matches(Regex(".*\\b4\\b.*")) -> 3
+            else -> -1
+        }
+        if (idx < 0) {
+            setMood(R.drawable.char_sad, "Option 1, 2, 3 ya 4 bolo")
+            return
+        }
+        val q = quizQ[quizIdx]
+        if (idx == q.third) {
+            quizScore++
+            setMood(R.drawable.char_laugh, "Sahi jawab! ✅")
+        } else {
+            setMood(R.drawable.char_sad, "Galat. Sahi hai: ${q.second.getOrNull(q.third) ?: "-"}", 5000)
+        }
+        quizIdx++
+        main.postDelayed({ askQuizQuestion() }, 2200)
+    }
+
+    private fun finishQuiz() {
+        quizOn = false
+        val total = quizQ.size
+        val msg = when {
+            quizScore == total -> "Perfect $quizScore/$total! 🎉 Shabaash!"
+            quizScore >= total * 0.6 -> "Score: $quizScore/$total - accha kiya!"
+            else -> "Score: $quizScore/$total - thoda aur practice karo"
+        }
+        setMood(R.drawable.char_laugh, msg, 10000)
+    }
+
+    private fun parseQuiz(raw: String?): List<Triple<String, List<String>, Int>> {
+        if (raw == null) return emptyList()
+        val start = raw.indexOf('[')
+        if (start < 0) return emptyList()
+        val end = raw.lastIndexOf(']')
+        if (end <= start) return emptyList()
+        val json = raw.substring(start, end + 1)
+        return try {
+            val arr = org.json.JSONArray(json)
+            val out = ArrayList<Triple<String, List<String>, Int>>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val q = o.optString("q", "").trim()
+                val oa = o.optJSONArray("options") ?: continue
+                val opts = ArrayList<String>()
+                for (j in 0 until oa.length()) opts.add(oa.optString(j, ""))
+                if (q.isBlank() || opts.size < 2) continue
+                out.add(Triple(q, opts, o.optInt("answer", 0).coerceIn(0, opts.size - 1)))
+            }
+            out
+        } catch (e: Exception) { emptyList() }
+    }
+
+    // ---------- Exam mode ----------
+    @Volatile private var examUntil = 0L
+
+    private fun examMode(on: Boolean, minutes: Int) {
+        if (on) {
+            examUntil = System.currentTimeMillis() + minutes * 60000L
+            try {
+                val nm = getSystemService(android.app.NotificationManager::class.java)
+                if (nm != null && nm.isNotificationPolicyAccessGranted)
+                    nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+            } catch (e: Exception) {}
+            setMood(R.drawable.char_laugh, "Exam mode ON for $minutes min. Focus karo, all the best! 📚", 7000)
+        } else {
+            examUntil = 0
+            try {
+                val nm = getSystemService(android.app.NotificationManager::class.java)
+                if (nm != null && nm.isNotificationPolicyAccessGranted)
+                    nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
+            } catch (e: Exception) {}
+            setMood(R.drawable.char_happy, "Exam mode OFF", 4000)
+        }
     }
 
     /** Homework: screen pe question ho to wahi, warna camera se photo le ke solve. */
