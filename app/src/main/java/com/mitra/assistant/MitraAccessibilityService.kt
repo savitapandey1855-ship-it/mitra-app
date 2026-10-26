@@ -845,13 +845,6 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { false }
     }
 
-    fun scrollDown() {
-        try {
-            val root = rootInActiveWindow ?: return
-            val list = root.findAccessibilityNodeInfosByViewId("") ?: return
-            list.size
-        } catch (e: Exception) {}
-    }
 
     /** Kisi bhi app me text bhejo (ChatGPT jaisi app me sawaal). */
     fun askInAppText(pkg: String, appName: String, text: String, onStatus: (String) -> Unit): Boolean {
