@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v101
-          name: Bublu APK v101
-          body: "v101 - MP4 encoder rewritten to the reliable YUV-buffer method that works on every phone; if it ever fails the exact reason is shown."
+          tag_name: apk-v102
+          name: Bublu APK v102
+          body: "v102 - story now asks for plain numbered Hindi lines (no JSON) with retries, so you get a full 8-30 scene story instead of a single line."
           files: app/build/outputs/apk/debug/app-debug.apk

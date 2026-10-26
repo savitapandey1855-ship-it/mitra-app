@@ -41,29 +41,52 @@ class StoryService : Service() {
 
         Thread {
             try {
-                val sceneCount = (minutes * 6).coerceIn(6, 30)
-                val prompt = "Write a NEW, different cartoon story for kids about: $topic. " +
-                    "It must have exactly $sceneCount short scenes. For every scene give: " +
-                    "\"bg\" = background image prompt (max 8 words), " +
-                    "\"char\" = character image prompt (max 8 words, single character, plain white background), " +
-                    "\"line\" = one narration line in HINDI, Devanagari script ONLY (max 14 words, no English letters). " +
-                    "Reply ONLY as a JSON array like [{\"bg\":\"...\",\"char\":\"...\",\"line\":\"...\"}]"
-                var raw = brain(prompt)
-                var scenes = parse(raw)
-                if (scenes.isEmpty()) {
-                    // dusri koshish - sakht JSON
-                    raw = brain(prompt + "\nSTRICT: Reply with ONLY the JSON array. No markdown, no explanation.")
-                    scenes = parse(raw)
+                val sceneCount = (minutes * 6).coerceIn(8, 30)
+
+                // 1) seedha plain lines maango (JSON nahi - isi se ek line ka bug aata tha)
+                val plainPrompt = "Ek nayi cartoon kahani sunao bacchon ke liye. Topic: " + topic + ". " +
+                        "Bilkul " + sceneCount + " chhoti lines likho, ek ke neeche ek, " +
+                        "HINDI me sirf Devanagari script (koi English letter nahi), har line 8-14 shabd, " +
+                        "kahani ke kram me. Sirf lines likho - koi number, JSON, bg, char, explanation nahi."
+                var lines = parsePlain(brain(plainPrompt))
+
+                // 2) kam lines aayi to dobara maango
+                if (lines.size < 4) {
+                    val p2 = "Topic: " + topic + ". Likho " + sceneCount + " alag-alag Hindi vaakya (Devanagari), " +
+                            "har vaakya nayi line me, kahani ke kram me. Sirf vaakya, aur kuch nahi."
+                    lines = parsePlain(brain(p2))
                 }
-                if (scenes.isEmpty() && !raw.isNullOrBlank()) {
-                    // aakhri rasta - plain text se scenes banao
-                    scenes = fallbackScenes(raw, topic)
+
+                // 3) phir bhi kam to JSON wale jawab se nikaalo
+                if (lines.size < 4) {
+                    val p3 = "Kahani topic: " + topic + ". " + sceneCount + " narration lines Hindi me. " +
+                            "Reply ONLY as a JSON array of strings."
+                    lines = parseLines(brain(p3))
                 }
-                if (scenes.isEmpty()) {
-                    prefs.edit().putString("story_progress", "FAIL: ${lastErr.ifBlank { "story nahi bani" }}").apply()
+
+                // 4) aakhri rasta: jo bhi text mila usko vaakya me todo
+                if (lines.size < 4) {
+                    val rawAll = brain(plainPrompt)
+                    lines = splitSentences(rawAll)
+                }
+
+                if (lines.isEmpty()) {
+                    val msg = if (lastErr.isBlank()) "story nahi bani" else lastErr
+                    prefs.edit().putString("story_progress", "FAIL: " + msg).apply()
                     updateNotif("Story nahi ban payi")
                     stopSelf()
                     return@Thread
+                }
+
+                val scenes = ArrayList<Triple<String, String, String>>()
+                for (ln in lines) {
+                    scenes.add(
+                        Triple(
+                            "cartoon scene of " + topic + ", colourful background, no text",
+                            "cute cartoon character for " + topic + ", plain white background, full body",
+                            ln
+                        )
+                    )
                 }
 
                 val dir = File(cacheDir, "story").apply { mkdirs() }
@@ -146,6 +169,38 @@ class StoryService : Service() {
             lastErr = (lastErr + " | Sarvam: $t").trim()
         }
         return null
+    }
+
+    /** Plain text (numbered lines bhi) se saaf Hindi lines nikaalo. */
+    private fun parsePlain(raw: String?): List<String> {
+        if (raw == null) return ArrayList<String>()
+        val out = ArrayList<String>()
+        for (line in raw.split("\n")) {
+            var t = line.trim()
+            // numbering / bullets hatao: "1.", "1)", "-", "*", "•"
+            t = t.replace(Regex("^[\\s\\-\\*\\u2022]+"), "")
+            t = t.replace(Regex("^\\d+\\s*[\\.\\)\\-:]\\s*"), "")
+            t = t.replace(Regex("^[\\"']+|[\\"']+$"), "")
+            if (t.contains("{") || t.contains("}") || t.contains("\"bg\"") || t.contains("\"char\"")) continue
+            if (t.startsWith("Scene") || t.startsWith("Here")) continue
+            val c = cleanLine(t)
+            if (c.length > 8) out.add(c)
+            if (out.size >= 40) break
+        }
+        return out
+    }
+
+    /** Ek bade paragraph ko vaakyon me todo. */
+    private fun splitSentences(raw: String?): List<String> {
+        if (raw == null) return ArrayList<String>()
+        val out = ArrayList<String>()
+        val parts = raw.split("\n", "।", "!", "?", ". ")
+        for (p in parts) {
+            val c = cleanLine(p)
+            if (c.length > 10) out.add(c)
+            if (out.size >= 40) break
+        }
+        return out
     }
 
     /** AI ne JSON nahi diya - plain text / kachre se sirf narration lines nikaalo. */
