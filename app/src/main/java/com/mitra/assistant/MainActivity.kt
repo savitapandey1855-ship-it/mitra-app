@@ -126,6 +126,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun maybeShowSetupStep() {
         if (setupShowing) return
+        // Popup permission sabse zaroori - iske bina kuch kaam nahi karta
+        if (!Settings.canDrawOverlays(this)) { showStepDialog(1); return }
         if (prefs.getBoolean("setup_done", false)) return
         val step = firstMissingStep()
         if (step == null) {
@@ -155,6 +157,11 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Open settings") { _, _ -> openStep(step) }
             .setNegativeButton(if (step == 7) "Skip" else "Later") { _, _ ->
                 if (step == 7) prefs.edit().putBoolean("setup_done", true).apply()
+                if (step == 1) Toast.makeText(
+                    this,
+                    "Without this, Bublu cannot open apps or do anything.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
             .create()
         dlg.setOnDismissListener { setupShowing = false }
@@ -501,6 +508,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startBublu() {
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Turn ON 'Display over other apps' first - Bublu needs it", Toast.LENGTH_LONG).show()
+            startActivityForResult(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")),
+                REQ_OVERLAY
+            )
+            return
+        }
         prefs.edit().putBoolean("running", true).apply()
         val i = Intent(this, OverlayService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)

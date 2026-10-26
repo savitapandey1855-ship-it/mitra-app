@@ -151,7 +151,7 @@ class OverlayService : Service() {
         initRecognizer()
         Thread { buildAppIndex() }.start()
         Thread { RemoteConfig.fetchAndStore(this) }.start()
-        main.postDelayed({ proactiveGreet() }, 5000)
+        main.postDelayed({ proactiveGreet() }, 12000)
         scheduleTrick()
         scheduleWatch()
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
@@ -2227,6 +2227,11 @@ class OverlayService : Service() {
     }
 
     private fun proactiveGreet() {
+        // Agar user bol raha hai ya kaam chal raha hai to greet mat karo
+        if (listening || busy || alwaysListen) {
+            main.postDelayed({ proactiveGreet() }, 10000)
+            return
+        }
         try {
             val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             val greet = when {
