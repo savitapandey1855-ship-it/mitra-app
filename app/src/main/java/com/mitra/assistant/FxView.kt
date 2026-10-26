@@ -105,6 +105,49 @@ class FxView(context: Context) : View(context) {
         invalidate()
     }
 
+    /** Spiral - tukda bahar ki taraf ghoomta hua khulta hai. */
+    fun spiral(cx: Float, cy: Float, color: Int, radius: Float) {
+        parts.add(P(cx, cy, radius, 0.24f, 0f, 95f, color, 8f, 7))
+        invalidate()
+    }
+
+    /** Atom - teen dots alag-alag phase me gol ghoomte hain. */
+    fun atom(cx: Float, cy: Float, color: Int, radius: Float) {
+        parts.add(P(cx, cy, radius, 0.11f, 0f, 140f, color, 7f, 8))
+        invalidate()
+    }
+
+    /** Comet - ek chamakta tukda lambi tail ke saath Bublu ke paas se guzarta hai. */
+    fun comet(cx: Float, cy: Float, color: Int) {
+        val fromLeft = Math.random() < 0.5
+        val y = cy + ((Math.random() - 0.5) * 90).toFloat()
+        val x = if (fromLeft) cx - 240f else cx + 240f
+        val vx = if (fromLeft) 7f else -7f
+        parts.add(P(x, y, vx, 0.5f, 0f, 95f, color, 7f, 9))
+        invalidate()
+    }
+
+    /** Diamond sparkles - ghoomte hue heere. */
+    fun diamonds(cx: Float, cy: Float, n: Int) {
+        for (i in 0 until n) {
+            val a = Math.random() * 2 * Math.PI
+            val r = (28 + Math.random() * 95).toFloat()
+            parts.add(
+                P(cx + (Math.cos(a) * r).toFloat(), cy + (Math.sin(a) * r).toFloat(),
+                    ((Math.random() - 0.5) * 1.2).toFloat(), (-1 - Math.random()).toFloat(),
+                    0f, (80 + Math.random() * 40).toFloat(), col(), (6 + Math.random() * 4).toFloat(), 10)
+            )
+        }
+        invalidate()
+    }
+
+    /** Energy ring - badi soft ring jo phailti hai. */
+    fun ringWave(cx: Float, cy: Float, color: Int) {
+        parts.add(P(cx, cy, 0f, 0f, 0f, 55f, color, 12f, 11))
+        parts.add(P(cx, cy, 0f, 0f, -16f, 55f, color, 12f, 11))
+        invalidate()
+    }
+
     /** Titliyan - Bublu ke aas paas udti hain. */
     fun butterflies(cx: Float, cy: Float, n: Int) {
         for (i in 0 until n) {
@@ -127,7 +170,7 @@ class FxView(context: Context) : View(context) {
             val p = it.next()
             p.life += dt
             if (p.life >= p.maxLife) { it.remove(); continue }
-            if (p.kind != 6) {
+            if (!(p.kind == 6 || p.kind == 7 || p.kind == 8 || p.kind == 11)) {
                 p.x += p.vx * dt
                 p.y += p.vy * dt
             }
@@ -150,6 +193,63 @@ class FxView(context: Context) : View(context) {
                     paint.style = Paint.Style.STROKE
                     paint.strokeWidth = 2f
                     canvas.drawCircle(p.x, p.y, p.size * 2.2f, paint)
+                }
+                7 -> {
+                    val t = (p.life / p.maxLife).coerceIn(0f, 1f)
+                    val ang = p.life * p.vy
+                    val r = p.vx * t
+                    for (k in 0 until 7) {
+                        val aa = ang - k * 0.13f
+                        val rr = r * (1f - k * 0.05f)
+                        paint.alpha = (alpha * (1f - k * 0.13f)).toInt().coerceIn(0, 255)
+                        canvas.drawCircle(
+                            p.x + (Math.cos(aa.toDouble()) * rr).toFloat(),
+                            p.y + (Math.sin(aa.toDouble()) * rr).toFloat(),
+                            p.size * (1f - k * 0.11f), paint
+                        )
+                    }
+                }
+                8 -> {
+                    val ang = p.life * p.vy
+                    for (k in 0 until 3) {
+                        val aa = ang + k * 2.0944f
+                        val px = p.x + (Math.cos(aa.toDouble()) * p.vx).toFloat()
+                        val py = p.y + (Math.sin(aa.toDouble()) * p.vx).toFloat()
+                        paint.alpha = (alpha / 3).coerceIn(0, 255)
+                        canvas.drawCircle(px, py, p.size * 2.1f, paint)
+                        paint.alpha = alpha
+                        canvas.drawCircle(px, py, p.size, paint)
+                    }
+                }
+                9 -> {
+                    for (k in 0 until 9) {
+                        paint.alpha = (alpha * (1f - k * 0.11f)).toInt().coerceIn(0, 255)
+                        canvas.drawCircle(
+                            p.x - p.vx * k * 1.7f,
+                            p.y - p.vy * k * 1.7f,
+                            p.size * (1f - k * 0.08f), paint
+                        )
+                    }
+                }
+                10 -> {
+                    canvas.save()
+                    canvas.rotate(p.life * 6f, p.x, p.y)
+                    val s = p.size
+                    val dpath = Path()
+                    dpath.moveTo(p.x, p.y - s)
+                    dpath.lineTo(p.x + s, p.y)
+                    dpath.lineTo(p.x, p.y + s)
+                    dpath.lineTo(p.x - s, p.y)
+                    dpath.close()
+                    canvas.drawPath(dpath, paint)
+                    canvas.restore()
+                }
+                11 -> {
+                    val t = (p.life / p.maxLife).coerceIn(0f, 1f)
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = 7f * (1f - t)
+                    canvas.drawCircle(p.x, p.y, p.size + p.life * 3.4f, paint)
+                    paint.style = Paint.Style.FILL
                 }
                 6 -> {
                     val t = (p.life / p.maxLife).coerceIn(0f, 1f)

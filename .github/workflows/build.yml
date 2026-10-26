@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v63
-          name: Bublu APK v63
-          body: "v63 - new signature animation: a glowing piece of Bublu's own colour spins around it and merges back (replaces the firework)."
+          tag_name: apk-v64
+          name: Bublu APK v64
+          body: "v64 - 5 new signature effects: spiral, atom orbit, comet with tail, spinning diamonds and energy ring waves."
           files: app/build/outputs/apk/debug/app-debug.apk

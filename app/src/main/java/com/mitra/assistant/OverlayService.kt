@@ -347,6 +347,36 @@ class OverlayService : Service() {
         val c = bubbleCenter()
         fx.orbiter(c.first, c.second, designColor(), dp(52).toFloat())
     }
+
+    private fun fxSpiral() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.spiral(c.first, c.second, designColor(), dp(62).toFloat())
+    }
+
+    private fun fxAtom() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.atom(c.first, c.second, designColor(), dp(42).toFloat())
+    }
+
+    private fun fxComet() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.comet(c.first, c.second, designColor())
+    }
+
+    private fun fxDiamonds() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.diamonds(c.first, c.second, 7)
+    }
+
+    private fun fxRingWave() {
+        if (!::fx.isInitialized) return
+        val c = bubbleCenter()
+        fx.ringWave(c.first, c.second, designColor())
+    }
     private fun fxButterflies() {
         if (!::fx.isInitialized) return
         val c = bubbleCenter()
@@ -648,8 +678,10 @@ class OverlayService : Service() {
         // Sirf rangeen effects - kuch bolta nahi
         if (Math.random() < 0.85) {
             listOf<() -> Unit>(
-                { fxOrbit() }, { fxOrbit() }, { fxBurst() }, { fxSparkles() },
-                { fxRipple() }, { fxHearts() }, { fxConfetti() }, { fxButterflies() }
+                { fxOrbit() }, { fxOrbit() }, { fxSpiral() }, { fxSpiral() },
+                { fxAtom() }, { fxComet() }, { fxDiamonds() }, { fxRingWave() },
+                { fxBurst() }, { fxSparkles() }, { fxRipple() }, { fxHearts() },
+                { fxConfetti() }, { fxButterflies() }
             ).random()()
         }
     }
