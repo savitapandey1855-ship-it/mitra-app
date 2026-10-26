@@ -1320,8 +1320,25 @@ class OverlayService : Service() {
                 n.contains("facebook") || n.contains("fb") -> "facebook"
                 else -> null
             }
+            wantShorts = n.contains("shorts")
             if (n.contains("cartoon") || n.contains("story") || n.contains("kahani")) {
-                storyVideo(t, platform); return
+                val mins = Regex("(\\d+)\\s*(?:min|minute)").find(n)?.groupValues?.get(1)?.toIntOrNull() ?: 2
+                val topic = t.replace(
+                    Regex("\\b(ek|video|banao|banado|cartoon|story|kahani|aur|pe|par|upload|karo|kar|do|youtube|instagram|insta|facebook|fb|reel|shorts|daalo|post|meri|mera|min|minute)\\b"),
+                    " "
+                ).replace(Regex("\\s+"), " ").trim().ifBlank { "a friendly robot" }
+                try {
+                    val i = android.content.Intent(this, StoryActivity::class.java)
+                    i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    i.putExtra("topic", topic)
+                    i.putExtra("minutes", mins)
+                    i.putExtra("auto", true)
+                    startActivity(i)
+                    setMood(R.drawable.char_think, "Story Studio khol raha hoon - cartoon video wahin banegi 🎨", 6000)
+                } catch (e: Exception) {
+                    setMood(R.drawable.char_sad, "Studio nahi khula")
+                }
+                return
             }
             autoEdit(t, platform); return
         }
@@ -2502,7 +2519,35 @@ class OverlayService : Service() {
         a.tapAny("1080p", "1080P", "Full HD")
         Thread.sleep(1400)
         a.tapAny("Export", "Save to device", "Done")
-        Thread.sleep(2000)
+        Thread.sleep(2500)
+        rememberLastVideo()
+    }
+
+    @Volatile private var wantShorts = false
+
+    /** Abhi jo video export hua, uska naam yaad rakho. */
+    private fun rememberLastVideo() {
+        try {
+            val uri = android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            val cur = contentResolver.query(
+                uri,
+                arrayOf(
+                    android.provider.MediaStore.Video.Media.DISPLAY_NAME,
+                    android.provider.MediaStore.Video.Media.DURATION
+                ),
+                null, null,
+                android.provider.MediaStore.Video.Media.DATE_ADDED + " DESC"
+            )
+            cur?.use {
+                if (it.moveToFirst()) {
+                    val name = it.getString(0) ?: ""
+                    getSharedPreferences("mitra", MODE_PRIVATE).edit()
+                        .putString("last_video", name)
+                        .putLong("last_video_at", System.currentTimeMillis())
+                        .apply()
+                }
+            }
+        } catch (e: Exception) {}
     }
 
     // ---------- Cartoon story video ----------
@@ -2634,7 +2679,13 @@ class OverlayService : Service() {
                 }
             }
             Thread.sleep(2800)
-            val steps = makeSteps(platform, "upload the edited video with a good title and caption", a.readScreenText())
+            val lastVid = getSharedPreferences("mitra", MODE_PRIVATE).getString("last_video", "") ?: ""
+            if (lastVid.isNotBlank()) {
+                main.post { setMood(R.drawable.char_think, "Abhi jo edit kiya: $lastVid - yahi upload karo", 5000) }
+            }
+            val goal = if (wantShorts) "upload the edited video as a YouTube Short with a good title and caption"
+            else "upload the edited video with a good title and caption"
+            val steps = makeSteps(platform, goal, a.readScreenText())
             main.post {
                 if (steps.isEmpty()) setMood(R.drawable.char_happy, "$platform ka upload screen khul gaya - video chuno", 8000)
                 else beginGuide(steps)

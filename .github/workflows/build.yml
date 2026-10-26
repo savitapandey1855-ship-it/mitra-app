@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v87
-          name: Bublu APK v87
-          body: "v87 - natural language video commands: cartoon story videos (AI scenes + narration) and edit-then-upload to YouTube, Instagram or Facebook."
+          tag_name: apk-v88
+          name: Bublu APK v88
+          body: "v88 - Story Studio (AI cartoon video with cut-out characters, animated scenes and spoken narration), remembers the video you just edited, and understands Shorts/Reel commands."
           files: app/build/outputs/apk/debug/app-debug.apk

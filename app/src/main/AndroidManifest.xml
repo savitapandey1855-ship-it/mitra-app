@@ -53,6 +53,12 @@
             android:label="Bublu Studio"
             android:theme="@style/Theme.Mitra" />
 
+        <activity
+            android:name=".StoryActivity"
+            android:exported="false"
+            android:label="Bublu Story Studio"
+            android:theme="@style/Theme.Mitra" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"

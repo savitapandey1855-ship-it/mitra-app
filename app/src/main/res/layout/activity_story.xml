@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B1030"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bublu Story Studio"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Naya topic do aur story banao"
+        android:textColor="#9AA6D8"
+        android:textSize="13sp" />
+
+    <com.mitra.assistant.SceneView
+        android:id="@+id/scene"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:background="#000000" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnNew"
+                style="@style/StudioBtn"
+                android:text="New story" />
+
+            <Button
+                android:id="@+id/btnPlay"
+                style="@style/StudioBtn"
+                android:text="Play" />
+
+            <Button
+                android:id="@+id/btnStop"
+                style="@style/StudioBtn"
+                android:text="Stop" />
+
+            <Button
+                android:id="@+id/btnNext"
+                style="@style/StudioBtn"
+                android:text="Next" />
+
+            <Button
+                android:id="@+id/btnSaveFrames"
+                style="@style/StudioBtn"
+                android:text="Save frames" />
+
+            <Button
+                android:id="@+id/btnSaveStory"
+                style="@style/StudioBtn"
+                android:text="Save story" />
+        </LinearLayout>
+    </HorizontalScrollView>
+</LinearLayout>

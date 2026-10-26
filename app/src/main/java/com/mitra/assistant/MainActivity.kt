@@ -581,6 +581,7 @@ class MainActivity : AppCompatActivity() {
             "Autostart (background)",
             "Background & popup permissions",
             "Bublu Studio (video editor)",
+            "Story Studio (AI cartoon video)",
             "Voice",
             "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
@@ -598,14 +599,15 @@ class MainActivity : AppCompatActivity() {
                 3 -> openAutostart()
                 4 -> backgroundDialog()
                 5 -> startActivity(Intent(this, EditorActivity::class.java))
-                6 -> pickVoice()
-                7 -> toggleSpeak()
-                8 -> myDetailsDialog()
-                9 -> testAi()
-                10 -> addAliasDialog()
-                11 -> addGroupDialog()
-                12 -> toggleFestival()
-                13 -> showDiagnose()
+                6 -> startActivity(Intent(this, StoryActivity::class.java))
+                7 -> pickVoice()
+                8 -> toggleSpeak()
+                9 -> myDetailsDialog()
+                10 -> testAi()
+                11 -> addAliasDialog()
+                12 -> addGroupDialog()
+                13 -> toggleFestival()
+                14 -> showDiagnose()
             }
         }.show()
     }
