@@ -68,6 +68,48 @@ object Gemini {
         return Pair(false, last)
     }
 
+    /** Photo (base64 jpeg) + sawaal -> jawab. Homework solving ke liye. */
+    fun askImage(key: String, prompt: String, b64: String, mime: String = "image/jpeg"): Pair<Boolean, String> {
+        return try {
+            val model = "gemini-flash-latest"
+            val conn = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
+                .openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("x-goog-api-key", key)
+            conn.doOutput = true
+            conn.connectTimeout = 12000
+            conn.readTimeout = 45000
+            val parts = JSONArray().apply {
+                put(JSONObject().put("text", prompt))
+                put(
+                    JSONObject().put(
+                        "inline_data",
+                        JSONObject().apply {
+                            put("mime_type", mime)
+                            put("data", b64)
+                        }
+                    )
+                )
+            }
+            val body = JSONObject().apply {
+                put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+                put("generationConfig", JSONObject().put("maxOutputTokens", 900))
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val resp = stream?.bufferedReader()?.readText() ?: ""
+            if (code !in 200..299) return Pair(false, "HTTP $code")
+            val txt = JSONObject(resp).optJSONArray("candidates")?.optJSONObject(0)
+                ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
+                ?.optString("text", "") ?: ""
+            if (txt.isBlank()) Pair(false, "empty reply") else Pair(true, txt.trim())
+        } catch (e: Exception) {
+            Pair(false, e.message ?: "network error")
+        }
+    }
+
     private fun call(key: String, model: String, prompt: String): Pair<Boolean, String> {
         return try {
             val url = URL(

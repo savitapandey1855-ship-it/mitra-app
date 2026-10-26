@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v76
-          name: Bublu APK v76
-          body: "v76 - if every Gemini key fails, thinking switches to Sarvam chat models (sarvam-m / 105b / 30b). Keys are managed only from the admin panel."
+          tag_name: apk-v77
+          name: Bublu APK v77
+          body: "v77 - first 'unique powers' batch: read the screen aloud, explain what is on screen, solve homework from the screen or a camera photo (saved to Notes), and search inside any app."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -1341,6 +1341,63 @@ class OverlayService : Service() {
             return
         }
 
+        // ---- Screen padho / samjhao ----
+        if (n.contains("screen") &&
+            (n.contains("padho") || n.contains("padh") || n.contains("likha") || n.contains("read") ||
+                n.contains("batao") || n.contains("samjhao") || n.contains("matlab"))) {
+            val a = MitraAccessibilityService.instance
+            if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+            val txt = a.readScreenText()
+            if (txt.isBlank()) { setMood(R.drawable.char_sad, "Screen pe koi text nahi mila"); return }
+            if (n.contains("samjhao") || n.contains("matlab") || n.contains("explain")) {
+                setMood(R.drawable.char_think, "Thinking...")
+                Thread {
+                    val key = KeyPool.current("gemini") ?: ""
+                    val (ok, ans) = if (key.isNotBlank())
+                        Gemini.ask(key, "Explain this screen content simply for a school student:\n\n" + txt.take(1500))
+                    else Pair(false, "")
+                    main.post {
+                        if (ok && ans.isNotBlank()) setMood(R.drawable.char_happy, ans.take(320), 12000)
+                        else setMood(R.drawable.char_sad, "Samjha nahi paya")
+                    }
+                }.start()
+            } else {
+                setMood(R.drawable.char_happy, txt.take(320), 10000)
+            }
+            return
+        }
+
+        // ---- Homework: screen ya photo se solve ----
+        if (n.contains("homework") || n.contains("question solve") || n.contains("solve karo") ||
+            n.contains("sum solve") || n.contains("photo se solve") || n.contains("ye solve") ||
+            n.contains("solve this")) {
+            solveHomework(); return
+        }
+
+        // ---- <app> me <X> search karo ----
+        val srch = Regex("(.+?)\\s+(?:me|pe|par|on)\\s+(.+?)\\s+(?:search karo|search|dhundo|khojo)").find(t)
+        if (srch != null) {
+            val appWord = srch.groupValues[1].trim().lowercase()
+            val q = srch.groupValues[2].trim()
+            val a = MitraAccessibilityService.instance
+            if (a != null && q.isNotBlank() && appWord.isNotBlank() && appWord.length > 2) {
+                val pkg = findInstalled(appWord)
+                if (pkg != null) {
+                    setMood(R.drawable.char_think, "Opening ${pkg.second}...")
+                    Thread {
+                        val ok = a.searchInApp(pkg.first, pkg.second, q) { s ->
+                            main.post { setMood(R.drawable.char_think, s) }
+                        }
+                        main.post {
+                            if (ok) setMood(R.drawable.char_laugh, "Searched \"$q\" in ${pkg.second}")
+                            else setMood(R.drawable.char_sad, "Search nahi ho paya")
+                        }
+                    }.start()
+                    return
+                }
+            }
+        }
+
         // Notes app me likho - Gemini se content bana ke paste karo
         if ((n.contains("notes") || n.contains("note") || n.contains("keep")) &&
             (n.contains("likho") || n.contains("likh") || n.contains("paste") ||
@@ -1769,6 +1826,104 @@ class OverlayService : Service() {
             body = txt.substringAfter("\n").trim()
         }
         return Pair(subject, body)
+    }
+
+    /** Homework: screen pe question ho to wahi, warna camera se photo le ke solve. */
+    private fun solveHomework() {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+
+        val screenTxt = a.readScreenText()
+        if (screenTxt.length > 40) {
+            setMood(R.drawable.char_think, "Solving...")
+            Thread {
+                val prompt = "Solve this question step by step for a Class 10 student. " +
+                    "Simple English or Hinglish, short headings, max 200 words.\n\n" + screenTxt.take(1500)
+                val ans = brainAnswer(prompt)
+                main.post {
+                    if (ans != null) {
+                        Store.addNoteV2(this, "Homework solution", ans)
+                        setMood(R.drawable.char_laugh, ans.take(320), 14000)
+                    } else setMood(R.drawable.char_sad, "Solve nahi ho paya - key check karo")
+                }
+            }.start()
+            return
+        }
+
+        setMood(R.drawable.char_think, "Opening camera...")
+        Thread {
+            if (!a.takePhoto { s -> main.post { setMood(R.drawable.char_think, s) } }) {
+                main.post { setMood(R.drawable.char_sad, "Photo nahi khinch paya") }
+                return@Thread
+            }
+            Thread.sleep(1600)
+            a.home()
+            Thread.sleep(700)
+            main.post { setMood(R.drawable.char_think, "Solving...") }
+            val b64 = latestPhotoBase64()
+            if (b64 == null) {
+                main.post { setMood(R.drawable.char_sad, "Photo read nahi ho payi - Photos permission do") }
+                return@Thread
+            }
+            val prompt = "Solve the question in this image step by step for a Class 10 student. " +
+                "Simple English or Hinglish, short headings, max 200 words."
+            var ans: String? = null
+            val gk = KeyPool.current("gemini")
+            if (gk != null) {
+                val (ok, t1) = Gemini.askImage(gk, prompt, b64)
+                if (ok && t1.isNotBlank()) ans = t1
+            }
+            if (ans == null) ans = brainAnswer(prompt)
+            main.post {
+                if (ans != null) {
+                    Store.addNoteV2(this, "Homework solution", ans!!)
+                    setMood(R.drawable.char_laugh, ans!!.take(320), 14000)
+                } else setMood(R.drawable.char_sad, "Solve nahi ho paya")
+            }
+        }.start()
+    }
+
+    /** Gemini (multi-key) -> Sarvam thinking fallback. */
+    private fun brainAnswer(prompt: String): String? {
+        val gk = KeyPool.current("gemini")
+        if (gk != null) {
+            val (ok, t) = Gemini.ask(gk, prompt)
+            if (ok && t.isNotBlank()) return t
+        }
+        val sk = KeyPool.current("sarvam")
+        if (sk != null) {
+            val (ok, t) = SarvamChat.ask(sk, prompt)
+            if (ok && t.isNotBlank()) return t
+        }
+        return null
+    }
+
+    /** Gallery ki sabse nayi photo -> base64 jpeg (chhoti). */
+    private fun latestPhotoBase64(): String? {
+        return try {
+            val uri = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            val cur = contentResolver.query(
+                uri, arrayOf(android.provider.MediaStore.Images.Media._ID),
+                null, null, android.provider.MediaStore.Images.Media.DATE_ADDED + " DESC"
+            )
+            cur?.use {
+                if (!it.moveToFirst()) return null
+                val id = it.getLong(0)
+                val u = android.content.ContentUris.withAppendedId(uri, id)
+                val bmp = android.graphics.BitmapFactory.decodeStream(contentResolver.openInputStream(u))
+                    ?: return null
+                val w = bmp.width
+                val h = bmp.height
+                val max = 900f
+                val sc = if (w > max || h > max) minOf(max / w, max / h) else 1f
+                val s2 = if (sc < 1f)
+                    android.graphics.Bitmap.createScaledBitmap(bmp, (w * sc).toInt(), (h * sc).toInt(), true)
+                else bmp
+                val baos = java.io.ByteArrayOutputStream()
+                s2.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
+                android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+            }
+        } catch (e: Exception) { null }
     }
 
     /** Notes app fail ho to Bublu ke apne Notes me save karo. */

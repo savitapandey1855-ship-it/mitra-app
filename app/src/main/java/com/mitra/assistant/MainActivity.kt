@@ -119,8 +119,14 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return 5
         if (!isAccEnabled()) return 6
         if (!hasNotifAccess()) return 7
+        if (!hasPhotosPerm()) return 8
         return null
     }
+
+    private fun hasPhotosPerm(): Boolean = if (Build.VERSION.SDK_INT >= 33)
+        ContextCompat.checkSelfPermission(this, "android.permission.READ_MEDIA_IMAGES") == PackageManager.PERMISSION_GRANTED
+    else
+        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
 
     private fun hasNotifAccess(): Boolean {
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
@@ -145,21 +151,22 @@ class MainActivity : AppCompatActivity() {
         val title: String
         val msg: String
         when (step) {
-            1 -> { title = "Step 1 of 7 · Popup (display over other apps)"; msg = "Bublu floats on your screen so you can talk to it anywhere.\n\nTap \"Open settings\", then turn Bublu ON." }
-            2 -> { title = "Step 2 of 7 · Run in background"; msg = "Allow Bublu to keep working in the background so it doesn't stop by itself.\n\nTap Allow." }
-            3 -> { title = "Step 3 of 7 · Microphone"; msg = "So Bublu can hear your voice.\n\nTap Allow." }
-            4 -> { title = "Step 4 of 7 · Notifications"; msg = "For reminders, alarms and important group messages." }
-            5 -> { title = "Step 5 of 7 · Contacts & Phone"; msg = "To find people by name and call them." }
-            6 -> { title = "Step 6 of 7 · Accessibility"; msg = "This lets Bublu open apps, tap buttons and type.\n\nFind Bublu in the list and turn it ON." }
-            else -> { title = "Step 7 of 7 · Notification access"; msg = "Optional. Lets Bublu read messages from your important groups." }
+            1 -> { title = "Step 1 of 8 · Popup (display over other apps)"; msg = "Bublu floats on your screen so you can talk to it anywhere.\n\nTap \"Open settings\", then turn Bublu ON." }
+            2 -> { title = "Step 2 of 8 · Run in background"; msg = "Allow Bublu to keep working in the background so it doesn't stop by itself.\n\nTap Allow." }
+            3 -> { title = "Step 3 of 8 · Microphone"; msg = "So Bublu can hear your voice.\n\nTap Allow." }
+            4 -> { title = "Step 4 of 8 · Notifications"; msg = "For reminders, alarms and important group messages." }
+            5 -> { title = "Step 5 of 8 · Contacts & Phone"; msg = "To find people by name and call them." }
+            6 -> { title = "Step 6 of 8 · Accessibility"; msg = "This lets Bublu open apps, tap buttons and type.\n\nFind Bublu in the list and turn it ON." }
+            7 -> { title = "Step 7 of 8 · Notification access"; msg = "Optional. Lets Bublu read messages from your important groups." }
+            else -> { title = "Step 8 of 8 · Photos (homework)"; msg = "So Bublu can solve homework from a photo of your book." }
         }
         val dlg = AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(msg)
             .setCancelable(false)
             .setPositiveButton("Open settings") { _, _ -> openStep(step) }
-            .setNegativeButton(if (step == 7) "Skip" else "Later") { _, _ ->
-                if (step == 7) prefs.edit().putBoolean("setup_done", true).apply()
+            .setNegativeButton(if (step == 7 || step == 8) "Skip" else "Later") { _, _ ->
+                if (step == 8) prefs.edit().putBoolean("setup_done", true).apply()
                 if (step == 1) Toast.makeText(
                     this,
                     "Without this, Bublu cannot open apps or do anything.",
@@ -185,6 +192,9 @@ class MainActivity : AppCompatActivity() {
             )
             6 -> openAccSettings()
             7 -> openNotifAccess()
+            8 -> if (Build.VERSION.SDK_INT >= 33)
+                ActivityCompat.requestPermissions(this, arrayOf("android.permission.READ_MEDIA_IMAGES"), 77)
+            else ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 77)
         }
     }
 

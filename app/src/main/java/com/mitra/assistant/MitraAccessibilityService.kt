@@ -726,6 +726,41 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {}
     }
 
+    /** Screen pe jo bhi text dikh raha hai - padho. */
+    fun readScreenText(): String {
+        return try {
+            val root = rootInActiveWindow ?: return ""
+            val out = ArrayList<String>()
+            collectTexts(root, out)
+            out.map { it.trim() }.filter { it.length > 1 }.distinct().joinToString("\n").take(1800)
+        } catch (e: Exception) { "" }
+    }
+
+    /** Kisi bhi app me jaa ke search karo. */
+    fun searchInApp(pkg: String, appName: String, query: String, onStatus: (String) -> Unit): Boolean {
+        return try {
+            onStatus("Opening $appName...")
+            if (!openAppSmart(pkg, appName)) return false
+            Thread.sleep(3800)
+            var opened = clickByDesc("Search")
+            if (!opened) opened = clickByText("Search")
+            if (!opened) {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    val ed = findEditable(root)
+                    if (ed != null) { ed.performAction(AccessibilityNodeInfo.ACTION_CLICK); opened = true }
+                }
+            }
+            Thread.sleep(1300)
+            onStatus("Typing...")
+            if (!typeInto(query)) return false
+            Thread.sleep(700)
+            pressEnter()
+            Thread.sleep(600)
+            true
+        } catch (e: Exception) { false }
+    }
+
     /** Screen pe last lamba jawab (ChatGPT ka reply). */
     fun readLastReply(): String {
         return try {
