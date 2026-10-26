@@ -471,6 +471,29 @@ class OverlayService : Service() {
         return spk == "shubh" || spk == "aditya" || spk == "rahul"
     }
 
+    /** Status words English me: Listening / Thinking / Opening / Sending ... */
+    private fun statusText(s: String): String {
+        var t = s
+        Regex("(.+?)\\s+khol raha hoon\\.\\.\\.").find(t)?.let { m ->
+            t = "Opening " + m.groupValues[1].trim() + "..."
+        }
+        Regex("(.+?)\\s+likh raha hoon\\.\\.\\.").find(t)?.let { m ->
+            t = "Typing " + m.groupValues[1].trim() + "..."
+        }
+        t = t.replace("Sun raha hoon...", "Listening...")
+            .replace("Samajh raha hoon...", "Thinking...")
+            .replace("Soch raha hoon...", "Thinking...")
+            .replace("Bhej raha hoon...", "Sending...")
+            .replace("Photo khinch raha hoon...", "Taking photo...")
+            .replace("Attach kar raha hoon...", "Attaching...")
+            .replace("Dhoondh raha hoon...", "Searching...")
+            .replace("dhoondh raha hoon...", "searching...")
+            .replace("Mic ON - bolte raho, sun raha hoon", "Mic ON - speak anytime")
+            .replace("Aa gayi! Bolo kya karna hai", "Hello! I'm here")
+            .replace("Kya hua?! Main chauk gaya!", "Whoa! I'm awake!")
+        return t
+    }
+
     private fun voiceText(s: String): String {
         if (s.isBlank()) return s
         return if (isMaleVoice()) {
@@ -570,7 +593,7 @@ class OverlayService : Service() {
             thinkAnim?.cancel()
             thinkAnim = null
         }
-        val sayTxt = if (say == null) null else voiceText(say)
+        val sayTxt = if (say == null) null else voiceText(statusText(say))
         if (sayTxt == null) {
             reply.visibility = View.GONE
         } else {

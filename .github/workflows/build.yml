@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v65
-          name: Bublu APK v65
-          body: "v65 - messages match the chosen voice: male voice says 'aa gaya / raha hoon', female voice says 'aa gayi / rahi hoon'."
+          tag_name: apk-v66
+          name: Bublu APK v66
+          body: "v66 - clean English status words: Listening..., Thinking..., Opening WhatsApp..., Sending..., Taking photo..."
           files: app/build/outputs/apk/debug/app-debug.apk
