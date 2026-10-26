@@ -28,24 +28,29 @@ class AdminActivity : AppCompatActivity() {
         fp.setText(prefs.getString("fb_pass", ""))
         ds.setText(prefs.getString("db_secret", ""))
 
-        g.setText(prefs.getString("gemini_key", ""))
-        s.setText(prefs.getString("sarvam_key", ""))
+        KeyPool.init(this)
+        g.setText(KeyPool.keys("gemini").joinToString("\n"))
+        s.setText(KeyPool.keys("sarvam").joinToString("\n"))
         u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 
         findViewById<Button>(R.id.saveAdmin).setOnClickListener {
             val gk = g.text.toString().trim()
             val sk = s.text.toString().trim()
+            KeyPool.save("gemini", gk.split("\n", ","))
+            KeyPool.save("sarvam", sk.split("\n", ","))
             prefs.edit()
-                .putString("gemini_key", gk)
-                .putString("sarvam_key", sk)
                 .putString("config_url", u.text.toString().trim())
                 .putString("fb_email", fe.text.toString().trim())
                 .putString("fb_pass", fp.text.toString())
                 .putString("db_secret", ds.text.toString().trim())
                 .putString("admin_code", c.text.toString().trim().ifBlank { "BUBLU2026" })
                 .apply()
-            Toast.makeText(this, "Saved. Publishing to all devices...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "Saved ${KeyPool.count("gemini")} AI keys + ${KeyPool.count("sarvam")} voice keys. Publishing...",
+                Toast.LENGTH_SHORT
+            ).show()
             Thread {
                 val (ok, msg) = RemoteConfig.uploadKeys(this, gk, sk)
                 runOnUiThread {

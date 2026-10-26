@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v74
-          name: Bublu APK v74
-          body: "v74 - admin panel has a 'Test Sarvam key' button that shows the exact HTTP code and error message."
+          tag_name: apk-v75
+          name: Bublu APK v75
+          body: "v75 - multi-key pool: add many Gemini and Sarvam keys (one per line); if one hits quota or fails, Bublu silently switches to the next."
           files: app/build/outputs/apk/debug/app-debug.apk

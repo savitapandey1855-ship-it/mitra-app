@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         // Popups ke text saaf dikhein - hamesha light mode
         androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
+        KeyPool.init(this)
         setContentView(R.layout.activity_main)
         statusTxt = findViewById(R.id.statusTxt)
         toggleBtn = findViewById(R.id.toggleBtn)

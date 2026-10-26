@@ -151,6 +151,7 @@ class OverlayService : Service() {
         applyMode()
         try { face.startEyes() } catch (e: Exception) {}
         initRecognizer()
+        KeyPool.init(this)
         Thread { buildAppIndex() }.start()
         Thread { RemoteConfig.fetchAndStore(this) }.start()
         main.postDelayed({ proactiveGreet() }, 12000)

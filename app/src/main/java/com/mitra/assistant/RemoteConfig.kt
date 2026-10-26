@@ -27,19 +27,33 @@ object RemoteConfig {
 
         for (u in candidates) {
             val o = fetchOne(u) ?: continue
-            val g = o.optString("gemini", "")
-            val s = o.optString("sarvam", "")
             val inner = o.optJSONObject("config")
-            val g2 = if (g.isNotBlank()) g else (inner?.optString("gemini", "") ?: "")
-            val s2 = if (s.isNotBlank()) s else (inner?.optString("sarvam", "") ?: "")
-            if (g2.isBlank() && s2.isBlank()) continue
-            val e = prefs.edit()
-            if (g2.isNotBlank()) e.putString("gemini_key", g2)
-            if (s2.isNotBlank()) e.putString("sarvam_key", s2)
-            e.apply()
+            val src = inner ?: o
+            val gList = readKeys(src, "gemini")
+            val sList = readKeys(src, "sarvam")
+            if (gList.isEmpty() && sList.isEmpty()) continue
+            if (gList.isNotEmpty()) KeyPool.save("gemini", gList)
+            if (sList.isNotEmpty()) KeyPool.save("sarvam", sList)
             return true
         }
         return false
+    }
+
+    /** "gemini_keys": [..] ya "gemini": "k1,k2" - dono chalega. */
+    private fun readKeys(o: JSONObject, name: String): List<String> {
+        val out = ArrayList<String>()
+        val arr = o.optJSONArray(name + "_keys")
+        if (arr != null) {
+            for (i in 0 until arr.length()) {
+                val v = arr.optString(i, "").trim()
+                if (v.isNotBlank()) out.add(v)
+            }
+        }
+        val single = o.optString(name, "").trim()
+        if (single.isNotBlank()) {
+            single.split(",", "\n", " ").map { it.trim() }.filter { it.isNotBlank() }.forEach { out.add(it) }
+        }
+        return out.distinct()
     }
 
     /** Admin panel se keys Firebase me publish karo (login/secret ke saath). */
@@ -90,9 +104,13 @@ object RemoteConfig {
             conn.setRequestProperty("Content-Type", "application/json")
             conn.connectTimeout = 10000
             conn.readTimeout = 15000
+            val gList = gemini.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }
+            val sList = sarvam.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }
             val body = JSONObject().apply {
-                put("gemini", gemini)
-                put("sarvam", sarvam)
+                put("gemini", gList.firstOrNull() ?: "")
+                put("sarvam", sList.firstOrNull() ?: "")
+                put("gemini_keys", org.json.JSONArray(gList))
+                put("sarvam_keys", org.json.JSONArray(sList))
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
             val code = conn.responseCode

@@ -46,8 +46,9 @@
                 android:id="@+id/geminiKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="AIza..."
-                android:inputType="text"
+                android:hint="One key per line (AIza...)"
+                android:inputType="textMultiLine"
+                android:minLines="2"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#7C8BC7" />
 
@@ -63,8 +64,9 @@
                 android:id="@+id/sarvamKey"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="sk_..."
-                android:inputType="text"
+                android:hint="One key per line (sk_...)"
+                android:inputType="textMultiLine"
+                android:minLines="2"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#7C8BC7" />
 

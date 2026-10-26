@@ -35,7 +35,23 @@ object Sarvam {
         }
     }
 
+    /** Public entry - fail hone pe chupke se agli Sarvam key. */
     fun transcribe(key: String, wav: ByteArray, langCode: String = "unknown", mode: String = "translit"): Pair<Boolean, String> {
+        var r = transcribeOnce(key, wav, langCode, mode)
+        if (r.first) return r
+        val n = KeyPool.count("sarvam")
+        if (n <= 1) return r
+        for (i in 0 until n) {
+            KeyPool.markBad("sarvam")
+            val k = KeyPool.current("sarvam") ?: break
+            if (k == key) break
+            r = transcribeOnce(k, wav, langCode, mode)
+            if (r.first) return r
+        }
+        return r
+    }
+
+    private fun transcribeOnce(key: String, wav: ByteArray, langCode: String, mode: String): Pair<Boolean, String> {
         return try {
             val url = URL("https://api.sarvam.ai/speech-to-text")
             val boundary = "----bublu" + System.currentTimeMillis()
@@ -81,7 +97,18 @@ object Sarvam {
 
     /** Text -> speech (Bulbul v3). WAV bytes return karta hai. */
     fun tts(key: String, text: String, speaker: String = "priya"): Pair<Boolean, ByteArray?> {
-        return ttsCall(key, text, "en-IN", speaker, "bulbul:v3")
+        var r = ttsCall(key, text, "en-IN", speaker, "bulbul:v3")
+        if (r.first) return r
+        val n = KeyPool.count("sarvam")
+        if (n <= 1) return r
+        for (i in 0 until n) {
+            KeyPool.markBad("sarvam")
+            val k = KeyPool.current("sarvam") ?: break
+            if (k == key) break
+            r = ttsCall(k, text, "en-IN", speaker, "bulbul:v3")
+            if (r.first) return r
+        }
+        return r
     }
 
     private fun ttsCall(key: String, text: String, lang: String, speaker: String, model: String): Pair<Boolean, ByteArray?> {

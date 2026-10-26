@@ -26,7 +26,25 @@ object Gemini {
             e.contains("permission_denied") || e.contains("leaked") || e.contains("unauthenticated")
 
     /** Returns Pair(ok, text). On failure, text is a short readable error. */
+    /** Public entry - agar key fail ho to chupke se agli key try karta hai. */
     fun ask(key: String, prompt: String): Pair<Boolean, String> {
+        val r = askOnce(key, prompt)
+        if (r.first) return r
+        val n = KeyPool.count("gemini")
+        if (n <= 1) return r
+        var last = r
+        for (i in 0 until n) {
+            KeyPool.markBad("gemini")
+            val k = KeyPool.current("gemini") ?: break
+            if (k == key) break
+            val r2 = askOnce(k, prompt)
+            if (r2.first) return r2
+            last = r2
+        }
+        return last
+    }
+
+    private fun askOnce(key: String, prompt: String): Pair<Boolean, String> {
         // Pehle jo model pichhli baar chala tha, wahi try karo (fast)
         working?.let { m ->
             val r = call(key, m, prompt)
