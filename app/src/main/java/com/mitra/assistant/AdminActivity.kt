@@ -53,7 +53,7 @@ class AdminActivity : AppCompatActivity() {
         // ---- Cloudflare (free image generation) ----
         val cfAcc = findViewById<EditText>(R.id.cfAccount)
         val cfTok = findViewById<EditText>(R.id.cfToken)
-        cfAcc.setText(prefs.getString("cf_account", "").ifBlank { "b3b1b21be5efcfa358164ff8c7bccba2" })
+        cfAcc.setText(prefs.getString("cf_account", "")?.ifBlank { "b3b1b21be5efcfa358164ff8c7bccba2" } ?: "b3b1b21be5efcfa358164ff8c7bccba2")
         cfTok.setText(prefs.getString("cf_token", ""))
         u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
