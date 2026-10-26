@@ -39,6 +39,7 @@ class StoryActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var mp: android.media.MediaPlayer? = null
 
     private val scenes = ArrayList<Scene>()
     private var playing = false
@@ -64,6 +65,7 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnNew).setOnClickListener { askStory() }
         findViewById<Button>(R.id.btnPlay).setOnClickListener { play() }
         findViewById<Button>(R.id.btnStop).setOnClickListener { stop() }
+        findViewById<Button>(R.id.btnVoice).setOnClickListener { pickVoice() }
         findViewById<Button>(R.id.btnNext).setOnClickListener { nextScene() }
         findViewById<Button>(R.id.btnSaveFrames).setOnClickListener { saveFrames() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
@@ -250,13 +252,16 @@ class StoryActivity : AppCompatActivity() {
         sceneView.character = s.ch
         sceneView.line = s.line
         sceneView.charX = 0.2f
+        sceneView.captionAlpha = 0
         sceneView.invalidate()
 
         animator?.cancel()
-        animator = ValueAnimator.ofFloat(0.2f, 0.8f).apply {
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 2600
             addUpdateListener {
-                sceneView.charX = it.animatedValue as Float
+                val t = it.animatedValue as Float
+                sceneView.charX = 0.2f + 0.6f * t
+                sceneView.captionAlpha = (255 * (t * 1.6f).coerceAtMost(1f)).toInt()
                 sceneView.invalidate()
             }
             start()
@@ -275,16 +280,70 @@ class StoryActivity : AppCompatActivity() {
         if (!playing || idx >= scenes.size) { playing = false; return }
         showScene(idx)
         val line = scenes[idx].line
-        if (ttsReady && line.isNotBlank()) {
-            try {
-                tts?.setLanguage(Locale("en", "IN"))
-                tts?.speak(line, TextToSpeech.QUEUE_FLUSH, null, "s$idx")
-            } catch (e: Exception) {}
+        var advanced = false
+        fun go() {
+            if (advanced || !playing) return
+            advanced = true
+            handler.postDelayed({ if (playing) { idx++; step() } }, 800)
         }
-        val wait = (line.length * 90L + 2600L).coerceIn(4000L, 14000L)
-        handler.postDelayed({
-            if (playing) { idx++; step() }
-        }, wait)
+        if (line.isNotBlank()) speakLine(line) { go() } else go()
+        handler.postDelayed({ go() }, 18000)
+    }
+
+    /** Hindi narration - Sarvam (chuni hui awaaz) ya phone TTS. */
+    private fun speakLine(text: String, onDone: () -> Unit) {
+        val spk = getSharedPreferences("mitra", MODE_PRIVATE).getString("tts_speaker", "priya") ?: "priya"
+        val key = KeyPool.current("sarvam")
+        if (key == null) { speakLocalHi(text, onDone); return }
+        Thread {
+            val (ok, bytes) = Sarvam.ttsHi(key, text, spk)
+            if (ok && bytes != null) {
+                try {
+                    val f = java.io.File(cacheDir, "line.wav")
+                    f.writeBytes(bytes)
+                    runOnUiThread {
+                        try {
+                            mp?.release()
+                            mp = android.media.MediaPlayer().apply {
+                                setDataSource(f.absolutePath)
+                                setOnCompletionListener { onDone() }
+                                setOnErrorListener { _, _, _ -> onDone(); true }
+                                prepare()
+                                start()
+                            }
+                        } catch (e: Exception) { speakLocalHi(text, onDone) }
+                    }
+                    return@Thread
+                } catch (e: Exception) {}
+            }
+            runOnUiThread { speakLocalHi(text, onDone) }
+        }.start()
+    }
+
+    private fun speakLocalHi(text: String, onDone: () -> Unit) {
+        try {
+            if (!ttsReady || tts == null) { onDone(); return }
+            tts?.language = Locale("hi", "IN")
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) { runOnUiThread { onDone() } }
+                override fun onError(id: String?) { runOnUiThread { onDone() } }
+            })
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "line")
+        } catch (e: Exception) { onDone() }
+    }
+
+    private fun pickVoice() {
+        val names = arrayOf("Priya (female)", "Ritu (female)", "Kavya (female)", "Shubh (male)", "Aditya (male)", "Rahul (male)")
+        val ids = arrayOf("priya", "ritu", "kavya", "shubh", "aditya", "rahul")
+        val cur = getSharedPreferences("mitra", MODE_PRIVATE).getString("tts_speaker", "priya") ?: "priya"
+        val checked = ids.indexOf(cur).coerceAtLeast(0)
+        AlertDialog.Builder(this).setTitle("Storyteller voice")
+            .setSingleChoiceItems(names, checked) { d, w ->
+                getSharedPreferences("mitra", MODE_PRIVATE).edit().putString("tts_speaker", ids[w]).apply()
+                Toast.makeText(this, "${names[w]} chuni gayi", Toast.LENGTH_SHORT).show()
+                d.dismiss()
+            }.show()
     }
 
     private fun stop() {
@@ -351,6 +410,8 @@ class StoryActivity : AppCompatActivity() {
         playing = false
         handler.removeCallbacksAndMessages(null)
         try { animator?.cancel() } catch (e: Exception) {}
+        try { mp?.release() } catch (e: Exception) {}
+        mp = null
         try { tts?.shutdown() } catch (e: Exception) {}
     }
 }

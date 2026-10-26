@@ -45,7 +45,7 @@ class StoryService : Service() {
                     "It must have exactly $sceneCount short scenes. For every scene give: " +
                     "\"bg\" = background image prompt (max 8 words), " +
                     "\"char\" = character image prompt (max 8 words, single character, plain white background), " +
-                    "\"line\" = one narration line (max 14 words). " +
+                    "\"line\" = one narration line in HINDI, Devanagari script ONLY (max 14 words, no English letters). " +
                     "Reply ONLY as a JSON array like [{\"bg\":\"...\",\"char\":\"...\",\"line\":\"...\"}]"
                 val raw = brain(prompt)
                 val scenes = parse(raw)
@@ -178,6 +178,35 @@ class StoryService : Service() {
                 val tw = th * (ch.width.toFloat() / ch.height.toFloat())
                 val left = (w - tw) / 2f
                 c.drawBitmap(ch, null, RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
+            }
+            // stylish caption bar
+            if (line.isNotBlank()) {
+                val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                tp.color = android.graphics.Color.WHITE
+                tp.textSize = h * 0.045f
+                tp.textAlign = android.graphics.Paint.Align.CENTER
+                tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                tp.setShadowLayer(10f, 0f, 4f, 0xFF000000.toInt())
+                val maxW = w * 0.82f
+                val words = line.split(" ")
+                val rows = ArrayList<String>()
+                var curS = ""
+                for (wd in words) {
+                    val test = if (curS.isEmpty()) wd else "$curS $wd"
+                    if (tp.measureText(test) > maxW) { rows.add(curS); curS = wd } else curS = test
+                }
+                if (curS.isNotEmpty()) rows.add(curS)
+                val lineH = tp.textSize * 1.3f
+                val baseY = h * 0.90f
+                val top = baseY - (rows.size - 1) * lineH - h * 0.03f
+                val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                barP.color = 0xB3000000.toInt()
+                c.drawRoundRect(RectF(w * 0.06f, top, w * 0.94f, baseY + h * 0.02f), h * 0.03f, h * 0.03f, barP)
+                val accP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                accP.color = 0xFF22D3EE.toInt()
+                c.drawRoundRect(RectF(w * 0.06f, top, w * 0.075f, baseY + h * 0.02f), h * 0.02f, h * 0.02f, accP)
+                val startY = baseY - (rows.size - 1) * lineH
+                for ((ri, rw) in rows.withIndex()) c.drawText(rw, w / 2f, startY + ri * lineH, tp)
             }
             val values = android.content.ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, "story_${System.currentTimeMillis()}_$index.png")

@@ -23,6 +23,7 @@ class SceneView @JvmOverloads constructor(
     /** 0 = left edge, 0.5 = centre, 1 = right edge */
     var charX: Float = 0.5f
     var charScale: Float = 0.55f
+    var captionAlpha: Int = 255
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -46,13 +47,13 @@ class SceneView @JvmOverloads constructor(
             canvas.drawBitmap(c, null, RectF(cx, cy, cx + targetW, cy + targetH), paint)
         }
 
-        // caption
+        // stylish caption
         if (line.isNotBlank()) {
             textPaint.color = captionColor
-            textPaint.textSize = height * 0.045f
+            textPaint.textSize = height * 0.048f
             textPaint.textAlign = Paint.Align.CENTER
-            textPaint.setShadowLayer(8f, 0f, 4f, 0xDD000000.toInt())
-            val maxWidth = width * 0.86f
+            textPaint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+            val maxWidth = width * 0.82f
             val words = line.split(" ")
             val lines = ArrayList<String>()
             var cur = ""
@@ -61,11 +62,37 @@ class SceneView @JvmOverloads constructor(
                 if (textPaint.measureText(test) > maxWidth) { lines.add(cur); cur = w } else cur = test
             }
             if (cur.isNotEmpty()) lines.add(cur)
-            val startY = height * 0.88f - (lines.size - 1) * textPaint.textSize * 1.25f
+
+            val lineH = textPaint.textSize * 1.3f
+            val blockH = lineH * lines.size + height * 0.045f
+            val baseY = height * 0.90f
+            val top = baseY - blockH + height * 0.02f
+
+            // rounded translucent bar
+            val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            barPaint.color = 0xB3000000.toInt()
+            barPaint.alpha = captionAlpha * 180 / 255
+            canvas.drawRoundRect(
+                RectF(width * 0.06f, top, width * 0.94f, baseY + height * 0.015f),
+                height * 0.03f, height * 0.03f, barPaint
+            )
+            // accent line on the left
+            val accPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            accPaint.color = 0xFF22D3EE.toInt()
+            accPaint.alpha = captionAlpha
+            canvas.drawRoundRect(
+                RectF(width * 0.06f, top, width * 0.075f, baseY + height * 0.015f),
+                height * 0.02f, height * 0.02f, accPaint
+            )
+
+            textPaint.alpha = captionAlpha
+            textPaint.setShadowLayer(10f, 0f, 4f, 0xFF000000.toInt())
+            val startY = baseY - (lines.size - 1) * lineH
             for ((i, l) in lines.withIndex()) {
-                canvas.drawText(l, width / 2f, startY + i * textPaint.textSize * 1.25f, textPaint)
+                canvas.drawText(l, width / 2f, startY + i * lineH, textPaint)
             }
             textPaint.clearShadowLayer()
+            textPaint.alpha = 255
         }
     }
 }

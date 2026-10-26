@@ -95,6 +95,22 @@ object Sarvam {
         }
     }
 
+    /** Hindi narration (Bulbul v3, hi-IN). */
+    fun ttsHi(key: String, text: String, speaker: String = "priya"): Pair<Boolean, ByteArray?> {
+        var r = ttsCall(key, text, "hi-IN", speaker, "bulbul:v3")
+        if (r.first) return r
+        val n = KeyPool.count("sarvam")
+        if (n <= 1) return r
+        for (i in 0 until n) {
+            KeyPool.markBad("sarvam")
+            val k = KeyPool.current("sarvam") ?: break
+            if (k == key) break
+            r = ttsCall(k, text, "hi-IN", speaker, "bulbul:v3")
+            if (r.first) return r
+        }
+        return r
+    }
+
     /** Text -> speech (Bulbul v3). WAV bytes return karta hai. */
     fun tts(key: String, text: String, speaker: String = "priya"): Pair<Boolean, ByteArray?> {
         var r = ttsCall(key, text, "en-IN", speaker, "bulbul:v3")

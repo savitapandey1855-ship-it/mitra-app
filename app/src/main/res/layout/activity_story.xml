@@ -58,6 +58,11 @@
                 android:text="Stop" />
 
             <Button
+                android:id="@+id/btnVoice"
+                style="@style/StudioBtn"
+                android:text="Voice" />
+
+            <Button
                 android:id="@+id/btnNext"
                 style="@style/StudioBtn"
                 android:text="Next" />
