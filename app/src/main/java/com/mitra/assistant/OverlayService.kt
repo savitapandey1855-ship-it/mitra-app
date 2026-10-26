@@ -1204,6 +1204,26 @@ class OverlayService : Service() {
         val n = t.replace(" ", "")
         val acc = MitraAccessibilityService.instance
 
+        // Aadat seekho
+        try { Store.bumpHabit(this, t.take(45)) } catch (e: Exception) {}
+
+        // ---- Aadat batao ----
+        if (n.contains("aadat") || n.contains("habit") || n.contains("kyaseekha") || n.contains("kyasikha")) {
+            val h = Store.habits(this).take(3)
+            if (h.isEmpty()) { setMood(R.drawable.char_sad, "Abhi tak kuch seekha nahi"); return }
+            val txt = h.mapIndexed { i, x -> "${i + 1}. ${x.first} (${x.second} baar)" }.joinToString("\n")
+            setMood(R.drawable.char_happy, "Aapki aadatein:\n$txt", 13000)
+            return
+        }
+
+        // ---- Timer (offline) ----
+        val tm = Regex("(\\d+)\\s*(?:minute|min|minutes|मिनट)").find(n)
+        if (tm != null && (n.contains("timer") || n.contains("countdown"))) {
+            val mins = tm.groupValues[1].toIntOrNull() ?: 5
+            startTimer(mins.coerceIn(1, 180))
+            return
+        }
+
         // Quiz chal raha hai to jawab handle karo
         if (quizOn) { quizAnswer(t); return }
 
@@ -2231,6 +2251,37 @@ class OverlayService : Service() {
         }
     }
 
+    /** Internet check. */
+    private fun isOnline(): Boolean {
+        return try {
+            val cm = getSystemService(android.net.ConnectivityManager::class.java)
+            val net = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(net) ?: return false
+            caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) { true }
+    }
+
+    // ---------- Timer ----------
+    @Volatile private var timerJob: android.os.CountDownTimer? = null
+
+    private fun startTimer(minutes: Int) {
+        try { timerJob?.cancel() } catch (e: Exception) {}
+        setMood(R.drawable.char_happy, "Timer set: $minutes minute ⏳", 4000)
+        timerJob = object : android.os.CountDownTimer(minutes * 60000L, 60000L) {
+            override fun onTick(ms: Long) {
+                val m = (ms / 60000).toInt()
+                if (m in 1..3) main.post { setMood(R.drawable.char_think, "⏳ $m minute bache", 3000) }
+            }
+
+            override fun onFinish() {
+                main.post {
+                    setMood(R.drawable.char_laugh, "⏰ Timer khatam! $minutes minute ho gaye.", 12000)
+                    try { fxConfetti() } catch (e: Exception) {}
+                }
+            }
+        }.start()
+    }
+
     /** Homework: screen pe question ho to wahi, warna camera se photo le ke solve. */
     private fun solveHomework() {
         val a = MitraAccessibilityService.instance
@@ -2556,6 +2607,14 @@ class OverlayService : Service() {
 
     /** Jo command samajh na aaye, Gemini se samjho aur chalao. */
     private fun geminiBrain(userText: String) {
+        if (!isOnline()) {
+            setMood(
+                R.drawable.char_sad,
+                "Internet nahi hai. Abhi alarm, timer, call, torch, notes aur WhatsApp kaam karenge.",
+                8000
+            )
+            return
+        }
         val key = getSharedPreferences("mitra", MODE_PRIVATE).getString("gemini_key", "")?.trim() ?: ""
         if (key.isBlank()) {
             setMood(R.drawable.char_think, "\"$userText\" - ye mujhe samajh nahi aaya. (Gemini key daalo to main samajh jaunga)")

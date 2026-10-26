@@ -109,6 +109,38 @@ object Store {
         saveTasks(c, l)
     }
 
+    // ---- Habits (aadat seekhna) ----
+    fun bumpHabit(c: Context, key: String) {
+        try {
+            val arr = JSONArray(p(c).getString("habits", "[]"))
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            var found = false
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optString("k") == key) {
+                    o.put("n", o.optInt("n", 1) + 1)
+                    o.put("h", hour)
+                    found = true
+                    break
+                }
+            }
+            if (!found) arr.put(JSONObject().apply { put("k", key); put("n", 1); put("h", hour) })
+            p(c).edit().putString("habits", arr.toString()).apply()
+        } catch (e: Exception) {}
+    }
+
+    fun habits(c: Context): List<Triple<String, Int, Int>> {
+        val out = ArrayList<Triple<String, Int, Int>>()
+        try {
+            val arr = JSONArray(p(c).getString("habits", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                out.add(Triple(o.optString("k"), o.optInt("n", 1), o.optInt("h", -1)))
+            }
+        } catch (e: Exception) {}
+        return out.sortedByDescending { it.second }
+    }
+
     // ---- Notes v2 (title + body) ----
     fun notesV2(c: Context): MutableList<Triple<Int, String, String>> {
         val out = ArrayList<Triple<Int, String, String>>()
