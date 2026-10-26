@@ -3,21 +3,47 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0B1030"
-    android:orientation="vertical"
-    android:padding="10dp">
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Bublu Studio"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnVideo"
+            style="@style/StudioBtn"
+            android:text="＋ Video" />
+    </LinearLayout>
 
     <TextView
-        android:layout_width="wrap_content"
+        android:id="@+id/status"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Bublu Studio"
-        android:textColor="#FFFFFF"
-        android:textSize="22sp"
-        android:textStyle="bold" />
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="2dp"
+        android:text="Video chuno, phir Text / Filter / AI / Code se edit karo"
+        android:textColor="#9AA6D8"
+        android:textSize="12sp" />
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:layout_weight="1"
         android:background="#000000">
 
@@ -35,7 +61,8 @@
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:paddingStart="8dp"
+        android:paddingTop="6dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -43,65 +70,33 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/btnVideo"
-                style="@style/StudioBtn"
-                android:text="Video" />
+            <Button android:id="@+id/btnText" style="@style/StudioBtn" android:text="Text" />
+            <Button android:id="@+id/btnShape" style="@style/StudioBtn" android:text="Object" />
+            <Button android:id="@+id/btnAI" style="@style/StudioBtn" android:text="AI art" />
+            <Button android:id="@+id/btnCode" style="@style/StudioBtn" android:text="Code" />
+            <Button android:id="@+id/btnBg" style="@style/StudioBtn" android:text="BG" />
+        </LinearLayout>
+    </HorizontalScrollView>
 
-            <Button
-                android:id="@+id/btnText"
-                style="@style/StudioBtn"
-                android:text="Text" />
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="8dp"
+        android:scrollbars="none">
 
-            <Button
-                android:id="@+id/btnShape"
-                style="@style/StudioBtn"
-                android:text="Object" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/btnFilter"
-                style="@style/StudioBtn"
-                android:text="Filter" />
-
-            <Button
-                android:id="@+id/btnEffect"
-                style="@style/StudioBtn"
-                android:text="Effect" />
-
-            <Button
-                android:id="@+id/btnBg"
-                style="@style/StudioBtn"
-                android:text="BG" />
-
-            <Button
-                android:id="@+id/btnAI"
-                style="@style/StudioBtn"
-                android:text="AI art" />
-
-            <Button
-                android:id="@+id/btnCode"
-                style="@style/StudioBtn"
-                android:text="Code" />
-
-            <Button
-                android:id="@+id/btnSound"
-                style="@style/StudioBtn"
-                android:text="Sound" />
-
-            <Button
-                android:id="@+id/btnUndo"
-                style="@style/StudioBtn"
-                android:text="Undo" />
-
-            <Button
-                android:id="@+id/btnSave"
-                style="@style/StudioBtn"
-                android:text="Save" />
-
-            <Button
-                android:id="@+id/btnExport"
-                style="@style/StudioBtn"
-                android:text="Export" />
+            <Button android:id="@+id/btnFilter" style="@style/StudioBtn" android:text="Filter" />
+            <Button android:id="@+id/btnEffect" style="@style/StudioBtn" android:text="Effect" />
+            <Button android:id="@+id/btnSound" style="@style/StudioBtn" android:text="Sound" />
+            <Button android:id="@+id/btnUndo" style="@style/StudioBtn" android:text="Undo" />
+            <Button android:id="@+id/btnSave" style="@style/StudioBtn" android:text="Save" />
+            <Button android:id="@+id/btnExport" style="@style/StudioBtn" android:text="Export" />
         </LinearLayout>
     </HorizontalScrollView>
 </LinearLayout>

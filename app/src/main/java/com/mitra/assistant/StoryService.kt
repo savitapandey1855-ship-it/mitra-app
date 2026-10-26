@@ -47,10 +47,19 @@ class StoryService : Service() {
                     "\"char\" = character image prompt (max 8 words, single character, plain white background), " +
                     "\"line\" = one narration line in HINDI, Devanagari script ONLY (max 14 words, no English letters). " +
                     "Reply ONLY as a JSON array like [{\"bg\":\"...\",\"char\":\"...\",\"line\":\"...\"}]"
-                val raw = brain(prompt)
-                val scenes = parse(raw)
+                var raw = brain(prompt)
+                var scenes = parse(raw)
                 if (scenes.isEmpty()) {
-                    prefs.edit().putString("story_progress", "FAIL: story nahi bani").apply()
+                    // dusri koshish - sakht JSON
+                    raw = brain(prompt + "\nSTRICT: Reply with ONLY the JSON array. No markdown, no explanation.")
+                    scenes = parse(raw)
+                }
+                if (scenes.isEmpty() && !raw.isNullOrBlank()) {
+                    // aakhri rasta - plain text se scenes banao
+                    scenes = fallbackScenes(raw, topic)
+                }
+                if (scenes.isEmpty()) {
+                    prefs.edit().putString("story_progress", "FAIL: ${lastErr.ifBlank { "story nahi bani" }}").apply()
                     updateNotif("Story nahi ban payi")
                     stopSelf()
                     return@Thread
@@ -95,18 +104,42 @@ class StoryService : Service() {
         return START_NOT_STICKY
     }
 
+    private var lastErr = ""
+
     private fun brain(prompt: String): String? {
         val gk = KeyPool.current("gemini")
+        val sk = KeyPool.current("sarvam")
+        if (gk == null && sk == null) {
+            lastErr = "Koi API key nahi mili (admin panel me daalo)"
+            return null
+        }
         if (gk != null) {
             val (ok, t) = Gemini.ask(gk, prompt)
             if (ok && t.isNotBlank()) return t
+            lastErr = "Gemini: $t"
         }
-        val sk = KeyPool.current("sarvam")
         if (sk != null) {
             val (ok, t) = SarvamChat.ask(sk, prompt)
             if (ok && t.isNotBlank()) return t
+            lastErr = (lastErr + " | Sarvam: $t").trim()
         }
         return null
+    }
+
+    /** AI ne JSON nahi diya - plain text se scenes bana lo. */
+    private fun fallbackScenes(raw: String, topic: String): List<Triple<String, String, String>> {
+        val lines = raw.split("\n", "।", ". ")
+            .map { it.replace(Regex("[*#`\[\]{}]"), " ").replace(Regex("^[\\s\\-\\d.\\)]+"), "").trim() }
+            .filter { it.length > 12 }
+            .take(20)
+        if (lines.isEmpty()) return emptyList()
+        return lines.map {
+            Triple(
+                "cartoon scene of $topic, colourful background, no text",
+                "cute cartoon character for $topic, plain white background, full body",
+                it
+            )
+        }
     }
 
     private fun parse(raw: String?): List<Triple<String, String, String>> {
