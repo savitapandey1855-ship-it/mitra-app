@@ -761,6 +761,15 @@ class MitraAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { false }
     }
 
+    /** Kai labels me se jo mile wahi tap karo. */
+    fun tapAny(vararg labels: String): Boolean {
+        for (l in labels) {
+            if (clickByText(l)) return true
+            if (clickByDesc(l)) return true
+        }
+        return false
+    }
+
     private fun collectClickable(node: AccessibilityNodeInfo, out: ArrayList<AccessibilityNodeInfo>) {
         try {
             if (node.isClickable && node.isVisibleToUser) out.add(node)

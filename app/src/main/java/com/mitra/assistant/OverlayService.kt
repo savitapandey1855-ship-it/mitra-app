@@ -1224,6 +1224,9 @@ class OverlayService : Service() {
             return
         }
 
+        // CapCut session chal raha hai
+        if (capcutMode) { ccPick(t); return }
+
         // Quiz chal raha hai to jawab handle karo
         if (quizOn) { quizAnswer(t); return }
 
@@ -2187,6 +2190,157 @@ class OverlayService : Service() {
         }.start()
     }
 
+    // ---------- CapCut premium session ----------
+    @Volatile private var capcutMode = false
+    @Volatile private var ccAwaitText = false
+
+    private fun capcutStart() {
+        val a = MitraAccessibilityService.instance
+        if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
+        setMood(R.drawable.char_think, "Opening CapCut...")
+        Thread {
+            if (!a.openAppSmart("com.lemon.lvoverseas", "CapCut")) {
+                main.post { setMood(R.drawable.char_sad, "CapCut nahi mila - 'CapCut download karo' bolo") }
+                return@Thread
+            }
+            Thread.sleep(4500)
+            a.tapAny("New project", "New Project", "Create new project", "Start creating")
+            Thread.sleep(2700)
+            if (!a.clickFirstTile()) {
+                main.post { setMood(R.drawable.char_sad, "Video nahi mila - gallery me video honi chahiye") }
+                return@Thread
+            }
+            Thread.sleep(1500)
+            a.tapAny("Add", "Select", "Next", "Done")
+            Thread.sleep(3000)
+            capcutMode = true
+            main.post { ccMenu() }
+        }.start()
+    }
+
+    private fun ccMenu() {
+        setMood(
+            R.drawable.char_think,
+            "CapCut ready! Kya karun?\n1 Filter   2 Text   3 Music\n4 Speed   5 Split   6 Transition\n7 Export   0 Band\n\nNumber bolo",
+            22000
+        )
+    }
+
+    private fun ccPick(t: String) {
+        val n = t.replace(" ", "")
+        if (ccAwaitText) { ccAwaitText = false; ccAddText(t); return }
+        when {
+            n.contains("band") || n.contains("stop") || n.contains("exit") -> {
+                capcutMode = false
+                setMood(R.drawable.char_happy, "CapCut session band")
+            }
+            n.contains("filter") || n.startsWith("1") -> ccDo("Filter") { ccFilter() }
+            n.contains("text") || n.startsWith("2") -> { ccAwaitText = true; setMood(R.drawable.char_think, "Text kya likhna hai? Bolo", 12000) }
+            n.contains("music") || n.contains("song") || n.startsWith("3") -> ccDo("Music") { ccMusic() }
+            n.contains("speed") || n.startsWith("4") -> ccDo("Speed") { ccSpeed() }
+            n.contains("split") || n.contains("trim") || n.startsWith("5") -> ccDo("Split") { ccSplit() }
+            n.contains("transition") || n.startsWith("6") -> ccDo("Transition") { ccTransition() }
+            n.contains("export") || n.contains("save") || n.startsWith("7") -> { capcutMode = false; ccExport() }
+            else -> setMood(R.drawable.char_sad, "1 se 7 me se number bolo (0 = band)")
+        }
+    }
+
+    private fun ccDo(name: String, block: () -> Boolean) {
+        setMood(R.drawable.char_think, "$name...")
+        Thread {
+            val ok = try { block() } catch (e: Exception) { false }
+            Thread.sleep(1200)
+            main.post {
+                if (ok) ccMenu()
+                else setMood(R.drawable.char_sad, "$name nahi mila - \"guide karo\" bolo", 6000)
+            }
+        }.start()
+    }
+
+    private fun ccFilter(): Boolean {
+        val a = MitraAccessibilityService.instance ?: return false
+        if (!a.tapAny("Filters", "Filter")) return false
+        Thread.sleep(1500)
+        a.tapAny("Vintage", "Retro", "Cinematic", "Film", "Portrait", "Mono")
+        Thread.sleep(1200)
+        a.tapAny("✓", "Done", "Apply", "Confirm")
+        return true
+    }
+
+    private fun ccAddText(text: String) {
+        setMood(R.drawable.char_think, "Text add...")
+        Thread {
+            val a = MitraAccessibilityService.instance
+            var ok = false
+            if (a != null) {
+                ok = a.tapAny("Text", "Texts")
+                Thread.sleep(1400)
+                a.tapAny("Add text", "Add Text", "Default text")
+                Thread.sleep(1500)
+                a.typeInto(text)
+                Thread.sleep(900)
+                a.tapAny("✓", "Done", "Apply")
+            }
+            main.post { if (ok) ccMenu() else setMood(R.drawable.char_sad, "Text add nahi hua", 5000) }
+        }.start()
+    }
+
+    private fun ccMusic(): Boolean {
+        val a = MitraAccessibilityService.instance ?: return false
+        if (!a.tapAny("Audio", "Sounds", "Music")) return false
+        Thread.sleep(1800)
+        a.tapAny("Sounds", "Music", "Recommended", "Trending")
+        Thread.sleep(1600)
+        a.clickFirstTile()
+        Thread.sleep(1500)
+        a.tapAny("Use", "Add", "✓", "Done")
+        return true
+    }
+
+    private fun ccSpeed(): Boolean {
+        val a = MitraAccessibilityService.instance ?: return false
+        if (!a.tapAny("Speed", "Speed curve")) return false
+        Thread.sleep(1400)
+        a.tapAny("1.5x", "2x", "1.2x")
+        Thread.sleep(900)
+        a.tapAny("✓", "Done", "Apply")
+        return true
+    }
+
+    private fun ccSplit(): Boolean {
+        val a = MitraAccessibilityService.instance ?: return false
+        return a.tapAny("Split", "Trim", "Cut")
+    }
+
+    private fun ccTransition(): Boolean {
+        val a = MitraAccessibilityService.instance ?: return false
+        if (!a.tapAny("Transitions", "Transition")) return false
+        Thread.sleep(1600)
+        a.clickFirstTile()
+        Thread.sleep(1200)
+        a.tapAny("✓", "Apply", "Done")
+        return true
+    }
+
+    private fun ccExport() {
+        val a = MitraAccessibilityService.instance
+        setMood(R.drawable.char_think, "Exporting...")
+        Thread {
+            var ok = false
+            if (a != null) {
+                ok = a.tapAny("Export", "Save", "Share")
+                Thread.sleep(2000)
+                a.tapAny("1080p", "1080P", "Full HD")
+                Thread.sleep(1200)
+                a.tapAny("Export", "Save to device", "Done")
+            }
+            main.post {
+                if (ok) setMood(R.drawable.char_laugh, "Export shuru! Video gallery me save hogi 🎬", 10000)
+                else setMood(R.drawable.char_sad, "Export nahi mila - khud Export dabao", 6000)
+            }
+        }.start()
+    }
+
     // ---------- Video editing ----------
     private val editors = listOf(
         "CapCut" to "com.lemon.lvoverseas",
@@ -2218,6 +2372,8 @@ class OverlayService : Service() {
         val a = MitraAccessibilityService.instance
         if (a == null) { setMood(R.drawable.char_sad, "Accessibility ON karo"); return }
         val installed = editors.firstOrNull { findInstalled(it.second) != null }
+        // CapCut ho to premium session
+        if (installed != null && installed.first == "CapCut") { capcutStart(); return }
         if (installed == null) {
             setMood(R.drawable.char_think, "Koi editor nahi mila - CapCut install kar raha hoon...")
             Thread {
