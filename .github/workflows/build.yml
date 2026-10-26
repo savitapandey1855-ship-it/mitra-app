@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v99
-          name: Bublu APK v99
-          body: "v99 - 3D Short mode: 9:16 vertical short with a Pixar-style 3D character + 3D background (2 AI images), Hindi narration and captions."
+          tag_name: apk-v100
+          name: Bublu APK v100
+          body: "v100 - MP4 saving fixed on Android 9 and older (storage permission + safe fallback path); captions clean."
           files: app/build/outputs/apk/debug/app-debug.apk

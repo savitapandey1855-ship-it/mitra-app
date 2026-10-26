@@ -114,6 +114,22 @@ class StoryActivity : AppCompatActivity() {
     }
 
     /** Background service me story banao - app band karo tab bhi chalegi. */
+    /** Android 9 ya purane pe gallery me likhne ke liye permission. */
+    private fun askStoragePerm() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT <= 28) {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(
+                        this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    androidx.core.app.ActivityCompat.requestPermissions(
+                        this, arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 91
+                    )
+                }
+            }
+        } catch (e: Exception) {}
+    }
+
     /** 3D-look short (9:16) - 2 AI images + Hindi voice. */
     private fun start3d() {
         val box = EditText(this)
@@ -496,13 +512,28 @@ class StoryActivity : AppCompatActivity() {
                     if (Build.VERSION.SDK_INT >= 29)
                         put(MediaStore.Video.Media.RELATIVE_PATH, "Movies")
                 }
-                val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                uri?.let {
-                    contentResolver.openOutputStream(it)?.use { os ->
-                        out.inputStream().use { ins -> ins.copyTo(os) }
+                var saved = false
+                try {
+                    val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                    if (uri != null) {
+                        contentResolver.openOutputStream(uri)?.use { os ->
+                            out.inputStream().use { ins -> ins.copyTo(os) }
+                        }
+                        saved = true
                     }
+                } catch (e: Exception) { saved = false }
+
+                if (!saved) {
+                    try {
+                        val dir = getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)
+                        val dest = File(dir, "BubluStory_" + System.currentTimeMillis() + ".mp4")
+                        out.inputStream().use { ins -> dest.outputStream().use { os -> ins.copyTo(os) } }
+                        saved = true
+                        runOnUiThread { status.text = "MP4 saved: " + dest.absolutePath } 
+                    } catch (e: Exception) {}
                 }
-                runOnUiThread { status.text = "MP4 ready! Movies/BubluStudio me hai 🎬" }
+                if (saved) runOnUiThread { status.text = "MP4 ready - Gallery > Movies me dekho" }
+                else runOnUiThread { status.text = "MP4 save nahi ho paya" }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "MP4 fail: ${e.message}" }
             }

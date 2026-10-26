@@ -39,6 +39,18 @@ class EditorActivity : AppCompatActivity() {
         canvas = findViewById(R.id.canvas)
         preview = findViewById(R.id.preview)
 
+        try {
+            if (android.os.Build.VERSION.SDK_INT <= 28 &&
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this, arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 91
+                )
+            }
+        } catch (e: Exception) {}
+
         findViewById<Button>(R.id.btnVideo).setOnClickListener { pickVideo() }
         findViewById<Button>(R.id.btnText).setOnClickListener { addTextDialog() }
         findViewById<Button>(R.id.btnShape).setOnClickListener { addShapeDialog() }
