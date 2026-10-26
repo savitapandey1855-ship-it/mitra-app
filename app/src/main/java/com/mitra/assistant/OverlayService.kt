@@ -64,7 +64,8 @@ class OverlayService : Service() {
     @Volatile private var alwaysListen = false
     @Volatile private var speaking = false
     @Volatile private var sarvamOffUntil = 0L
-    @Volatile private var wakeOn = true
+    @Volatile private var wakeOn = false
+    @Volatile private var lastUserTouch = 0L
     private var wakeRec: android.speech.SpeechRecognizer? = null
     @Volatile private var wakeActive = false
     private var lastBatteryAlert = 0L
@@ -177,8 +178,8 @@ class OverlayService : Service() {
         main.postDelayed({ proactiveGreet() }, 12000)
         scheduleTrick()
         scheduleWatch()
-        wakeOn = getSharedPreferences("mitra", MODE_PRIVATE).getBoolean("wake_on", true)
-        main.postDelayed({ startWakeLoop() }, 2500)
+        wakeOn = getSharedPreferences("mitra", MODE_PRIVATE).getBoolean("wake_on", false)
+        if (wakeOn) main.postDelayed({ startWakeLoop() }, 3000)
         try { registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) {}
         try { registerReceiver(scamReceiver, android.content.IntentFilter("com.mitra.assistant.SCAM")) } catch (e: Exception) {}
         try {
@@ -929,6 +930,7 @@ class OverlayService : Service() {
     }
 
     private fun onTap() {
+        lastUserTouch = System.currentTimeMillis()
         if (hidden) { showBubble(); return }
         if (sleeping) { wakeUp(); return }
         if (listening || busy) return
@@ -977,6 +979,7 @@ class OverlayService : Service() {
     }
 
     private fun onLongPress() {
+        lastUserTouch = System.currentTimeMillis()
         if (busy) return
         alwaysListen = !alwaysListen
         if (alwaysListen) {
@@ -992,6 +995,7 @@ class OverlayService : Service() {
     }
 
     private fun beginListen() {
+        lastUserTouch = System.currentTimeMillis()
         if (listening || busy) return
         // Jab tak Bublu bol raha hai, sunna shuru mat karo (apni hi awaaz na sune)
         if (speaking) { main.postDelayed({ beginListen() }, 1200); return }
@@ -1020,7 +1024,7 @@ class OverlayService : Service() {
     private fun afterListen() {
         // Thoda sabra - jawab bolne ke baad 2.5s ruk kar phir suno
         if (alwaysListen) main.postDelayed({ beginListen() }, 2500)
-        else { hideWave(); scheduleWakeRestart(800) }
+        else { hideWave(); scheduleWakeRestart(4000) }
     }
 
     private fun showWave() { try { wave.visibility = View.VISIBLE; wave.start() } catch (e: Exception) {} }
@@ -2044,8 +2048,13 @@ class OverlayService : Service() {
 
     private fun startWakeLoop() {
         if (!wakeOn || wakeActive) return
-        if (listening || busy || speaking || quizOn || guideOn || capcutMode) {
-            main.postDelayed({ startWakeLoop() }, 1500)
+        if (listening || busy || speaking || quizOn || guideOn || capcutMode || sleeping) {
+            main.postDelayed({ startWakeLoop() }, 3000)
+            return
+        }
+        // User ne abhi baat ki ho to thodi der mic band rakho
+        if (System.currentTimeMillis() - lastUserTouch < 25000) {
+            main.postDelayed({ startWakeLoop() }, 5000)
             return
         }
         try {
@@ -2060,13 +2069,13 @@ class OverlayService : Service() {
                     override fun onEvent(t: Int, b: Bundle?) {}
                     override fun onError(error: Int) {
                         wakeActive = false
-                        scheduleWakeRestart(900)
+                        scheduleWakeRestart(4000)
                     }
                     override fun onResults(results: Bundle?) {
                         wakeActive = false
                         val list = results?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
                         val txt = list?.joinToString(" ")?.lowercase() ?: ""
-                        if (hasWakeWord(txt)) onWakeWord(txt) else scheduleWakeRestart(400)
+                        if (hasWakeWord(txt)) onWakeWord(txt) else scheduleWakeRestart(4000)
                     }
                     override fun onPartialResults(partialResults: Bundle?) {
                         val list = partialResults?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
@@ -2090,13 +2099,13 @@ class OverlayService : Service() {
             wakeRec?.startListening(i)
             wakeActive = true
         } catch (e: Exception) {
-            scheduleWakeRestart(2500)
+            scheduleWakeRestart(5000)
         }
     }
 
     private fun scheduleWakeRestart(ms: Long) {
         if (!wakeOn) return
-        main.postDelayed({ startWakeLoop() }, ms)
+        main.postDelayed({ startWakeLoop() }, ms.coerceAtLeast(3000L))
     }
 
     private fun onWakeWord(txt: String) {

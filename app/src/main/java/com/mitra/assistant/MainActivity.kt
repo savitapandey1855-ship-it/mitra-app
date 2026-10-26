@@ -582,7 +582,7 @@ class MainActivity : AppCompatActivity() {
             "Background & popup permissions",
             "Bublu Studio (video editor)",
             "Story Studio (AI cartoon video)",
-            "Wake word (Bublu/Bablu): " + (if (prefs.getBoolean("wake_on", true)) "ON" else "OFF"),
+            "Wake word (Bublu/Bablu): " + (if (prefs.getBoolean("wake_on", false)) "ON" else "OFF"),
             "Voice",
             "Speak replies: " + (if (prefs.getBoolean("tts_on", true)) "ON" else "OFF"),
             "My details (name & class)",
@@ -634,7 +634,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleWake() {
-        val on = !prefs.getBoolean("wake_on", true)
+        val on = !prefs.getBoolean("wake_on", false)
         prefs.edit().putBoolean("wake_on", on).apply()
         Toast.makeText(
             this,
