@@ -526,7 +526,7 @@ class StoryActivity : AppCompatActivity() {
                 if (!saved) {
                     try {
                         val dir = getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)
-                        val dest = File(dir, "BubluStory_" + System.currentTimeMillis() + ".mp4")
+                        val dest = java.io.File(dir, "BubluStory_" + System.currentTimeMillis() + ".mp4")
                         out.inputStream().use { ins -> dest.outputStream().use { os -> ins.copyTo(os) } }
                         saved = true
                         runOnUiThread { status.text = "MP4 saved: " + dest.absolutePath } 
