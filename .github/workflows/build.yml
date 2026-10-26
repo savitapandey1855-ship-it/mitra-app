@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v89
-          name: Bublu APK v89
-          body: "v89 - wake word: say Bublu, Bablu or Hey friend and it wakes up with 'Haan kya hua?', plus a wake-word on/off switch."
+          tag_name: apk-v90
+          name: Bublu APK v90
+          body: "v90 - background story rendering service (keeps working after you close the app), drag objects on the editor canvas, and frames saved automatically."
           files: app/build/outputs/apk/debug/app-debug.apk

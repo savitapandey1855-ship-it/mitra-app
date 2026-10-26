@@ -46,6 +46,38 @@ class EditCanvas @JvmOverloads constructor(
     var effect = 0      // 0 none, 1 vignette, 2 glow, 3 scanlines
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var dragIdx = -1
+
+    override fun onTouchEvent(e: android.view.MotionEvent): Boolean {
+        when (e.action) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                dragIdx = hitTest(e.x, e.y)
+                return true
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                if (dragIdx in items.indices) {
+                    items[dragIdx].x = e.x
+                    items[dragIdx].y = e.y
+                    invalidate()
+                }
+                return true
+            }
+            android.view.MotionEvent.ACTION_UP -> {
+                dragIdx = -1
+                return true
+            }
+        }
+        return super.onTouchEvent(e)
+    }
+
+    private fun hitTest(x: Float, y: Float): Int {
+        for (i in items.indices.reversed()) {
+            val it = items[i]
+            val d = Math.hypot((x - it.x).toDouble(), (y - it.y).toDouble())
+            if (d < it.size * 1.4) return i
+        }
+        return -1
+    }
 
     fun addText(t: String, color: Int = Color.WHITE, size: Float = 48f, x: Float = -1f, y: Float = -1f) {
         items.add(Item(TEXT, if (x < 0) width / 2f else x, if (y < 0) height / 2f else y, size, color, t, null))

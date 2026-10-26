@@ -108,7 +108,57 @@ class StoryActivity : AppCompatActivity() {
         return null
     }
 
+    /** Background service me story banao - app band karo tab bhi chalegi. */
     private fun buildStory() {
+        status.text = "Background me ban rahi hai... (app band kar sakte ho)"
+        try {
+            val si = android.content.Intent(this, StoryService::class.java)
+            si.putExtra("topic", topic)
+            si.putExtra("minutes", minutes)
+            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(si) else startService(si)
+            pollProgress()
+        } catch (e: Exception) {
+            status.text = "Service start nahi hui: ${e.message}"
+        }
+    }
+
+    private fun pollProgress() {
+        handler.postDelayed({
+            val p = getSharedPreferences("mitra", MODE_PRIVATE).getString("story_progress", "") ?: ""
+            if (p.isNotBlank()) status.text = p
+            when {
+                p == "DONE" -> loadFromJson()
+                p.startsWith("FAIL") -> {}
+                else -> pollProgress()
+            }
+        }, 1200)
+    }
+
+    private fun loadFromJson() {
+        try {
+            val raw = getSharedPreferences("mitra", MODE_PRIVATE).getString("story_json", "") ?: return
+            val arr = JSONArray(raw)
+            val out = ArrayList<Scene>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val bgP = o.optString("bg", "")
+                val chP = o.optString("ch", "")
+                val line = o.optString("line", "")
+                val bg = if (bgP.isNotBlank()) BitmapFactory.decodeFile(bgP) else null
+                val ch = if (chP.isNotBlank()) BitmapFactory.decodeFile(chP) else null
+                out.add(Scene("", "", line, bg, ch))
+            }
+            scenes.clear()
+            scenes.addAll(out)
+            idx = 0
+            status.text = "${scenes.size} scenes ready - Play dabao ▶️"
+            showScene(0)
+        } catch (e: Exception) {
+            status.text = "Story load nahi hui"
+        }
+    }
+
+    private fun buildStoryOld() {
         status.text = "Story likh raha hoon..."
         val sceneCount = (minutes * 6).coerceIn(6, 30)
         Thread {
