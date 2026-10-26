@@ -154,7 +154,7 @@ class FxView(context: Context) : View(context) {
                 6 -> {
                     val t = (p.life / p.maxLife).coerceIn(0f, 1f)
                     val ang = p.life * p.vy
-                    val r = p.vx * Math.sin((Math.PI * t).toFloat())
+                    val r = p.vx * Math.sin(Math.PI * t).toFloat()
                     val baseA = if (t > 0.85f) (((1f - (t - 0.85f) / 0.15f) * 255).toInt().coerceIn(0, 255)) else 255
                     for (k in 0 until 4) {
                         val aa = ang - k * 0.18f
