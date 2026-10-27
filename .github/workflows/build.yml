@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v108
-          name: Bublu APK v108
-          body: "v108 - Diagnose button shows exactly why images are missing (token, files, decode), images now saved to app files instead of cache, and the reason is shown as a popup."
+          tag_name: apk-v109
+          name: Bublu APK v109
+          body: "v109 - one AI image per scene with the character and background together (no separate character layer), and the Cloudflare account+token are published to Firebase and loaded secretly on every phone."
           files: app/build/outputs/apk/debug/app-debug.apk

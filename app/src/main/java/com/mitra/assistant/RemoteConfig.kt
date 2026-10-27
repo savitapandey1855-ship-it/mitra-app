@@ -31,9 +31,13 @@ object RemoteConfig {
             val src = inner ?: o
             val gList = readKeys(src, "gemini")
             val sList = readKeys(src, "sarvam")
-            if (gList.isEmpty() && sList.isEmpty()) continue
+            val cfAcc = src.optString("cf_account", "").trim()
+            val cfTok = src.optString("cf_token", "").trim()
+            if (gList.isEmpty() && sList.isEmpty() && cfTok.isBlank()) continue
             if (gList.isNotEmpty()) KeyPool.save("gemini", gList)
             if (sList.isNotEmpty()) KeyPool.save("sarvam", sList)
+            if (cfAcc.isNotBlank()) prefs.edit().putString("cf_account", cfAcc).apply()
+            if (cfTok.isNotBlank()) prefs.edit().putString("cf_token", cfTok).apply()
             return true
         }
         return false
@@ -58,6 +62,9 @@ object RemoteConfig {
 
     /** Admin panel se keys Firebase me publish karo (login/secret ke saath). */
     fun uploadKeys(context: Context, gemini: String, sarvam: String): Pair<Boolean, String> {
+        val p0 = context.getSharedPreferences("mitra", Context.MODE_PRIVATE)
+        val cfA = p0.getString("cf_account", "") ?: ""
+        val cfT = p0.getString("cf_token", "") ?: ""
         val prefs = context.getSharedPreferences("mitra", Context.MODE_PRIVATE)
         val base = configUrl(context)
 
@@ -76,10 +83,10 @@ object RemoteConfig {
 
         // 1) login/secret ke saath
         if (token.isNotBlank()) {
-            val r = put(base, token, gemini, sarvam)
+            val r = put(base, token, gemini, sarvam, cfA, cfT)
             if (r.first) return r
             // 2) fallback: bina auth (agar rules open hain)
-            val r2 = put(base, "", gemini, sarvam)
+            val r2 = put(base, "", gemini, sarvam, cfA, cfT)
             if (r2.first) return Pair(true, "ok")
             return Pair(false, "Login ke saath: ${r.second}\nBina login: ${r2.second}")
         }
@@ -91,7 +98,10 @@ object RemoteConfig {
         return Pair(false, hint + r.second)
     }
 
-    private fun put(base: String, token: String, gemini: String, sarvam: String): Pair<Boolean, String> {
+    private fun put(
+        base: String, token: String, gemini: String, sarvam: String,
+        cfAccount: String, cfToken: String
+    ): Pair<Boolean, String> {
         var url = base
         if (token.isNotBlank()) {
             val sep = if (url.contains("?")) "&" else "?"
@@ -111,6 +121,8 @@ object RemoteConfig {
                 put("sarvam", sList.firstOrNull() ?: "")
                 put("gemini_keys", org.json.JSONArray(gList))
                 put("sarvam_keys", org.json.JSONArray(sList))
+                put("cf_account", cfAccount)
+                put("cf_token", cfToken)
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
             val code = conn.responseCode

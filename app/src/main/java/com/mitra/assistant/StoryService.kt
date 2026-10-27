@@ -113,37 +113,23 @@ class StoryService : Service() {
                         prefs.edit().putString("story_progress", "Image ${i + 1}/${scenes.size} (Cloudflare)...").apply()
                         updateNotif("Image ${i + 1}/${scenes.size}")
 
-                        val bgBmp = ImageGen.gen(
-                            this,
-                            sc.first + ", 3D render cartoon background, cinematic depth, no text, no people",
-                            768, 768
-                        )
-                        val bgFile = File(dir, "bg_$i.png")
-                        if (bgBmp != null) {
-                            val fos = FileOutputStream(bgFile)
-                            bgBmp.compress(Bitmap.CompressFormat.PNG, 92, fos)
+                        // EK image me character + background dono, scene ke hisaab se
+                        val poseWord = if (sc.second.isBlank()) "standing" else sc.second
+                        val scenePrompt = sc.first +
+                            ", cute 3D Pixar style cartoon character " + poseWord +
+                            " in this scene, full scene illustration, 3D render, vibrant colours, no text"
+
+                        val bmp = ImageGen.gen(this, scenePrompt, 768, 768)
+                        val f = File(dir, "scene_$i.png")
+                        if (bmp != null) {
+                            val fos = FileOutputStream(f)
+                            bmp.compress(Bitmap.CompressFormat.PNG, 92, fos)
                             fos.close()
-                            bgPaths.add(bgFile.absolutePath)
+                            bgPaths.add(f.absolutePath)
                         } else {
                             bgPaths.add("")
                         }
-
-                        val poseWord = if (sc.second.isBlank()) "standing" else sc.second
-                        val chBmp = ImageGen.gen(
-                            this,
-                            "cute 3D Pixar style cartoon character for this story: " + topic +
-                                ", " + poseWord + " pose, full body, plain white background, studio lighting",
-                            768, 768
-                        )
-                        val chFile = File(dir, "ch_$i.png")
-                        if (chBmp != null) {
-                            val fos2 = FileOutputStream(chFile)
-                            chBmp.compress(Bitmap.CompressFormat.PNG, 92, fos2)
-                            fos2.close()
-                            chPaths.add(chFile.absolutePath)
-                        } else {
-                            chPaths.add("")
-                        }
+                        chPaths.add("")   // alag character nahi
                     }
                     val made = bgPaths.count { it.isNotBlank() }
                     prefs.edit()
