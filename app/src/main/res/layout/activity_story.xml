@@ -82,6 +82,7 @@
 
             <Button android:id="@+id/btn3d" style="@style/StudioBtn" android:text="3D Short" />
             <Button android:id="@+id/btnMp4" style="@style/StudioBtn" android:text="Make MP4" />
+            <Button android:id="@+id/btnDiag" style="@style/StudioBtn" android:text="Diagnose" />
             <Button android:id="@+id/btnSaveFrames" style="@style/StudioBtn" android:text="Save frames" />
             <Button android:id="@+id/btnSaveStory" style="@style/StudioBtn" android:text="Save story" />
         </LinearLayout>

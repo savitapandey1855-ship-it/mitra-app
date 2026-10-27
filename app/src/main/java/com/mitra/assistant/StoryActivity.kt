@@ -70,6 +70,7 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnNext).setOnClickListener { nextScene() }
         findViewById<Button>(R.id.btnSaveFrames).setOnClickListener { saveFrames() }
         findViewById<Button>(R.id.btn3d).setOnClickListener { start3d() }
+        findViewById<Button>(R.id.btnDiag).setOnClickListener { diagnose() }
         findViewById<Button>(R.id.btnMp4).setOnClickListener { makeMp4() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
 
@@ -202,6 +203,7 @@ class StoryActivity : AppCompatActivity() {
             scenes.addAll(out)
             idx = 0
             val note = getSharedPreferences("mitra", MODE_PRIVATE).getString("story_img_note", "") ?: ""
+            if (note.isNotBlank()) Toast.makeText(this, note, Toast.LENGTH_LONG).show()
             status.text = if (note.isBlank()) "${scenes.size} scenes ready - Play dabao ▶️"
             else "${scenes.size} scenes ready (${note})"
             showScene(0)
@@ -317,7 +319,7 @@ class StoryActivity : AppCompatActivity() {
             }
             start()
         }
-        status.text = "Scene ${i + 1}/${scenes.size}"
+        if (playing) status.text = "Scene ${i + 1}/${scenes.size}"
     }
 
     private fun play() {
@@ -382,6 +384,73 @@ class StoryActivity : AppCompatActivity() {
             })
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "line")
         } catch (e: Exception) { onDone() }
+    }
+
+    /** Poora diagnosis - images kyun nahi dikh rahi, sab yahin dikhega. */
+    private fun diagnose() {
+        val prefs = getSharedPreferences("mitra", MODE_PRIVATE)
+        val tok = prefs.getString("cf_token", "") ?: ""
+        val acc = prefs.getString("cf_account", "") ?: ""
+        val note = prefs.getString("story_img_note", "") ?: ""
+        val made = prefs.getInt("story_img_count", -1)
+        val raw = prefs.getString("story_json", "") ?: ""
+
+        val sb = StringBuilder()
+        sb.append("CF token: ")
+        sb.append(if (tok.isBlank()) "NOT SET" else "set (len " + tok.length + ")")
+        sb.append("\nCF account: ").append(acc.ifBlank { "(default)" })
+        sb.append("\nImages made: ").append(if (made < 0) "?" else made.toString())
+        sb.append("\nNote: ").append(note.ifBlank { "-" })
+        sb.append("\nLast image error: ").append(ImageGen.lastError.ifBlank { "-" })
+        sb.append("\n\nScenes in JSON: ").append(scenes.size)
+
+        val dir = java.io.File(filesDir, "story")
+        val files = dir.listFiles()?.size ?: 0
+        sb.append("\nImage files: ").append(files)
+
+        try {
+            val arr = JSONArray(raw)
+            if (arr.length() > 0) {
+                val o = arr.optJSONObject(0)
+                val bP = o?.optString("bg", "") ?: ""
+                val cP = o?.optString("ch", "") ?: ""
+                sb.append("\n\nScene1 bg: ").append(bP.ifBlank { "(empty)" })
+                if (bP.isNotBlank()) {
+                    val f = java.io.File(bP)
+                    sb.append("\n  exists=").append(f.exists())
+                    sb.append(" size=").append(f.length())
+                    val bmp = android.graphics.BitmapFactory.decodeFile(bP)
+                    sb.append(" decode=").append(bmp != null)
+                }
+                sb.append("\nScene1 ch: ").append(cP.ifBlank { "(empty)" })
+                if (cP.isNotBlank()) {
+                    val f2 = java.io.File(cP)
+                    sb.append("\n  exists=").append(f2.exists())
+                    sb.append(" size=").append(f2.length())
+                }
+            }
+        } catch (e: Exception) {
+            sb.append("\nJSON error: ").append(e.message)
+        }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Story Studio diagnosis")
+            .setMessage(sb.toString())
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Test Cloudflare") { _, _ ->
+                Toast.makeText(this, "Testing...", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val r = ImageGen.testCloudflare(this)
+                    runOnUiThread {
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle(if (r.first) "Cloudflare OK" else "Cloudflare fail")
+                            .setMessage(r.second)
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }.start()
+            }
+            .show()
     }
 
     private fun pickVoice() {

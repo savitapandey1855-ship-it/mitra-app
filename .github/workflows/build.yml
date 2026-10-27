@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v107
-          name: Bublu APK v107
-          body: "v107 - Test Cloudflare button in the admin panel shows the exact error, and the reason images were skipped is shown after the story is ready."
+          tag_name: apk-v108
+          name: Bublu APK v108
+          body: "v108 - Diagnose button shows exactly why images are missing (token, files, decode), images now saved to app files instead of cache, and the reason is shown as a popup."
           files: app/build/outputs/apk/debug/app-debug.apk

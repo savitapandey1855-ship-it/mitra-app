@@ -102,7 +102,7 @@ class StoryService : Service() {
                     return@Thread
                 }
 
-                val dir = File(cacheDir, "story").apply { mkdirs() }
+                val dir = File(filesDir, "story").apply { mkdirs() }
 
                 // Images sirf tab jab Cloudflare key ho (warna gradient - koi wait nahi)
                 val useImages = ImageGen.hasCloudflare(this)
@@ -145,16 +145,23 @@ class StoryService : Service() {
                             chPaths.add("")
                         }
                     }
-                    if (bgPaths.all { it.isBlank() }) {
-                        prefs.edit().putString("story_img_note", "Image nahi bani - " + ImageGen.lastError).apply()
-                    } else {
-                        prefs.edit().putString("story_img_note", "").apply()
-                    }
+                    val made = bgPaths.count { it.isNotBlank() }
+                    prefs.edit()
+                        .putString(
+                            "story_img_note",
+                            if (made == 0) "Image nahi bani - " + ImageGen.lastError
+                            else ""
+                        )
+                        .putInt("story_img_count", made)
+                        .apply()
                 } else {
-                    prefs.edit().putString(
-                        "story_img_note",
-                        "Cloudflare token nahi mila - admin panel me daalo, phir images aayengi."
-                    ).apply()
+                    prefs.edit()
+                        .putString(
+                            "story_img_note",
+                            "Cloudflare token nahi mila - admin panel me daalo, phir images aayengi."
+                        )
+                        .putInt("story_img_count", 0)
+                        .apply()
                 }
 
                 val arr = JSONArray()
