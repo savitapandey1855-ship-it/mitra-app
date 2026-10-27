@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v109
-          name: Bublu APK v109
-          body: "v109 - one AI image per scene with the character and background together (no separate character layer), and the Cloudflare account+token are published to Firebase and loaded secretly on every phone."
+          tag_name: apk-v110
+          name: Bublu APK v110
+          body: "v110 - video length now matches the minutes you ask for (up to 5 min, 12 scenes per minute), Export button on top saves straight to the phone gallery, and all studio buttons are 3D without emoji."
           files: app/build/outputs/apk/debug/app-debug.apk

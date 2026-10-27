@@ -71,7 +71,7 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSaveFrames).setOnClickListener { saveFrames() }
         findViewById<Button>(R.id.btn3d).setOnClickListener { start3d() }
         findViewById<Button>(R.id.btnDiag).setOnClickListener { diagnose() }
-        findViewById<Button>(R.id.btnMp4).setOnClickListener { makeMp4() }
+        findViewById<Button>(R.id.btnExportTop).setOnClickListener { makeMp4() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
 
         if (intent.getBooleanExtra("auto", false)) askStory()
@@ -569,7 +569,9 @@ class StoryActivity : AppCompatActivity() {
                 }
 
                 val out = java.io.File(cacheDir, "story_${System.currentTimeMillis()}.mp4")
-                val res = Mp4Maker.encode(frames, 3.0f, out) { done, total ->
+                val totalSec = (minutes * 60f).coerceIn(20f, 300f)
+                val perScene = (totalSec / frames.size.toFloat()).coerceIn(2.5f, 12f)
+                val res = Mp4Maker.encode(frames, perScene, out) { done, total ->
                     runOnUiThread { status.text = "MP4: $done/$total scenes" }
                 }
                 if (!res.first || !out.exists()) {

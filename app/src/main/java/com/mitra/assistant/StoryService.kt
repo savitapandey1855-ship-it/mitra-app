@@ -31,7 +31,7 @@ class StoryService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val topic = intent?.getStringExtra("topic") ?: "a friendly robot"
-        val minutes = intent?.getIntExtra("minutes", 2) ?: 2
+        val minutes = (intent?.getIntExtra("minutes", 2) ?: 2).coerceIn(1, 5)
         val mode = intent?.getStringExtra("mode") ?: "story"
         KeyPool.init(this)
 
@@ -41,7 +41,7 @@ class StoryService : Service() {
 
         Thread {
             try {
-                val sceneCount = (minutes * 6).coerceIn(8, 30)
+                val sceneCount = (minutes * 12).coerceIn(12, 60)
 
                 // 1) seedha plain lines maango (JSON nahi - isi se ek line ka bug aata tha)
                 val plainPrompt = "Ek nayi cartoon kahani sunao bacchon ke liye. Topic: " + topic + ". " +

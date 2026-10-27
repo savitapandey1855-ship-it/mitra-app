@@ -24,9 +24,14 @@
             android:textStyle="bold" />
 
         <Button
+            android:id="@+id/btnExportTop"
+            style="@style/StudioBtn"
+            android:text="Export" />
+
+        <Button
             android:id="@+id/btnNew"
             style="@style/StudioBtn"
-            android:text="＋ New story" />
+            android:text="New" />
     </LinearLayout>
 
     <TextView
@@ -60,8 +65,8 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button android:id="@+id/btnPlay" style="@style/StudioBtn" android:text="▶ Play" />
-            <Button android:id="@+id/btnStop" style="@style/StudioBtn" android:text="■ Stop" />
+            <Button android:id="@+id/btnPlay" style="@style/StudioBtn" android:text="Play" />
+            <Button android:id="@+id/btnStop" style="@style/StudioBtn" android:text="Stop" />
             <Button android:id="@+id/btnNext" style="@style/StudioBtn" android:text="Next" />
             <Button android:id="@+id/btnVoice" style="@style/StudioBtn" android:text="Voice" />
         </LinearLayout>
@@ -81,7 +86,6 @@
             android:orientation="horizontal">
 
             <Button android:id="@+id/btn3d" style="@style/StudioBtn" android:text="3D Short" />
-            <Button android:id="@+id/btnMp4" style="@style/StudioBtn" android:text="Make MP4" />
             <Button android:id="@+id/btnDiag" style="@style/StudioBtn" android:text="Diagnose" />
             <Button android:id="@+id/btnSaveFrames" style="@style/StudioBtn" android:text="Save frames" />
             <Button android:id="@+id/btnSaveStory" style="@style/StudioBtn" android:text="Save story" />
