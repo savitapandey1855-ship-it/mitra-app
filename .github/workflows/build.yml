@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v110
-          name: Bublu APK v110
-          body: "v110 - video length now matches the minutes you ask for (up to 5 min, 12 scenes per minute), Export button on top saves straight to the phone gallery, and all studio buttons are 3D without emoji."
+          tag_name: apk-v111
+          name: Bublu APK v111
+          body: "v111 - gallery saving fixed with the proper MediaStore IS_PENDING flow on Android 10+, direct file + media scan on older versions, and a fallback path; the status tells you exactly where the video went."
           files: app/build/outputs/apk/debug/app-debug.apk

@@ -578,35 +578,15 @@ class StoryActivity : AppCompatActivity() {
                     runOnUiThread { status.text = "MP4 nahi bana: " + res.second }
                     return@Thread
                 }
-                // Movies/BubluStudio me save karo
-                val values = ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, "BubluStory_${System.currentTimeMillis()}.mp4")
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (Build.VERSION.SDK_INT >= 29)
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies")
+                val r = MediaSaver.saveVideo(
+                    this@StoryActivity,
+                    out,
+                    "BubluStory_" + System.currentTimeMillis() + ".mp4"
+                )
+                runOnUiThread {
+                    status.text = if (r.first) "MP4 ready - " + r.second
+                    else "MP4 save nahi hui - " + r.second
                 }
-                var saved = false
-                try {
-                    val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    if (uri != null) {
-                        contentResolver.openOutputStream(uri)?.use { os ->
-                            out.inputStream().use { ins -> ins.copyTo(os) }
-                        }
-                        saved = true
-                    }
-                } catch (e: Exception) { saved = false }
-
-                if (!saved) {
-                    try {
-                        val dir = getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)
-                        val dest = java.io.File(dir, "BubluStory_" + System.currentTimeMillis() + ".mp4")
-                        out.inputStream().use { ins -> dest.outputStream().use { os -> ins.copyTo(os) } }
-                        saved = true
-                        runOnUiThread { status.text = "MP4 saved: " + dest.absolutePath } 
-                    } catch (e: Exception) {}
-                }
-                if (saved) runOnUiThread { status.text = "MP4 ready - Gallery > Movies me dekho" }
-                else runOnUiThread { status.text = "MP4 save nahi ho paya" }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "MP4 fail: ${e.message}" }
             }
