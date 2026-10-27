@@ -201,7 +201,9 @@ class StoryActivity : AppCompatActivity() {
             scenes.clear()
             scenes.addAll(out)
             idx = 0
-            status.text = "${scenes.size} scenes ready - Play dabao ▶️"
+            val note = getSharedPreferences("mitra", MODE_PRIVATE).getString("story_img_note", "") ?: ""
+            status.text = if (note.isBlank()) "${scenes.size} scenes ready - Play dabao ▶️"
+            else "${scenes.size} scenes ready (${note})"
             showScene(0)
         } catch (e: Exception) {
             status.text = "Story load nahi hui"

@@ -146,15 +146,14 @@ class StoryService : Service() {
                         }
                     }
                     if (bgPaths.all { it.isBlank() }) {
-                        prefs.edit().putString(
-                            "story_progress",
-                            "Image nahi bani - " + ImageGen.lastError
-                        ).apply()
+                        prefs.edit().putString("story_img_note", "Image nahi bani - " + ImageGen.lastError).apply()
+                    } else {
+                        prefs.edit().putString("story_img_note", "").apply()
                     }
                 } else {
                     prefs.edit().putString(
-                        "story_progress",
-                        "Images ke liye Cloudflare key daalo (admin panel). Abhi gradient se bana raha hoon..."
+                        "story_img_note",
+                        "Cloudflare token nahi mila - admin panel me daalo, phir images aayengi."
                     ).apply()
                 }
 

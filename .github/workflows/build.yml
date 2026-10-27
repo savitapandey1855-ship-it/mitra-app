@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v106
-          name: Bublu APK v106
-          body: "v106 - every scene now gets its own background and character pose from the story; no more 45s wait (images only with Cloudflare, otherwise instant gradient); exact Cloudflare error is shown."
+          tag_name: apk-v107
+          name: Bublu APK v107
+          body: "v107 - Test Cloudflare button in the admin panel shows the exact error, and the reason images were skipped is shown after the story is ready."
           files: app/build/outputs/apk/debug/app-debug.apk

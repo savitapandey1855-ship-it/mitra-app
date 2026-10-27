@@ -55,6 +55,23 @@ class AdminActivity : AppCompatActivity() {
         val cfTok = findViewById<EditText>(R.id.cfToken)
         cfAcc.setText(prefs.getString("cf_account", "")?.ifBlank { "b3b1b21be5efcfa358164ff8c7bccba2" } ?: "b3b1b21be5efcfa358164ff8c7bccba2")
         cfTok.setText(prefs.getString("cf_token", ""))
+        findViewById<Button>(R.id.btnTestCf).setOnClickListener {
+            prefs.edit()
+                .putString("cf_account", cfAcc.text.toString().trim())
+                .putString("cf_token", cfTok.text.toString().trim())
+                .apply()
+            Toast.makeText(this, "Testing Cloudflare...", Toast.LENGTH_SHORT).show()
+            Thread {
+                val r = ImageGen.testCloudflare(this)
+                runOnUiThread {
+                    AlertDialog.Builder(this)
+                        .setTitle(if (r.first) "Cloudflare OK" else "Cloudflare fail")
+                        .setMessage(r.second)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }.start()
+        }
         u.setText(RemoteConfig.configUrl(this))
         c.setText(prefs.getString("admin_code", "BUBLU2026"))
 

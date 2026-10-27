@@ -50,6 +50,52 @@ object ImageGen {
         return null
     }
 
+
+    /** Cloudflare connection test - exact error batata hai. */
+    fun testCloudflare(ctx: Context): Pair<Boolean, String> {
+        val prefs = ctx.getSharedPreferences("mitra", Context.MODE_PRIVATE)
+        val acc = prefs.getString("cf_account", "")?.ifBlank { DEFAULT_CF_ACCOUNT } ?: DEFAULT_CF_ACCOUNT
+        val tok = prefs.getString("cf_token", "") ?: ""
+        if (tok.isBlank()) return Pair(false, "Token nahi mila. Admin panel me Workers AI token paste karke Save dabao.")
+        if (acc.isBlank()) return Pair(false, "Account ID khaali hai.")
+        return try {
+            val url = URL(
+                "https://api.cloudflare.com/client/v4/accounts/" + acc +
+                    "/ai/run/@cf/black-forest-labs/flux-1-schnell"
+            )
+            val c = url.openConnection() as HttpURLConnection
+            c.requestMethod = "POST"
+            c.connectTimeout = 15000
+            c.readTimeout = 90000
+            c.doOutput = true
+            c.setRequestProperty("Authorization", "Bearer " + tok)
+            c.setRequestProperty("Content-Type", "application/json")
+            val body = JSONObject().apply {
+                put("prompt", "a cute cartoon cat")
+                put("steps", 4)
+            }.toString()
+            val w = OutputStreamWriter(c.outputStream, "UTF-8")
+            w.write(body)
+            w.flush()
+            w.close()
+
+            val code = c.responseCode
+            if (code !in 200..299) {
+                val err = try { c.errorStream?.bufferedReader()?.readText()?.take(220) } catch (e: Exception) { "" }
+                return Pair(false, "HTTP " + code + "\n" + (err ?: ""))
+            }
+            val text = c.inputStream.bufferedReader().readText()
+            val b64 = JSONObject(text).optJSONObject("result")?.optString("image")
+            if (b64.isNullOrBlank()) return Pair(false, "Response me image nahi: " + text.take(200))
+            val bytes = Base64.decode(b64, Base64.DEFAULT)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            if (bmp == null) Pair(false, "Image decode nahi hui")
+            else Pair(true, "Cloudflare OK! Test image " + bmp.width + "x" + bmp.height + " bani.")
+        } catch (e: Exception) {
+            Pair(false, "Error: " + (e.message ?: "unknown"))
+        }
+    }
+
     /** Cloudflare Workers AI - flux-1-schnell. */
     private fun cloudflare(accountId: String, token: String, prompt: String): Bitmap? {
         return try {
