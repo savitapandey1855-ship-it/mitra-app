@@ -92,7 +92,7 @@ object RemoteConfig {
         }
 
         // koi login nahi - seedha try
-        val r = put(base, "", gemini, sarvam)
+        val r = put(base, "", gemini, sarvam, cfA, cfT)
         if (r.first) return Pair(true, "ok")
         val hint = if (loginErr.isNotBlank()) "Firebase login: $loginErr\n" else ""
         return Pair(false, hint + r.second)
