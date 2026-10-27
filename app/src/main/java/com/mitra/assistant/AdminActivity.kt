@@ -64,7 +64,7 @@ class AdminActivity : AppCompatActivity() {
             Thread {
                 val r = ImageGen.testCloudflare(this)
                 runOnUiThread {
-                    AlertDialog.Builder(this)
+                    androidx.appcompat.app.AlertDialog.Builder(this)
                         .setTitle(if (r.first) "Cloudflare OK" else "Cloudflare fail")
                         .setMessage(r.second)
                         .setPositiveButton("OK", null)
