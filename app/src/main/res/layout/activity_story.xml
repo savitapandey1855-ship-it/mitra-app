@@ -29,6 +29,16 @@
             android:text="Export" />
 
         <Button
+            android:id="@+id/btnUpload"
+            style="@style/StudioBtn"
+            android:text="Upload" />
+
+        <Button
+            android:id="@+id/btnRatio"
+            style="@style/StudioBtn"
+            android:text="16:9" />
+
+        <Button
             android:id="@+id/btnNew"
             style="@style/StudioBtn"
             android:text="New" />

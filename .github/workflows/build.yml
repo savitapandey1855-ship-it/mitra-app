@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v111
-          name: Bublu APK v111
-          body: "v111 - gallery saving fixed with the proper MediaStore IS_PENDING flow on Android 10+, direct file + media scan on older versions, and a fallback path; the status tells you exactly where the video went."
+          tag_name: apk-v112
+          name: Bublu APK v112
+          body: "v112 - AI-generated title, description and hashtags with one-tap upload to YouTube/Instagram/Facebook, plus a 16:9 (long) and 9:16 (shorts/reels) format switch."
           files: app/build/outputs/apk/debug/app-debug.apk

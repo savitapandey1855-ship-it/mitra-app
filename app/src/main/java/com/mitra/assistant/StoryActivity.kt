@@ -44,6 +44,7 @@ class StoryActivity : AppCompatActivity() {
     private val scenes = ArrayList<Scene>()
     private var playing = false
     private var idx = 0
+    private var vertical = false
     private var topic = "a friendly robot"
     private var minutes = 2
     private var animator: ValueAnimator? = null
@@ -57,7 +58,8 @@ class StoryActivity : AppCompatActivity() {
         sceneView = findViewById(R.id.scene)
         status = findViewById(R.id.status)
 
-        sceneView.vertical = intent.getBooleanExtra("vertical", false)
+        vertical = intent.getBooleanExtra("vertical", false)
+        sceneView.vertical = vertical
         topic = intent.getStringExtra("topic") ?: "a friendly robot"
         minutes = intent.getIntExtra("minutes", 2)
 
@@ -72,6 +74,8 @@ class StoryActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn3d).setOnClickListener { start3d() }
         findViewById<Button>(R.id.btnDiag).setOnClickListener { diagnose() }
         findViewById<Button>(R.id.btnExportTop).setOnClickListener { makeMp4() }
+        findViewById<Button>(R.id.btnRatio).setOnClickListener { toggleRatio() }
+        findViewById<Button>(R.id.btnUpload).setOnClickListener { uploadDialog() }
         findViewById<Button>(R.id.btnSaveStory).setOnClickListener { saveStoryText() }
 
         if (intent.getBooleanExtra("auto", false)) askStory()
@@ -450,6 +454,77 @@ class StoryActivity : AppCompatActivity() {
                     }
                 }.start()
             }
+            .show()
+    }
+
+    /** 16:9 (long video) <-> 9:16 (shorts/reels) */
+    private fun toggleRatio() {
+        vertical = !vertical
+        sceneView.vertical = vertical
+        sceneView.requestLayout()
+        sceneView.invalidate()
+        Toast.makeText(
+            this,
+            if (vertical) "Format: 9:16 (Shorts / Reels)" else "Format: 16:9 (Long video)",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    /** Title/description/hashtags banao aur upload ke liye app kholo. */
+    private fun uploadDialog() {
+        if (scenes.isEmpty()) {
+            Toast.makeText(this, "Pehle story banao", Toast.LENGTH_SHORT).show()
+            return
+        }
+        status.text = "Title aur description bana raha hoon..."
+        val storyText = scenes.joinToString(" ") { it.line }
+        Thread {
+            val meta = UploadHelper.makeMeta(topic, storyText, vertical)
+            runOnUiThread {
+                status.text = "${scenes.size} scenes ready"
+                val msg = "TITLE\n" + meta.title + "\n\nDESCRIPTION\n" + meta.description +
+                        "\n\nHASHTAGS\n" + meta.tags
+
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Upload ready (" + (if (vertical) "9:16" else "16:9") + ")")
+                    .setMessage(msg)
+                    .setPositiveButton("YouTube") { _, _ -> goUpload(meta, "youtube") }
+                    .setNegativeButton("Instagram") { _, _ -> goUpload(meta, "instagram") }
+                    .setNeutralButton("Copy text") { _, _ ->
+                        val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        cm.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                "bublu", meta.title + "\n\n" + meta.description + "\n\n" + meta.tags
+                            )
+                        )
+                        Toast.makeText(this, "Copy ho gaya - app me paste karo", Toast.LENGTH_LONG).show()
+                    }
+                    .show()
+            }
+        }.start()
+    }
+
+    private fun goUpload(meta: UploadHelper.Meta, platform: String) {
+        try {
+            val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                as android.content.ClipboardManager
+            cm.setPrimaryClip(
+                android.content.ClipData.newPlainText(
+                    "bublu", meta.title + "\n\n" + meta.description + "\n\n" + meta.tags
+                )
+            )
+        } catch (e: Exception) {}
+
+        val ok = UploadHelper.openApp(this, platform)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(platform.replaceFirstChar { it.uppercase() } + " pe upload")
+            .setMessage(
+                (if (ok) "" else "App nahi khula, browser me khol raha hoon.\n\n") +
+                    UploadHelper.steps(platform, vertical) +
+                    "\n\nTitle/description clipboard me copy hai - paste kar dena."
+            )
+            .setPositiveButton("OK", null)
             .show()
     }
 
