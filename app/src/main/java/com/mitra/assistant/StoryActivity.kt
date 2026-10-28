@@ -555,41 +555,92 @@ class StoryActivity : AppCompatActivity() {
         showScene(idx)
     }
 
+    /** Ek scene ka frame (16:9 ya 9:16) - image ya gradient + stylish caption. */
+    private fun buildFrame(line: String, index: Int): Bitmap {
+        val w = if (vertical) 720 else 1280
+        val h = if (vertical) 1280 else 720
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+
+        val src = scenes.getOrNull(index)?.bg
+        if (src != null) {
+            c.drawBitmap(src, null, android.graphics.Rect(0, 0, w, h), null)
+        } else {
+            val pals = arrayOf(
+                intArrayOf(0xFF141E30.toInt(), 0xFF243B55.toInt()),
+                intArrayOf(0xFF2B1055.toInt(), 0xFF7597DE.toInt()),
+                intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt()),
+                intArrayOf(0xFF3A1C71.toInt(), 0xFFD76D77.toInt()),
+                intArrayOf(0xFF134E5E.toInt(), 0xFF71B280.toInt())
+            )
+            val pal = pals[index % pals.size]
+            val gp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            gp.shader = android.graphics.LinearGradient(
+                0f, 0f, w.toFloat(), h.toFloat(), pal[0], pal[1],
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gp)
+        }
+
+        if (line.isNotBlank()) {
+            val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            tp.color = android.graphics.Color.WHITE
+            tp.textSize = h * 0.052f
+            tp.textAlign = android.graphics.Paint.Align.CENTER
+            tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
+            tp.setShadowLayer(12f, 0f, 5f, 0xFF000000.toInt())
+
+            val maxW = w * 0.84f
+            val rows = ArrayList<String>()
+            var cur = ""
+            for (wd in line.split(" ")) {
+                val test = if (cur.isEmpty()) wd else "$cur $wd"
+                if (tp.measureText(test) > maxW) {
+                    if (cur.isNotEmpty()) rows.add(cur)
+                    cur = wd
+                } else cur = test
+            }
+            if (cur.isNotEmpty()) rows.add(cur)
+
+            val lineH = tp.textSize * 1.35f
+            val firstY = h * 0.86f - (rows.size - 1) * lineH
+            val top = firstY - tp.textSize
+            val bottom = firstY + (rows.size - 1) * lineH + tp.textSize * 0.5f
+
+            val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            barP.color = 0x66000000
+            c.drawRoundRect(android.graphics.RectF(w * 0.05f, top, w * 0.95f, bottom), 26f, 26f, barP)
+
+            val accP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            accP.color = 0xFF22D3EE.toInt()
+            c.drawRoundRect(android.graphics.RectF(w * 0.05f, top, w * 0.062f, bottom), 10f, 10f, accP)
+
+            for (i in 0 until rows.size) {
+                c.drawText(rows[i], w / 2f, firstY + i * lineH, tp)
+            }
+        }
+        return bmp
+    }
+
     private fun saveFrames() {
         if (scenes.isEmpty()) return
         status.text = "Frames save kar raha hoon..."
         Thread {
             var saved = 0
-            for (s in scenes) {
+            for ((i, sc) in scenes.withIndex()) {
                 try {
-                    val w = 1080
-                    val h = 1920
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val c = Canvas(bmp)
-                    s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
-                        ?: c.drawColor(0xFF0B1030.toInt())
-                    s.ch?.let { ch ->
-                        val th = h * 0.55f
-                        val tw = th * (ch.width.toFloat() / ch.height.toFloat())
-                        val left = (w - tw) / 2f
-                        c.drawBitmap(ch, null, android.graphics.RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
-                    }
-                    val values = ContentValues().apply {
-                        put(MediaStore.Images.Media.DISPLAY_NAME, "story_${System.currentTimeMillis()}_$saved.png")
-                        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                        if (Build.VERSION.SDK_INT >= 29)
-                            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures")
-                    }
-                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                    uri?.let {
-                        contentResolver.openOutputStream(it)?.use { os ->
-                            bmp.compress(Bitmap.CompressFormat.PNG, 92, os)
-                        }
-                        saved++
-                    }
+                    val bmp = buildFrame(sc.line, i)
+                    if (MediaSaver.saveImage(
+                            this@StoryActivity, bmp,
+                            "story_" + System.currentTimeMillis() + "_" + i + ".png"
+                        )
+                    ) saved++
                 } catch (e: Exception) {}
             }
-            runOnUiThread { status.text = "$saved frames Pictures/BubluStudio me save ho gaye ✅" }
+            runOnUiThread {
+                status.text = if (saved > 0) "$saved frames gallery me save ho gaye"
+                else "Frames save nahi hue"
+            }
         }.start()
     }
 
