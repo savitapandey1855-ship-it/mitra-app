@@ -38,7 +38,7 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v112
-          name: Bublu APK v112
-          body: "v112 - AI-generated title, description and hashtags with one-tap upload to YouTube/Instagram/Facebook, plus a 16:9 (long) and 9:16 (shorts/reels) format switch."
+          tag_name: apk-v113
+          name: Bublu APK v113
+          body: "v113 - exported MP4 now has the Hindi narration audio inside it (AAC), scene length follows the voice, and frames are rendered one by one so long videos no longer run out of memory."
           files: app/build/outputs/apk/debug/app-debug.apk

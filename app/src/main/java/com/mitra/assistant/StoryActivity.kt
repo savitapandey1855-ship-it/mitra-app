@@ -594,76 +594,94 @@ class StoryActivity : AppCompatActivity() {
     }
 
     /** Scenes -> MP4 video file (Movies/BubluStudio). */
+    /** Scenes -> MP4 (video + narration audio) -> gallery. */
     private fun makeMp4() {
         if (scenes.isEmpty()) {
             Toast.makeText(this, "Pehle story banao", Toast.LENGTH_SHORT).show()
             return
         }
-        status.text = "MP4 ban raha hai... (thoda time lagega)"
+        status.text = "Narration aur video ban rahi hai..."
         Thread {
             try {
-                val frames = ArrayList<Bitmap>()
-                for (s in scenes) {
-                    val w = 1280
-                    val h = 720
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val c = Canvas(bmp)
-                    s.bg?.let { c.drawBitmap(it, null, android.graphics.Rect(0, 0, w, h), null) }
-                        ?: c.drawColor(0xFF0B1030.toInt())
-                    s.ch?.let { ch ->
-                        val th = h * 0.55f
-                        val tw = th * (ch.width.toFloat() / ch.height.toFloat())
-                        val left = (w - tw) / 2f
-                        c.drawBitmap(ch, null, android.graphics.RectF(left, h - th * 0.92f, left + tw, h - th * 0.92f + th), null)
+                val prefs = getSharedPreferences("mitra", MODE_PRIVATE)
+                val spk = prefs.getString("tts_speaker", "priya") ?: "priya"
+                val key = KeyPool.current("sarvam")
+                val dir = java.io.File(filesDir, "story").apply { mkdirs() }
+
+                var rate = 22050
+                val chunks = ArrayList<ShortArray>()
+                val durations = ArrayList<Float>()
+                val gapSec = 0.35f
+
+                for ((i, sc) in scenes.withIndex()) {
+                    val msg = "Audio ${i + 1}/${scenes.size}"
+                    runOnUiThread { status.text = msg }
+
+                    val wavFile = java.io.File(dir, "line_$i.wav")
+                    var pcm: ShortArray? = null
+
+                    if (wavFile.exists() && wavFile.length() > 44) {
+                        val r = Mp4Maker.wavToPcm(wavFile.readBytes())
+                        if (r != null) { pcm = r.first; rate = r.second }
                     }
-                    if (s.line.isNotBlank()) {
-                        val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-                        tp.color = android.graphics.Color.WHITE
-                        tp.textSize = h * 0.045f
-                        tp.textAlign = android.graphics.Paint.Align.CENTER
-                        tp.typeface = android.graphics.Typeface.DEFAULT_BOLD
-                        tp.setShadowLayer(10f, 0f, 4f, 0xFF000000.toInt())
-                        val maxW = w * 0.82f
-                        val rows = ArrayList<String>()
-                        var curS = ""
-                        for (wd in s.line.split(" ")) {
-                            val test = if (curS.isEmpty()) wd else "$curS $wd"
-                            if (tp.measureText(test) > maxW) { rows.add(curS); curS = wd } else curS = test
+                    if (pcm == null && key != null) {
+                        val t = Sarvam.ttsHi(key, sc.line, spk)
+                        val bytes = t.second
+                        if (t.first && bytes != null) {
+                            try { wavFile.writeBytes(bytes) } catch (e: Exception) {}
+                            val r = Mp4Maker.wavToPcm(bytes)
+                            if (r != null) { pcm = r.first; rate = r.second }
                         }
-                        if (curS.isNotEmpty()) rows.add(curS)
-                        val lineH = tp.textSize * 1.3f
-                        val baseY = h * 0.90f
-                        val top = baseY - (rows.size - 1) * lineH - h * 0.03f
-                        val barP = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-                        barP.color = 0xB3000000.toInt()
-                        c.drawRoundRect(android.graphics.RectF(w * 0.06f, top, w * 0.94f, baseY + h * 0.02f), h * 0.03f, h * 0.03f, barP)
-                        val startY = baseY - (rows.size - 1) * lineH
-                        for ((ri, rw) in rows.withIndex()) c.drawText(rw, w / 2f, startY + ri * lineH, tp)
                     }
-                    frames.add(bmp)
+
+                    if (pcm != null && pcm.isNotEmpty()) {
+                        chunks.add(pcm)
+                        val d = pcm.size.toFloat() / rate.toFloat()
+                        durations.add((d + gapSec).coerceIn(2f, 15f))
+                    } else {
+                        chunks.add(ShortArray(rate))
+                        durations.add(4f)
+                    }
                 }
 
-                val out = java.io.File(cacheDir, "story_${System.currentTimeMillis()}.mp4")
-                val totalSec = (minutes * 60f).coerceIn(20f, 300f)
-                val perScene = (totalSec / frames.size.toFloat()).coerceIn(2.5f, 12f)
-                val res = Mp4Maker.encode(frames, perScene, out) { done, total ->
-                    runOnUiThread { status.text = "MP4: $done/$total scenes" }
+                val gapSamples = (rate * gapSec).toInt()
+                var totalSamples = 0
+                for (c in chunks) totalSamples += c.size + gapSamples
+                val all = ShortArray(totalSamples)
+                var off = 0
+                for (c in chunks) {
+                    System.arraycopy(c, 0, all, off, c.size)
+                    off += c.size + gapSamples
                 }
+
+                val out = java.io.File(cacheDir, "story_" + System.currentTimeMillis() + ".mp4")
+                val res = Mp4Maker.encode(
+                    frameAt = { i -> buildFrame(scenes[i].line, i) },
+                    count = scenes.size,
+                    durations = durations,
+                    pcm = all,
+                    sampleRate = rate,
+                    outFile = out
+                ) { done, total ->
+                    runOnUiThread { status.text = "Video: $done/$total" }
+                }
+
                 if (!res.first || !out.exists()) {
-                    runOnUiThread { status.text = "MP4 nahi bana: " + res.second }
+                    runOnUiThread { status.text = "Video nahi bani: " + res.second }
                     return@Thread
                 }
-                val r = MediaSaver.saveVideo(
+
+                val saved = MediaSaver.saveVideo(
                     this@StoryActivity,
                     out,
                     "BubluStory_" + System.currentTimeMillis() + ".mp4"
                 )
                 runOnUiThread {
-                    status.text = if (r.first) "MP4 ready - " + r.second
-                    else "MP4 save nahi hui - " + r.second
+                    status.text = if (saved.first) "Video ready - " + saved.second
+                    else "Video save nahi hui - " + saved.second
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "MP4 fail: ${e.message}" }
+                runOnUiThread { status.text = "Video fail: " + (e.message ?: "error") }
             }
         }.start()
     }
